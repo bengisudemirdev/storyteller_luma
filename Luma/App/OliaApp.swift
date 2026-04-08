@@ -7,7 +7,7 @@ struct OliaApp: App {
     @StateObject private var authManager = AuthManager()
     @StateObject private var subscriptionManager = SubscriptionManager()
     @AppStorage("luma_has_completed_app_onboarding") private var hasCompletedAppOnboarding = false
-    /// Marka splash’i bir kez gösterildikten sonra onboarding’e geçilir (uygulama yeniden kurulana kadar).
+    /// İlk kurulumda marka splash → onboarding; tamamlanınca giriş veya ana ekran (oturum durumuna göre).
     @AppStorage("luma_has_seen_title_splash") private var hasSeenTitleSplash = false
 
     static let supabase = SupabaseClient(
@@ -25,10 +25,8 @@ struct OliaApp: App {
             Group {
                 if !authManager.isSessionChecked {
                     sessionLoadingView
-                } else if authManager.isAuthenticated {
-                    if hasCompletedAppOnboarding {
-                        MainView()
-                    } else if !hasSeenTitleSplash {
+                } else if !hasCompletedAppOnboarding {
+                    if !hasSeenTitleSplash {
                         OnboardingTitleSplashView {
                             withAnimation(.easeInOut(duration: 0.35)) {
                                 hasSeenTitleSplash = true
@@ -39,6 +37,8 @@ struct OliaApp: App {
                             hasCompletedAppOnboarding = true
                         }
                     }
+                } else if authManager.isAuthenticated {
+                    MainView()
                 } else {
                     LoginView()
                 }

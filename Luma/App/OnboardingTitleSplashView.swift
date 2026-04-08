@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Oturum açılmış, onboarding tamamlanmamışken: marka başlığı + alt başlık, ardından otomatik geçiş.
+/// İlk kurulumda (onboarding tamamlanmadan): marka başlığı + alt başlık, ardından otomatik geçiş.
 struct OnboardingTitleSplashView: View {
     let onFinished: () -> Void
     var duration: TimeInterval = 1.1

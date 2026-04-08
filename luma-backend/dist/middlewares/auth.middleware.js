@@ -13,7 +13,8 @@ function extractBearerToken(req) {
     const m = /^Bearer\s+(.+)$/i.exec(trimmed);
     if (!m)
         return null;
-    const token = m[1].trim();
+    let token = m[1].trim().replace(/^Bearer\s+/i, "").trim();
+    token = token.replace(/\s/g, "");
     return token.length > 0 ? token : null;
 }
 exports.requireAuth = (0, asyncHandler_1.asyncHandler)(async (req, _res, next) => {

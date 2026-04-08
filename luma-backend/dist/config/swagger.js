@@ -39,7 +39,8 @@ const swaggerDefinition = {
             BearerAuth: {
                 type: "http",
                 scheme: "bearer",
-                bearerFormat: "JWT"
+                bearerFormat: "JWT",
+                description: "Supabase Auth **access_token** (oturum JWT). Sadece `eyJ...` kısmını yapıştırın; `Bearer ` yazmayın (Swagger zaten ekler). Anon/service role key geçerli değildir. Token, backend .env içindeki SUPABASE_URL ile aynı projeden olmalıdır."
             }
         },
         schemas: {
