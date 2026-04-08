@@ -103,49 +103,32 @@ struct ProfileView: View {
     }
 
     private var profileHero: some View {
-        DashboardNightHeroLayout(
-            title: "Hoş geldin ✨",
-            subtitle: AppBrand.subtitle,
-            caption: "Hesabını ve çocuk profillerini güvenle yönet.",
-            minHeight: 248,
-            footer: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        HomeDashboardPalette.moonGlow.opacity(0.95),
-                                        HomeDashboardPalette.accentOrangeSoft.opacity(0.8)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 44, height: 44)
-                        Text(String(viewModel.parentEmail.prefix(1)).uppercased())
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundStyle(HomeDashboardPalette.ink)
-                    }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("OTURUM")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .tracking(0.6)
-                            .foregroundStyle(HomeDashboardPalette.heroSubtitle)
-                        Text(viewModel.parentEmail)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundStyle(HomeDashboardPalette.heroTitle)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.22))
-                )
+        HStack(alignment: .center, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.4))
+                    .frame(width: 52, height: 52)
+                Text(profileInitial)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.ink)
             }
-        )
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Profil")
+                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+                Text(viewModel.parentEmail.isEmpty ? "…" : viewModel.parentEmail)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.muted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var profileInitial: String {
+        let c = viewModel.parentEmail.trimmingCharacters(in: .whitespacesAndNewlines).first
+        return c.map { String($0).uppercased() } ?? "?"
     }
 
     private var safetyPolicySection: some View {
