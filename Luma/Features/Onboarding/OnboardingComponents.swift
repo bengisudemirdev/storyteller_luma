@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 // MARK: - Onboarding palette (beige, şeftali, lavanta, tozlu mavi)
 
@@ -28,17 +29,100 @@ enum OnboardingPalette {
 
 struct OnboardingWarmBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                OnboardingPalette.templateCream,
-                OnboardingPalette.templateCreamDeep,
-                OnboardingPalette.templateTaupeBottom.opacity(0.55)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        ZStack {
+            LinearGradient(
+                colors: [
+                    OnboardingPalette.templateCream,
+                    OnboardingPalette.templateCreamDeep,
+                    OnboardingPalette.templateTaupeBottom.opacity(0.55)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                LoopingBackgroundVideoView(
+                    resourceName: "onboarding_bg_loop",
+                    resourceExtension: "mp4"
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: UIScreen.main.bounds.height * 0.62)
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0.0),
+                            .init(color: .white.opacity(0.55), location: 0.22),
+                            .init(color: .white, location: 0.45),
+                            .init(color: .white, location: 1.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .opacity(0.28)
+                .allowsHitTesting(false)
+            }
+        }
         .ignoresSafeArea()
     }
+}
+
+private struct LoopingBackgroundVideoView: UIViewRepresentable {
+    let resourceName: String
+    let resourceExtension: String
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> PlayerContainerView {
+        let view = PlayerContainerView()
+        guard
+            let path = Bundle.main.path(forResource: resourceName, ofType: resourceExtension)
+        else {
+            return view
+        }
+
+        let player = AVPlayer(url: URL(fileURLWithPath: path))
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+
+        context.coordinator.player = player
+        context.coordinator.endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { _ in
+            player.seek(to: .zero)
+            player.play()
+        }
+
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        player.play()
+        return view
+    }
+
+    func updateUIView(_ uiView: PlayerContainerView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: PlayerContainerView, coordinator: Coordinator) {
+        coordinator.player?.pause()
+        uiView.playerLayer.player = nil
+        if let observer = coordinator.endObserver {
+            NotificationCenter.default.removeObserver(observer)
+            coordinator.endObserver = nil
+        }
+        coordinator.player = nil
+    }
+
+    final class Coordinator {
+        var player: AVPlayer?
+        var endObserver: NSObjectProtocol?
+    }
+}
+
+private final class PlayerContainerView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
 }
 
 // MARK: - CTA

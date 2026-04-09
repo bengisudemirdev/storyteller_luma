@@ -15,11 +15,11 @@ struct OnboardingWelcomePage: View {
         OnboardingPageLayout(
             scrollContent: {
                 VStack(spacing: 0) {
-                    Spacer(minLength: 16)
+                    Spacer(minLength: 0)
 
                     welcomeHeroMark
                         .scaleEffect(heroScale)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 14)
                         .opacity(contentVisible ? 1 : 0)
                         .offset(y: contentVisible ? 0 : 12)
 
@@ -39,8 +39,9 @@ struct OnboardingWelcomePage: View {
                     .padding(.horizontal, 8)
                     .opacity(contentVisible ? 1 : 0)
                     .offset(y: contentVisible ? 0 : 10)
+                    .padding(.top, 4)
 
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 285)
                 }
             },
             footer: {

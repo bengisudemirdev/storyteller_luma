@@ -12,6 +12,14 @@ class RegisterViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     func signUp() async -> Bool {
+        guard !fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            errorMessage = "Lütfen ad soyad alanını doldurun."
+            return false
+        }
+        guard email.contains("@"), email.contains(".") else {
+            errorMessage = "Geçerli bir e-posta adresi girin."
+            return false
+        }
         guard password == confirmPassword else {
             errorMessage = "Şifreler birbiriyle eşleşmiyor."
             return false
@@ -25,6 +33,7 @@ class RegisterViewModel: ObservableObject {
         do {
             _ = try await OliaApp.supabase.auth.signUp(email: email, password: password)
             _ = try await AuthAPIService.syncCurrentUser()
+            UserDefaults.standard.set(true, forKey: "luma_registration_requires_child_setup")
             isLoading = false
             return true
         } catch {

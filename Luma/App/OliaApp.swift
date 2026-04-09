@@ -7,6 +7,7 @@ struct OliaApp: App {
     @StateObject private var authManager = AuthManager()
     @StateObject private var subscriptionManager = SubscriptionManager()
     @AppStorage("luma_has_completed_app_onboarding") private var hasCompletedAppOnboarding = false
+    @AppStorage("luma_registration_requires_child_setup") private var registrationRequiresChildSetup = false
     /// İlk kurulumda marka splash → onboarding; tamamlanınca giriş veya ana ekran (oturum durumuna göre).
     @AppStorage("luma_has_seen_title_splash") private var hasSeenTitleSplash = false
 
@@ -38,13 +39,20 @@ struct OliaApp: App {
                         }
                     }
                 } else if authManager.isAuthenticated {
-                    MainView()
+                    if registrationRequiresChildSetup {
+                        RegistrationChildSetupView {
+                            registrationRequiresChildSetup = false
+                        }
+                    } else {
+                        MainView()
+                    }
                 } else {
                     LoginView()
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: authManager.isSessionChecked)
             .animation(.easeInOut(duration: 0.25), value: authManager.isAuthenticated)
+            .animation(.easeInOut(duration: 0.25), value: registrationRequiresChildSetup)
             .animation(.easeInOut(duration: 0.35), value: hasCompletedAppOnboarding)
             .animation(.easeInOut(duration: 0.35), value: hasSeenTitleSplash)
             .environmentObject(subscriptionManager)

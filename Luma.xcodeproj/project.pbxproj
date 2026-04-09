@@ -9,6 +9,9 @@
 /* Begin PBXBuildFile section */
 		2242DC3A2F4C366B006603B5 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2242DC392F4C366B006603B5 /* Supabase */; };
 		224620AD2F68336000718FDA /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 22E303982F647A40005575AA /* RevenueCat */; };
+		2261903F2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2261903E2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 */; };
+		226190402F87D47A00D0BD6B /* onboarding_bg_loop.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2261903E2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 */; };
+		226190412F87D47A00D0BD6B /* onboarding_bg_loop.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 2261903E2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 */; };
 		22F9530C2F4C351500110C49 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 22F9530B2F4C351500110C49 /* Auth */; };
 		22F9530E2F4C351500110C49 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 22F9530D2F4C351500110C49 /* Functions */; };
 		22F953102F4C351500110C49 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 22F9530F2F4C351500110C49 /* PostgREST */; };
@@ -34,6 +37,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		2261903E2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = onboarding_bg_loop.mp4; sourceTree = "<group>"; };
 		22E1AFC42F459BE200329F2D /* Luma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Luma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		22E1AFD12F459BE200329F2D /* LumaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LumaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		22E1AFDB2F459BE200329F2D /* LumaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LumaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -113,6 +117,7 @@
 		22E1AFBB2F459BE200329F2D = {
 			isa = PBXGroup;
 			children = (
+				2261903E2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 */,
 				22E1AFC62F459BE200329F2D /* Luma */,
 				22E1AFD42F459BE200329F2D /* LumaTests */,
 				22E1AFDE2F459BE200329F2D /* LumaUITests */,
@@ -263,6 +268,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				226190402F87D47A00D0BD6B /* onboarding_bg_loop.mp4 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -270,6 +276,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2261903F2F87D47A00D0BD6B /* onboarding_bg_loop.mp4 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,6 +284,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				226190412F87D47A00D0BD6B /* onboarding_bg_loop.mp4 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

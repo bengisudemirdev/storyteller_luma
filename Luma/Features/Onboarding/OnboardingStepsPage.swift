@@ -18,20 +18,23 @@ struct OnboardingStepsPage: View {
                             .font(.system(size: OnboardingTypography.title, weight: .bold, design: .serif))
                             .foregroundStyle(OnboardingPalette.ink)
                             .multilineTextAlignment(.center)
-                            .padding(.top, 16)
+                            .padding(.top, 12)
 
                         Text("Üç kısa adımda kişisel masala ulaşırsın.")
                             .font(.system(size: OnboardingTypography.body, weight: .regular, design: .rounded))
                             .foregroundStyle(OnboardingPalette.muted)
                             .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                            .padding(.horizontal, 12)
                     }
 
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(steps.enumerated()), id: \.offset) { index, item in
-                            stepRow(number: item.0, title: item.1, caption: item.2, isLast: index == steps.count - 1)
+                            stepRow(number: item.0, title: item.1, caption: item.2)
+                                .padding(.bottom, index == steps.count - 1 ? 0 : 8)
                         }
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 16)
 
                     Spacer(minLength: 0)
                 }
@@ -44,51 +47,68 @@ struct OnboardingStepsPage: View {
         )
     }
 
-    private func stepRow(number: Int, title: String, caption: String, isLast: Bool) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(spacing: 0) {
+    private func stepRow(number: Int, title: String, caption: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                OnboardingPalette.lavenderMist.opacity(0.65),
+                                OnboardingPalette.peachMist.opacity(0.5)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+
                 Text("\(number)")
                     .font(.system(size: OnboardingTypography.body, weight: .bold, design: .rounded))
                     .foregroundStyle(OnboardingPalette.ink)
-                    .frame(width: 36, height: 36)
-                    .background(
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        OnboardingPalette.goldSoft.opacity(0.55),
-                                        OnboardingPalette.peachMist.opacity(0.7)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
-                    )
-
-                if !isLast {
-                    Rectangle()
-                        .fill(OnboardingPalette.muted.opacity(0.15))
-                        .frame(width: 2, height: 36)
-                        .padding(.top, 4)
-                }
+                    .frame(width: 40, height: 40)
             }
 
             VStack(alignment: .leading, spacing: 6) {
+                Text(stepLabel(for: number))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .tracking(1.6)
+                    .foregroundStyle(OnboardingPalette.muted.opacity(0.72))
+
                 Text(title)
                     .font(.system(size: OnboardingTypography.cardTitle, weight: .semibold, design: .rounded))
                     .foregroundStyle(OnboardingPalette.ink)
                 Text(caption)
                     .font(.system(size: OnboardingTypography.bodySmall, weight: .regular, design: .rounded))
                     .foregroundStyle(OnboardingPalette.muted)
+                    .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.bottom, isLast ? 0 : 8)
 
             Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.94))
+                .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 3)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.62), lineWidth: 1)
+        )
+    }
+
+    private func stepLabel(for number: Int) -> String {
+        switch number {
+        case 1:
+            return "ADIM BİR"
+        case 2:
+            return "ADIM İKİ"
+        case 3:
+            return "ADIM ÜÇ"
+        default:
+            return "ADIM \(number)"
         }
     }
 }

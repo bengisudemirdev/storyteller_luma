@@ -9,7 +9,7 @@ struct OnboardingFinishPage: View {
         OnboardingPageLayout(
             scrollContent: {
                 VStack(spacing: 0) {
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 16)
 
                     ZStack {
                         Circle()
@@ -49,7 +49,7 @@ struct OnboardingFinishPage: View {
                             .font(.system(size: OnboardingTypography.title, weight: .bold, design: .serif))
                             .foregroundStyle(OnboardingPalette.ink)
                             .multilineTextAlignment(.center)
-                            .padding(.top, 32)
+                            .padding(.top, 20)
 
                         Text("Şimdi ilk adımı at ve Olia dünyasını keşfet.")
                             .font(.system(size: OnboardingTypography.body, weight: .regular, design: .rounded))
@@ -59,7 +59,7 @@ struct OnboardingFinishPage: View {
                             .padding(.horizontal, 12)
                     }
 
-                    Spacer(minLength: 0)
+                    Spacer(minLength: 120)
                 }
             },
             footer: {
