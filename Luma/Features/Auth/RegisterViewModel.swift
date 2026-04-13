@@ -30,16 +30,22 @@ class RegisterViewModel: ObservableObject {
         }
         isLoading = true
         errorMessage = nil
+        // Oturum açılır açılmaz authStateChanges ana ekranı gösterebilir; bayrak önce yazılmalı.
+        UserDefaults.standard.set(true, forKey: "luma_registration_requires_child_setup")
         do {
             _ = try await OliaApp.supabase.auth.signUp(email: email, password: password)
-            _ = try await AuthAPIService.syncCurrentUser()
-            UserDefaults.standard.set(true, forKey: "luma_registration_requires_child_setup")
-            isLoading = false
-            return true
         } catch {
+            UserDefaults.standard.set(false, forKey: "luma_registration_requires_child_setup")
             errorMessage = error.localizedDescription
             isLoading = false
             return false
         }
+        do {
+            _ = try await AuthAPIService.syncCurrentUser()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+        return true
     }
 }

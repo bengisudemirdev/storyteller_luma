@@ -34,6 +34,20 @@ class StorageService {
         const { data } = supabase_1.supabaseStorage.from(bucket).getPublicUrl(objectPath);
         return { objectPath, publicUrl: data.publicUrl };
     }
+    async uploadCatalogAsset(input) {
+        const bucket = env_1.env.SUPABASE_STORAGE_BUCKET_STORIES;
+        const objectPath = input.relativePath.replace(/^\/+/, "");
+        const { error } = await supabase_1.supabaseStorage.from(bucket).upload(objectPath, input.data, {
+            contentType: input.contentType,
+            upsert: input.upsert ?? false,
+            cacheControl: "86400"
+        });
+        if (error) {
+            throw new Error(`Storage catalog upload failed: ${error.message}`);
+        }
+        const { data } = supabase_1.supabaseStorage.from(bucket).getPublicUrl(objectPath);
+        return { objectPath, publicUrl: data.publicUrl };
+    }
 }
 exports.storageService = new StorageService();
 //# sourceMappingURL=storage.service.js.map

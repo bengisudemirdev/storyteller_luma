@@ -13,7 +13,9 @@ function extractBearerToken(req) {
     const m = /^Bearer\s+(.+)$/i.exec(trimmed);
     if (!m)
         return null;
+    // Swagger UI already sends "Bearer <value>"; users often paste "Bearer eyJ..." into the Authorize box → double prefix.
     let token = m[1].trim().replace(/^Bearer\s+/i, "").trim();
+    // Kopyala-yapıştırda gelen satır sonu / boşluklar JWT'yi bozar.
     token = token.replace(/\s/g, "");
     return token.length > 0 ? token : null;
 }

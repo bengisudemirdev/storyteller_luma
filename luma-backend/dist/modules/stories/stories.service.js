@@ -15,6 +15,7 @@ const safety_1 = require("../../helpers/safety");
 const childPromptContext_1 = require("../../helpers/childPromptContext");
 const storyPromptPreferences_1 = require("../../helpers/storyPromptPreferences");
 const structuredLog_1 = require("../../utils/structuredLog");
+const storyCoverImage_service_1 = require("../../services/storyCoverImage.service");
 const openAiStoryOutputSchema = zod_1.z.object({
     title: zod_1.z.string().min(1).max(120),
     story: zod_1.z.string().min(200).max(8000)
@@ -342,6 +343,30 @@ class StoriesService {
                     storyId: data.id,
                     result: "ok"
                 });
+                const saved = data;
+                try {
+                    const coverUrl = await storyCoverImage_service_1.storyCoverImageService.generateUploadAndAttachToStory({
+                        userId,
+                        childId,
+                        storyId: saved.id,
+                        title: finalTitle,
+                        theme: themeNormalized,
+                        language,
+                        content: finalStory,
+                        requestId,
+                        route
+                    });
+                    saved.cover_image_url = coverUrl;
+                }
+                catch (coverErr) {
+                    (0, structuredLog_1.logStructured)("warn", "stories.generate.cover_failed", {
+                        ...baseFields,
+                        storyId: saved.id,
+                        category: "external_api",
+                        message: coverErr instanceof Error ? coverErr.message : "unknown",
+                        result: "skipped"
+                    });
+                }
                 (0, structuredLog_1.logStructured)("info", "stories.generate.completed", {
                     ...baseFields,
                     totalDurationMs: Date.now() - t0,
@@ -349,7 +374,7 @@ class StoriesService {
                     dbDurationMs: dbMs,
                     result: "success"
                 });
-                return data;
+                return saved;
             }
             catch (err) {
                 if (!openAiOk) {

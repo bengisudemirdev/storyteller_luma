@@ -135,14 +135,29 @@ struct OnboardingCTAButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: OnboardingTypography.cardTitle, weight: .semibold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.12), radius: 0, x: 0, y: 1)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .padding(.vertical, 18)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(OnboardingPalette.templateCTABrown)
-                        .shadow(color: OnboardingPalette.templateCTABrown.opacity(0.28), radius: 12, x: 0, y: 5)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    OnboardingPalette.templateCTABrown.opacity(0.98),
+                                    OnboardingPalette.templateTitleBrown.opacity(0.92)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.38), lineWidth: 1.5)
+                        )
+                        .shadow(color: OnboardingPalette.templateCTABrown.opacity(0.45), radius: 18, x: 0, y: 10)
+                        .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
                 )
         }
         .buttonStyle(OnboardingScaleButtonStyle())

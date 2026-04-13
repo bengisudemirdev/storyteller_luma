@@ -18,14 +18,13 @@ enum Tab: String, CaseIterable {
 struct LumaTabBar: View {
     // 2. MainView'daki seçili sekmeyi buraya bağlıyoruz
     @Binding var selectedTab: Tab
-    
+
     var body: some View {
         HStack {
             ForEach(Tab.allCases, id: \.rawValue) { tab in
                 Spacer()
-                
+
                 Button(action: {
-                    // Tıklandığında yaylanma efektiyle sekmeyi değiştir
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedTab = tab
                     }
@@ -33,31 +32,42 @@ struct LumaTabBar: View {
                     VStack(spacing: 4) {
                         Image(systemName: tab.rawValue)
                             .font(.system(size: 22, weight: .semibold))
-                            // Seçiliyse ikon parlar ve büyür
-                            .scaleEffect(selectedTab == tab ? 1.2 : 1.0)
-                            .foregroundColor(selectedTab == tab ? LumaTheme.lavender : LumaTheme.text.opacity(0.4))
-                        
+                            .scaleEffect(selectedTab == tab ? 1.18 : 1.0)
+                            .foregroundStyle(
+                                selectedTab == tab
+                                    ? HomeDashboardPalette.tabActiveAmber
+                                    : HomeDashboardPalette.sectionCaption.opacity(0.75)
+                            )
+
                         if selectedTab == tab {
                             Text(tab.title)
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundColor(LumaTheme.lavender)
-                                .transition(.opacity) // Yazı yumuşakça belirir
+                                .foregroundStyle(HomeDashboardPalette.tabActiveAmber)
+                                .transition(.opacity)
                         }
                     }
                 }
-                
+
                 Spacer()
             }
         }
-        .padding(.vertical, 12)
-        .background(
-            // 3. Yüzen Kapsül Tasarımı
+        .padding(.vertical, 14)
+        .padding(.horizontal, 6)
+        .background {
+            ZStack {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                Capsule()
+                    .fill(Color.white.opacity(0.8))
+            }
+        }
+        .overlay(
             Capsule()
-                .fill(Color.white.opacity(0.9))
-                .shadow(color: Color.black.opacity(0.08), radius: 15, x: 0, y: 10)
+                .stroke(Color.white.opacity(0.55), lineWidth: 1)
         )
-        .padding(.horizontal, 25)
-        .padding(.bottom, 10) // iPhone çentiğinin biraz üzerinde durması için
+        .shadow(color: Color.black.opacity(0.12), radius: 24, x: 0, y: 12)
+        .padding(.horizontal, 28)
+        .padding(.bottom, 12)
     }
 }
 

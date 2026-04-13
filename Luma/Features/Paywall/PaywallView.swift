@@ -28,16 +28,11 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var animateGradient = false
     @State private var selectedPackage: PackageOption = .yearly
-    @State private var currentStep: PaywallStep = .intro
+    @State private var showPolicies = false
 
     private enum PackageOption: String {
         case yearly
         case monthly
-    }
-
-    private enum PaywallStep {
-        case intro
-        case checkout
     }
 
     private let yearlyPrice: Double = 499.99
@@ -45,46 +40,35 @@ struct PaywallView: View {
 
     var body: some View {
         ZStack {
-            LumaTheme.bg.ignoresSafeArea()
-            animatedBackground
+            LumaWarmScreenBackground()
+            paywallSoulBackdrop
 
-            VStack(spacing: 0) {
-                if currentStep == .intro {
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 14) {
-                            introProgressSection
-                            introHeroSection
-                            introOutcomeSection
-                            marketingHighlightsSection
-                            socialProofBadge
-                            testimonialSection
-                        }
-                        .padding(.bottom, 20)
-                    }
-                } else {
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 12) {
-                            heroSection
-                            socialProofBadge
-                            packageSelectionSection
-                            featureListSection
-                        }
-                        .padding(.bottom, 20)
-                    }
+            ViewThatFits(in: .vertical) {
+                paywallMainColumn(distributeVertically: true)
+                    .padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                ScrollView(showsIndicators: false) {
+                    paywallMainColumn(distributeVertically: false)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 8)
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            closeButton
+        .safeAreaInset(edge: .top, spacing: 0) {
+            paywallTopBar
         }
         .safeAreaInset(edge: .bottom) {
-            if currentStep == .intro {
-                introCtaSection
-                    .background(LumaTheme.bg.opacity(0.92))
-            } else {
-                ctaSection
-                    .background(LumaTheme.bg.opacity(0.92))
-            }
+            bottomActionBar
+                .background(
+                    Color(hex: "FAF6EF")
+                        .opacity(0.94)
+                        .background(.ultraThinMaterial)
+                        .ignoresSafeArea(edges: .bottom)
+                )
+        }
+        .sheet(isPresented: $showPolicies) {
+            PoliciesDetailView()
         }
         .onAppear {
             withAnimation(.easeInOut(duration: 20).repeatForever(autoreverses: true)) {
@@ -93,418 +77,375 @@ struct PaywallView: View {
         }
     }
 
-    private var introHeroSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Olia Premium", systemImage: "wand.and.stars")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(LumaTheme.lavender)
+    /// Sığdığında bölümler arası boşlukları eşit büyüterek içeriği üst–alt arasındaki alana yayar; sığmazsa ScrollView’da sabit aralık kullanılır.
+    @ViewBuilder
+    private func paywallMainColumn(distributeVertically: Bool) -> some View {
+        if distributeVertically {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 12) {
+                    headlineBlock
+                    brandSubtitleChip
+                    paywallIntroText
+                }
 
-            Text("Her geceyi beklenen bir masal ritüeline çevir")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(LumaTheme.text)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .minimumScaleFactor(0.85)
-                .lineSpacing(2)
-
-            Text("Sadece bir hikaye değil; çocuğunuzla aranızdaki bağı güçlendiren, her gece tekrar etmek isteyeceğiniz bir rutin.")
-                .font(.subheadline)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.97),
-                            LumaTheme.lavender.opacity(0.16),
-                            Color.white.opacity(0.94)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .stroke(LumaTheme.lavender.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(color: LumaTheme.softShadow, radius: 12, x: 0, y: 5)
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-    }
-
-    private var introProgressSection: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text("Adım 1/2")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(LumaTheme.lavender)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(LumaTheme.lavender.opacity(0.12))
-                .clipShape(Capsule())
-
-            Text("Premium deneyimi keşfet")
-                .font(.caption)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-    }
-
-    private var introOutcomeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Premium neyi değiştirir?")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 10) {
-                OutcomeChip(icon: "clock.fill", title: "Daha az bekleme", subtitle: "Anında yeni masal")
-                OutcomeChip(icon: "heart.fill", title: "Daha güçlü bağ", subtitle: "Her gece devam eden ritüel")
+                Spacer(minLength: 12)
+                billingPeriodSegment
+                Spacer(minLength: 12)
+                featuresBlockCompact
+                Spacer(minLength: 12)
+                pricingPanelCompact
             }
-
-            HStack(spacing: 10) {
-                OutcomeChip(icon: "person.3.fill", title: "Tüm çocuklar", subtitle: "Herkese özel profil")
-                OutcomeChip(icon: "sparkles", title: "Daha zengin içerik", subtitle: "Yaşa uygun derin hikayeler")
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                headlineBlock
+                brandSubtitleChip
+                paywallIntroText
+                billingPeriodSegment
+                featuresBlockCompact
+                pricingPanelCompact
             }
         }
-        .padding(16)
-        .background(Color.white.opacity(0.9))
-        .cornerRadius(14)
-        .padding(.horizontal, 20)
     }
 
-    private var marketingHighlightsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Neden ebeveynler Premium'u seçiyor?")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            MarketingHighlightRow(
-                title: "Sınırsız yeni hikaye",
-                subtitle: "Günlük limit düşünmeden istediğin an yeni masal üret."
-            )
-            MarketingHighlightRow(
-                title: "Tüm kardeşler için ayrı profil",
-                subtitle: "Her çocuk için yaşa ve ilgiye uygun kişiselleştirme."
-            )
-            MarketingHighlightRow(
-                title: "Daha akıcı ve reklamsız deneyim",
-                subtitle: "Masal anını bölmeden, odaklı bir okuma deneyimi."
-            )
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.9))
-        .cornerRadius(14)
-        .padding(.horizontal, 20)
+    private var paywallIntroText: some View {
+        Text(introText)
+            .font(.system(size: 14, weight: .regular, design: .rounded))
+            .foregroundColor(HomeDashboardPalette.muted)
+            .multilineTextAlignment(.leading)
+            .lineSpacing(3)
+            .lineLimit(3)
+            .minimumScaleFactor(0.9)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
-    private var heroSection: some View {
+    // MARK: - Başlık (Olia sesi: gece, ritüel, birlikte)
+
+    private var headlineBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: "wand.and.stars")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundColor(LumaTheme.lavender)
-                Text("Olia Premium")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(LumaTheme.lavender)
-            }
-
-            Text("Sınırsız Masal Dünyası")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(LumaTheme.text)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .minimumScaleFactor(0.85)
-                .lineSpacing(2)
-
-            Text(introText)
-                .font(.subheadline)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .lineSpacing(2.5)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.97),
-                                LumaTheme.lavender.opacity(0.14),
-                                Color.white.opacity(0.95)
+                                HomeDashboardPalette.moonGlow,
+                                HomeDashboardPalette.nightMid.opacity(0.85)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                Circle()
-                    .fill(LumaTheme.lavender.opacity(0.1))
-                    .frame(width: 140, height: 140)
-                    .offset(x: 24, y: -40)
+                    .shadow(color: HomeDashboardPalette.accentOrangeSoft.opacity(0.35), radius: 8, x: 0, y: 2)
+
+                Text(AppBrand.displayName)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(HomeDashboardPalette.muted)
+                    .tracking(0.8)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+
+            (Text("Her gece birlikte, ") + Text("Premium").foregroundColor(LumaTheme.lavender) + Text(" masal zamanı"))
+                .font(.system(size: 26, weight: .bold, design: .serif))
+                .foregroundColor(HomeDashboardPalette.ink)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(0.82)
+                .lineLimit(2)
+        }
+    }
+
+    private var brandSubtitleChip: some View {
+        Text(AppBrand.subtitle)
+            .font(.system(size: 13, weight: .medium, design: .rounded))
+            .foregroundColor(HomeDashboardPalette.muted)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.75))
+                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 3)
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(HomeDashboardPalette.accentOrange.opacity(0.22), lineWidth: 1)
+            )
+    }
+
+    // MARK: - Aylık / Yıllık segment
+
+    private var billingPeriodSegment: some View {
+        HStack(spacing: 0) {
+            segmentChip(title: "Aylık", option: .monthly)
+            segmentChip(title: "Yıllık", option: .yearly)
+        }
+        .padding(5)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.white.opacity(0.95))
+                .shadow(color: HomeDashboardPalette.cardShadow, radius: 12, x: 0, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .stroke(LumaTheme.lavender.opacity(0.16), lineWidth: 1)
+            Capsule(style: .continuous)
+                .stroke(HomeDashboardPalette.accentOrange.opacity(0.15), lineWidth: 1)
         )
-        .shadow(color: LumaTheme.softShadow.opacity(0.9), radius: 14, x: 0, y: 6)
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
     }
 
-    private var socialProofBadge: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "star.fill")
-                .foregroundColor(.orange)
-                .padding(.top, 2)
-            Text("4.9/5  -  10.000+ ebeveynin tercihi")
-                .font(.footnote.weight(.semibold))
-                .foregroundColor(LumaTheme.text)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(LumaTheme.lavender.opacity(0.2), lineWidth: 1)
-        )
-        .padding(.horizontal, 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var packageSelectionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Planını seç")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            PackageCard(
-                title: "Yıllık Plan",
-                subtitle: "Ayda sadece \(formattedPrice(yearlyMonthlyEquivalent))",
-                trailingPrice: formattedPrice(yearlyPrice) + "/yıl",
-                isSelected: selectedPackage == .yearly,
-                isHighlighted: true,
-                badgeText: "En Popüler"
-            ) {
-                selectedPackage = .yearly
+    private func segmentChip(title: String, option: PackageOption) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedPackage = option
             }
-
-            PackageCard(
-                title: "Aylık Plan",
-                subtitle: "Ayda \(formattedPrice(monthlyPrice))",
-                trailingPrice: formattedPrice(monthlyPrice) + "/ay",
-                isSelected: selectedPackage == .monthly,
-                isHighlighted: false,
-                badgeText: nil
-            ) {
-                selectedPackage = .monthly
-            }
+        } label: {
+            Text(title)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundColor(selectedPackage == option ? .white : HomeDashboardPalette.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background {
+                    if selectedPackage == option {
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [LumaTheme.lavender, HomeDashboardPalette.nightMid.opacity(0.92)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                }
         }
-        .padding(.horizontal, 20)
+        .buttonStyle(.plain)
     }
 
-    private var featureListSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Premium ile gelenler")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            FeatureRow(text: "Sınırsız Masal Üretimi")
-            FeatureRow(text: "Tüm Çocuklarınız İçin Profiller")
-            FeatureRow(text: "Reklamsız Deneyim")
+    // MARK: - Özellikler (kompakt: iki sütun)
+
+    private var featuresBlockCompact: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Masal dünyanda neler var?")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(HomeDashboardPalette.muted)
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    PaywallFeatureLine(
+                        icon: "book.pages.fill",
+                        text: "Sınırsız masal, günlük limit yok",
+                        iconColor: HomeDashboardPalette.accentOrange,
+                        compact: true
+                    )
+                    PaywallFeatureLine(
+                        icon: "sparkles",
+                        text: "İsme ve yaşa göre kişiselleştirme",
+                        iconColor: LumaTheme.lavender,
+                        compact: true
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    PaywallFeatureLine(
+                        icon: "figure.2.and.child.holdinghands",
+                        text: "Her çocuk için ayrı profil",
+                        iconColor: HomeDashboardPalette.nightMid.opacity(0.75),
+                        compact: true
+                    )
+                    PaywallFeatureLine(
+                        icon: "heart.fill",
+                        text: "Reklamsız, sakin okuma",
+                        iconColor: HomeDashboardPalette.accentOrangeSoft,
+                        compact: true
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    // MARK: - Fiyat paneli (kompakt)
+
+    private var pricingPanelCompact: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Ritüeline uygun plan")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(HomeDashboardPalette.muted)
+                .textCase(.uppercase)
+                .tracking(0.4)
+
+            HStack(alignment: .top, spacing: 10) {
+                PaywallBillingCard(
+                    title: "Aylık",
+                    priceLine: formattedPrice(monthlyPrice),
+                    periodLine: "/ ay",
+                    badge: nil,
+                    isSelected: selectedPackage == .monthly,
+                    compact: true
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedPackage = .monthly
+                    }
+                }
+
+                PaywallBillingCard(
+                    title: "Yıllık",
+                    priceLine: formattedPrice(yearlyPrice),
+                    periodLine: "/ yıl",
+                    badge: yearlySavingsBadge,
+                    isSelected: selectedPackage == .yearly,
+                    compact: true
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedPackage = .yearly
+                    }
+                }
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.9))
-        .cornerRadius(14)
-        .padding(.horizontal, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(HomeDashboardPalette.cardSurface)
+                .shadow(color: HomeDashboardPalette.cardShadow, radius: 12, x: 0, y: 5)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(HomeDashboardPalette.accentOrange.opacity(0.12), lineWidth: 1)
+        )
     }
 
-    private var ctaSection: some View {
+    private var yearlySavingsBadge: String? {
+        let fullYearMonthly = monthlyPrice * 12
+        guard fullYearMonthly > yearlyPrice else { return nil }
+        let pct = Int(round((1 - yearlyPrice / fullYearMonthly) * 100))
+        guard pct > 0 else { return nil }
+        return "−\(pct)%"
+    }
+
+    // MARK: - Alt bar
+
+    private var bottomActionBar: some View {
         VStack(spacing: 8) {
             Button(action: startPurchaseFlow) {
-                Text("Sihirli Dünyayı Aç")
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 17)
-                    .background(LumaTheme.lavender)
-                    .cornerRadius(18)
-                    .shadow(color: LumaTheme.lavender.opacity(0.25), radius: 10, x: 0, y: 6)
-            }
-
-            Text("İstediğin zaman iptal et. Apple ID üzerinden yönetilir.")
-                .font(.caption2)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("Masal dünyasını aç")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-
-            VStack(spacing: 10) {
-                Button {
-                    Task { await restorePurchases() }
-                } label: {
-                    Text("Satın Alımları Geri Yükle")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(LumaTheme.lavender)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity)
-                }
-
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Şimdilik Ücretsiz Devam Et")
-                        .font(.caption)
-                        .foregroundColor(LumaTheme.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .overlay(alignment: .top) {
-            Divider().opacity(0.4)
-        }
-    }
-
-    private var introCtaSection: some View {
-        VStack(spacing: 8) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    currentStep = .checkout
-                }
-            } label: {
-                Text("Devam Et: Planları ve Fiyatları Gör")
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 17)
-                    .background(LumaTheme.lavender)
-                    .cornerRadius(18)
-                    .shadow(color: LumaTheme.lavender.opacity(0.2), radius: 10, x: 0, y: 6)
+                .padding(.vertical, 15)
+                .background(
+                    RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [LumaTheme.lavender, HomeDashboardPalette.nightMid.opacity(0.95)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: LumaTheme.lavender.opacity(0.38), radius: 18, x: 0, y: 8)
+                )
             }
 
-            Text("2. adımda sadece sana uygun paketi seçersin.")
-                .font(.caption2)
-                .foregroundColor(LumaTheme.secondaryText)
+            Text("Ebeveyn destekli, güvenli içerik. İstediğin zaman iptal; Apple ID üzerinden yönetilir.")
+                .font(.system(size: 12, weight: .regular, design: .rounded))
+                .foregroundColor(HomeDashboardPalette.muted)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.9)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
 
             Button {
-                dismiss()
+                Task { await restorePurchases() }
             } label: {
-                Text("Şimdilik Ücretsiz Devam Et")
-                    .font(.caption)
-                    .foregroundColor(LumaTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity)
+                Text("Satın alımları geri yükle")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(HomeDashboardPalette.accentOrange)
             }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .overlay(alignment: .top) {
-            Divider().opacity(0.4)
-        }
-    }
 
-    private var testimonialSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Image(systemName: "quote.bubble.fill")
-                    .foregroundColor(LumaTheme.lavender)
-                Text("Ebeveyn yorumu")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(LumaTheme.secondaryText)
+                Button("Güvenlik ve gizlilik") {
+                    showPolicies = true
+                }
+                .font(.system(size: 12, weight: .regular, design: .rounded))
+                .foregroundColor(HomeDashboardPalette.muted)
+
+                Text("·")
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundColor(HomeDashboardPalette.muted.opacity(0.5))
+
+                Button("Şimdilik ücretsiz devam") {
+                    dismiss()
+                }
+                .font(.system(size: 12, weight: .regular, design: .rounded))
+                .foregroundColor(HomeDashboardPalette.muted)
             }
-
-            Text("\"Olia Premium sayesinde hikaye saati artık bir görev değil, günün en sevdiğimiz anı oldu.\"")
-                .font(.footnote)
-                .foregroundColor(LumaTheme.text)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("- Elif, 2 çocuk annesi")
-                .font(.caption)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.center)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.88))
-        .cornerRadius(12)
         .padding(.horizontal, 20)
-    }
-
-    private var closeButton: some View {
-        Button(action: { dismiss() }) {
-            Image(systemName: "xmark")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(LumaTheme.secondaryText)
-                .padding(10)
-                .background(Color.white.opacity(0.92))
-                .clipShape(Circle())
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .overlay(alignment: .top) {
+            Divider().opacity(0.35)
         }
-        .padding(.top, 10)
-        .padding(.trailing, 16)
     }
 
-    private var animatedBackground: some View {
+    /// Kapatma tek satırda; içerik hemen altında başlar (üstte gereksiz boşluk bırakmaz).
+    private var paywallTopBar: some View {
+        HStack(alignment: .center) {
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(HomeDashboardPalette.muted)
+                    .padding(10)
+                    .background(HomeDashboardPalette.cardSurface.opacity(0.95))
+                    .clipShape(Circle())
+                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 6, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "Kapat"))
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 44, alignment: .center)
+    }
+
+    /// Ana sayfa gece kartıyla aynı his: yumuşak gece moru, ay parıltısı, minik yıldızlar.
+    private var paywallSoulBackdrop: some View {
         ZStack {
             Circle()
-                .fill(LumaTheme.lavender.opacity(animateGradient ? 0.18 : 0.1))
-                .frame(width: 280, height: 280)
-                .offset(x: animateGradient ? -120 : 110, y: animateGradient ? -220 : -160)
-                .blur(radius: animateGradient ? 65 : 48)
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            HomeDashboardPalette.moonGlow.opacity(animateGradient ? 0.45 : 0.32),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 102
+                    )
+                )
+                .frame(width: 205, height: 205)
+                .offset(x: animateGradient ? 130 : 150, y: animateGradient ? -120 : -100)
+                .blur(radius: 2)
 
             Circle()
-                .fill(Color.white.opacity(animateGradient ? 0.5 : 0.35))
-                .frame(width: 240, height: 240)
-                .offset(x: animateGradient ? 120 : -110, y: animateGradient ? 250 : 170)
-                .blur(radius: animateGradient ? 80 : 56)
-        }
-        .animation(.easeInOut(duration: 20).repeatForever(autoreverses: true), value: animateGradient)
-    }
+                .fill(HomeDashboardPalette.nightMid.opacity(animateGradient ? 0.11 : 0.07))
+                .frame(width: 315, height: 315)
+                .offset(x: animateGradient ? -110 : 100, y: animateGradient ? -210 : -150)
+                .blur(radius: 50)
 
-    private var yearlyMonthlyEquivalent: Double {
-        yearlyPrice / 12
+            Circle()
+                .fill(HomeDashboardPalette.accentOrangeSoft.opacity(animateGradient ? 0.2 : 0.12))
+                .frame(width: 252, height: 252)
+                .offset(x: animateGradient ? 95 : -85, y: animateGradient ? 240 : 200)
+                .blur(radius: 42)
+
+            PaywallStarSpeckleField(phase: animateGradient)
+        }
+        .allowsHitTesting(false)
+        .animation(.easeInOut(duration: 22).repeatForever(autoreverses: true), value: animateGradient)
     }
 
     private func formattedPrice(_ value: Double) -> String {
@@ -518,11 +459,11 @@ struct PaywallView: View {
     private var introText: String {
         switch source {
         case .storyLimitReached:
-            return "Bugünlük masal oluşturma limitine ulaştınız. Premium ile sınırsızca devam edebilirsiniz."
+            return "Bu gece limit doldu; yarın yenilenir. Premium ile bu gece de masal anlatabilirsin."
         case .childLimitReached:
-            return "Ücretsiz planda tek profil desteklenir. Diğer çocuklarınız için de profil açmak ister misiniz?"
+            return "Her çocuk için ayrı profil ve masallar — Premium’da kardeşler kendi dünyalarıyla uyur."
         case .manual:
-            return "Olia Premium, masal deneyiminizi daha esnek ve konforlu hale getirir."
+            return "Masal saati bağ kurma ritüeli. Premium ile sınırsız, kişisel ve sakin."
         }
     }
 
@@ -532,17 +473,23 @@ struct PaywallView: View {
         Task {
             do {
                 let offerings = try await Purchases.shared.offerings()
-                guard let package = offerings.current?.availablePackages.first else {
-                    return
-                }
+                guard let current = offerings.current else { return }
+                let packages = current.availablePackages
+                let chosen: Package? = {
+                    switch selectedPackage {
+                    case .monthly:
+                        return packages.first { $0.packageType == .monthly }
+                    case .yearly:
+                        return packages.first { $0.packageType == .annual }
+                    }
+                }()
+                guard let package = chosen ?? packages.first else { return }
                 let result = try await Purchases.shared.purchase(package: package)
                 if result.customerInfo.entitlements.active["premium"] != nil {
                     await subscriptionManager.refreshPlanFromServer()
                     dismiss()
                 }
-            } catch {
-                // İptal veya hata durumunda sessiz kalıyoruz; istersen burada alert gösterebilirsin.
-            }
+            } catch {}
         }
     }
 
@@ -553,153 +500,129 @@ struct PaywallView: View {
                 await subscriptionManager.refreshPlanFromServer()
                 dismiss()
             }
-        } catch {
-            // Sessizce başarısız; istersen burada alert gösterebilirsin.
-        }
+        } catch {}
     }
 }
 
-private struct PackageCard: View {
-    let title: String
-    let subtitle: String
-    let trailingPrice: String
-    let isSelected: Bool
-    let isHighlighted: Bool
-    let badgeText: String?
-    let onTap: () -> Void
+// MARK: - Satır özellik
 
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(.headline)
-                            .foregroundColor(LumaTheme.text)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundColor(LumaTheme.secondaryText)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Text(trailingPrice)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(LumaTheme.text)
-                        .multilineTextAlignment(.trailing)
-                        .fixedSize(horizontal: true, vertical: true)
-                }
-
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(isSelected ? LumaTheme.lavender : LumaTheme.secondaryText.opacity(0.5))
-                    Text(isSelected ? "Seçili plan" : "Bu planı seç")
-                        .font(.caption)
-                        .foregroundColor(LumaTheme.secondaryText)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let badgeText {
-                    Text(badgeText)
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(LumaTheme.lavender)
-                        .clipShape(Capsule())
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? Color.white : Color.white.opacity(0.93))
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(borderColor, lineWidth: isSelected || isHighlighted ? 2 : 1)
-            )
-            .shadow(color: isSelected ? LumaTheme.lavender.opacity(0.12) : LumaTheme.softShadow, radius: 8, x: 0, y: 3)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var borderColor: Color {
-        if isSelected || isHighlighted { return LumaTheme.lavender }
-        return LumaTheme.secondaryText.opacity(0.2)
-    }
-}
-
-private struct FeatureRow: View {
+private struct PaywallFeatureLine: View {
+    let icon: String
     let text: String
+    var iconColor: Color = LumaTheme.lavender
+    var compact: Bool = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text("✅")
+        HStack(alignment: .top, spacing: compact ? 8 : 12) {
+            Image(systemName: icon)
+                .font(.system(size: compact ? 17 : 18, weight: .semibold))
+                .foregroundColor(iconColor)
+                .frame(width: compact ? 24 : 26, alignment: .center)
+                .padding(.top, compact ? 1 : 1)
+
             Text(text)
-                .font(.subheadline)
-                .foregroundColor(LumaTheme.text)
+                .font(.system(size: compact ? 14 : 15, weight: .regular, design: .rounded))
+                .foregroundColor(HomeDashboardPalette.ink)
                 .multilineTextAlignment(.leading)
+                .lineSpacing(compact ? 2 : 3)
+                .lineLimit(compact ? 3 : nil)
+                .minimumScaleFactor(compact ? 0.88 : 1)
                 .fixedSize(horizontal: false, vertical: true)
+
             Spacer(minLength: 0)
         }
     }
 }
 
-private struct MarketingHighlightRow: View {
-    let title: String
-    let subtitle: String
+/// Gece gökyüzünde birkaç küçük yıldız (dashboard ile aynı ruh).
+private struct PaywallStarSpeckleField: View {
+    var phase: Bool
+
+    private let specks: [(x: CGFloat, y: CGFloat, s: CGFloat)] = [
+        (-140, -280, 2.6), (120, -240, 2.1), (-40, -200, 2.9),
+        (160, 120, 2.4), (-130, 80, 1.9), (40, 200, 2.7)
+    ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "sparkles")
-                    .foregroundColor(LumaTheme.lavender)
-                    .font(.caption.weight(.bold))
-                    .padding(.top, 2)
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(LumaTheme.text)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+        ZStack {
+            ForEach(Array(specks.enumerated()), id: \.offset) { i, s in
+                Circle()
+                    .fill(HomeDashboardPalette.starTint.opacity(phase ? 0.35 + Double(i % 3) * 0.08 : 0.22))
+                    .frame(width: s.s, height: s.s)
+                    .offset(x: s.x, y: s.y)
             }
-            Text(subtitle)
-                .font(.caption)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.leading, 22)
         }
     }
 }
 
-private struct OutcomeChip: View {
-    let icon: String
+// MARK: - Fiyat kartı (yan yana)
+
+private struct PaywallBillingCard: View {
     let title: String
-    let subtitle: String
+    let priceLine: String
+    let periodLine: String
+    let badge: String?
+    let isSelected: Bool
+    var compact: Bool = false
+    let onTap: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: icon)
-                .foregroundColor(LumaTheme.lavender)
-                .font(.caption.weight(.bold))
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundColor(LumaTheme.text)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(subtitle)
-                .font(.caption2)
-                .foregroundColor(LumaTheme.secondaryText)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: compact ? 7 : 8) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(
+                            isSelected ? HomeDashboardPalette.accentOrange : HomeDashboardPalette.muted.opacity(0.35)
+                        )
+                }
+
+                if let badge {
+                    Text(badge)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(LumaTheme.lavender)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(LumaTheme.lavender.opacity(0.12))
+                        .clipShape(Capsule(style: .continuous))
+                } else {
+                    Color.clear.frame(height: 24)
+                }
+
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(HomeDashboardPalette.muted)
+
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(priceLine)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(HomeDashboardPalette.ink)
+                        .minimumScaleFactor(0.72)
+                        .lineLimit(1)
+                    Text(periodLine)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(HomeDashboardPalette.muted)
+                }
+            }
+            .padding(compact ? 11 : 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? HomeDashboardPalette.accentOrangeSoft.opacity(0.22)
+                            : HomeDashboardPalette.creamDeep.opacity(0.65)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        isSelected ? LumaTheme.lavender : HomeDashboardPalette.muted.opacity(0.12),
+                        lineWidth: isSelected ? 2.5 : 1
+                    )
+            )
         }
-        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-        .padding(10)
-        .background(Color.white.opacity(0.9))
-        .cornerRadius(10)
+        .buttonStyle(.plain)
     }
 }
-

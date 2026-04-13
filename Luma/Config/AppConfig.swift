@@ -40,4 +40,36 @@ enum AppConfig {
     static var isElevenLabsNarrationConfigured: Bool {
         !Secrets.elevenLabsAPIKey.isEmpty && !Secrets.elevenLabsAgentId.isEmpty
     }
+
+    /// Profil → Geri bildirim `mailto:` hedefi. `Luma/Config/.env` içinde `FEEDBACK_EMAIL` ile ayarlayın.
+    static var feedbackRecipientEmail: String {
+        let trimmed = Secrets.feedbackEmail.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed.contains("@") {
+            return trimmed
+        }
+        return "olia.destek@gmail.com"
+    }
+
+    /// Klasik masal kapağı (`classic-tales/{taleId}/cover.png`). Önce `CLASSIC_TALE_COVERS_BASE_URL`; yoksa Supabase public object URL.
+    /// Görseller: `luma-backend` içinde `npm run seed:classic-covers` (bucket herkese açık okunabilir olmalı).
+    static func classicTaleCoverImageURL(taleId: String) -> URL? {
+        let id = taleId.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlPathAllowed) ?? taleId
+
+        let customBase = Secrets.classicTaleCoversBaseURL.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        if !customBase.isEmpty {
+            let trimmed = customBase.hasSuffix("/") ? String(customBase.dropLast()) : customBase
+            return URL(string: "\(trimmed)/\(id)/cover.png")
+        }
+
+        let supabase = Secrets.supabaseURL.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        guard !supabase.isEmpty,
+              !supabase.contains("YOUR_PROJECT") else { return nil }
+
+        // Backend `SUPABASE_STORAGE_BUCKET_STORIES` ile aynı; farklı bucket için `CLASSIC_TALE_COVERS_BASE_URL` kullan.
+        let bucket = "luma-stories-assets"
+
+        let root = supabase.hasSuffix("/") ? String(supabase.dropLast()) : supabase
+        let path = "/storage/v1/object/public/\(bucket)/classic-tales/\(id)/cover.png"
+        return URL(string: root + path)
+    }
 }

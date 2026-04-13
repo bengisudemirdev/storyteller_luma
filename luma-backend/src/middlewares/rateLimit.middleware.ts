@@ -3,6 +3,12 @@ import { env } from "../config/env";
 import { toError } from "../utils/apiResponse";
 import type { Request, Response } from "express";
 
+function isV1HealthCheck(req: Request): boolean {
+  if (req.method !== "GET") return false;
+  const path = (req.originalUrl ?? "").split("?")[0] ?? "";
+  return path === "/v1/health";
+}
+
 function jsonRateLimitHandler(req: Request, res: Response): void {
   res.status(429).json(
     toError("RATE_LIMITED", "Rate limit exceeded", {
@@ -18,6 +24,7 @@ export const v1RateLimiter = rateLimit({
   limit: env.RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => env.RATE_LIMIT_DISABLED || isV1HealthCheck(req),
   handler: (req, res) => {
     jsonRateLimitHandler(req, res);
   },
@@ -33,6 +40,7 @@ export const storiesGenerateRateLimiter = rateLimit({
   limit: env.STORIES_GENERATE_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => env.RATE_LIMIT_DISABLED,
   handler: (req, res) => {
     jsonRateLimitHandler(req, res);
   },

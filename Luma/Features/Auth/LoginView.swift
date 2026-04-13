@@ -1,9 +1,15 @@
 import SwiftUI
 
 struct LoginView: View {
+    private enum LoginFocusField: Hashable {
+        case email
+        case password
+    }
+
     @StateObject private var viewModel = LoginViewModel()
     @State private var isAnimate = false
     @State private var isPasswordVisible = false
+    @FocusState private var focusedField: LoginFocusField?
 
     var body: some View {
         NavigationStack {
@@ -18,11 +24,16 @@ struct LoginView: View {
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    dismissKeyboard()
+                }
 
                 Circle()
                     .fill(LumaTheme.lavender.opacity(0.1))
                     .frame(width: 300, height: 300)
                     .offset(x: -150, y: -350)
+                    .allowsHitTesting(false)
 
                 VStack(spacing: 25) {
                     Spacer()
@@ -47,10 +58,14 @@ struct LoginView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        dismissKeyboard()
+                    }
 
                     VStack(spacing: 15) {
-                        customInputField(title: "E-posta", text: $viewModel.email, icon: "envelope.fill")
-                        customPasswordField(title: "Şifre", text: $viewModel.password, isVisible: $isPasswordVisible)
+                        customInputField(title: "E-posta", text: $viewModel.email, icon: "envelope.fill", field: .email)
+                        customPasswordField(title: "Şifre", text: $viewModel.password, isVisible: $isPasswordVisible, field: .password)
 
                         if let errorMessage = viewModel.errorMessage {
                             Text(errorMessage)
@@ -74,6 +89,7 @@ struct LoginView: View {
 
                     Button(action: {
                         Task {
+                            dismissKeyboard()
                             _ = await viewModel.signIn()
                         }
                     }) {
@@ -107,25 +123,62 @@ struct LoginView: View {
                     .padding(.top, 10)
 
                     Spacer()
+                        .contentShape(Rectangle())
+                        .frame(maxWidth: .infinity)
+                        .onTapGesture {
+                            dismissKeyboard()
+                        }
                 }
             }
             .onAppear {
                 withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) { isAnimate = true }
             }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Kapat") {
+                        dismissKeyboard()
+                    }
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                }
+            }
         }
     }
 
-    func customInputField(title: String, text: Binding<String>, icon: String) -> some View {
-        HStack {
+    private func dismissKeyboard() {
+        focusedField = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func customInputField(title: String, text: Binding<String>, icon: String, field: LoginFocusField) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .foregroundColor(LumaTheme.lavender)
                 .frame(width: 30)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = field
+                }
+
             ZStack(alignment: .leading) {
                 if text.wrappedValue.isEmpty {
-                    Text(title).foregroundColor(LumaTheme.text.opacity(0.7))
+                    Text(title)
+                        .foregroundColor(LumaTheme.text.opacity(0.7))
+                        .allowsHitTesting(false)
                 }
-                TextField("", text: text).autocapitalization(.none).foregroundColor(LumaTheme.text)
+                TextField("", text: text)
+                    .textContentType(.emailAddress)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .foregroundColor(LumaTheme.text)
+                    .focused($focusedField, equals: field)
+                    .submitLabel(.next)
+                    .onSubmit {
+                        focusedField = .password
+                    }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding()
         .background(Color.white)
@@ -133,27 +186,69 @@ struct LoginView: View {
         .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
     }
 
-    func customPasswordField(title: String, text: Binding<String>, isVisible: Binding<Bool>) -> some View {
-        HStack {
+    private func customPasswordField(title: String, text: Binding<String>, isVisible: Binding<Bool>, field: LoginFocusField) -> some View {
+        HStack(spacing: 12) {
             Image(systemName: "lock.fill")
                 .foregroundColor(LumaTheme.lavender)
                 .frame(width: 30)
-            if isVisible.wrappedValue {
-                ZStack(alignment: .leading) {
-                    if text.wrappedValue.isEmpty { Text(title).foregroundColor(LumaTheme.text.opacity(0.7)) }
-                    TextField("", text: text).autocapitalization(.none).foregroundColor(LumaTheme.text)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = field
                 }
-            } else {
-                ZStack(alignment: .leading) {
-                    if text.wrappedValue.isEmpty { Text(title).foregroundColor(LumaTheme.text.opacity(0.7)) }
-                    SecureField("", text: text).foregroundColor(LumaTheme.text)
+
+            Group {
+                if isVisible.wrappedValue {
+                    ZStack(alignment: .leading) {
+                        if text.wrappedValue.isEmpty {
+                            Text(title)
+                                .foregroundColor(LumaTheme.text.opacity(0.7))
+                                .allowsHitTesting(false)
+                        }
+                        TextField("", text: text)
+                            .textContentType(.password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .foregroundColor(LumaTheme.text)
+                            .focused($focusedField, equals: field)
+                            .submitLabel(.go)
+                            .onSubmit {
+                                Task {
+                                    dismissKeyboard()
+                                    _ = await viewModel.signIn()
+                                }
+                            }
+                    }
+                } else {
+                    ZStack(alignment: .leading) {
+                        if text.wrappedValue.isEmpty {
+                            Text(title)
+                                .foregroundColor(LumaTheme.text.opacity(0.7))
+                                .allowsHitTesting(false)
+                        }
+                        SecureField("", text: text)
+                            .textContentType(.password)
+                            .foregroundColor(LumaTheme.text)
+                            .focused($focusedField, equals: field)
+                            .submitLabel(.go)
+                            .onSubmit {
+                                Task {
+                                    dismissKeyboard()
+                                    _ = await viewModel.signIn()
+                                }
+                            }
+                    }
                 }
             }
-            Spacer()
-            Button(action: { isVisible.wrappedValue.toggle() }) {
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: {
+                isVisible.wrappedValue.toggle()
+                focusedField = field
+            }) {
                 Image(systemName: isVisible.wrappedValue ? "eye.fill" : "eye.slash.fill")
                     .foregroundColor(LumaTheme.lavender.opacity(0.8))
             }
+            .buttonStyle(.plain)
         }
         .padding()
         .background(Color.white)

@@ -10,6 +10,7 @@ struct OliaApp: App {
     @AppStorage("luma_registration_requires_child_setup") private var registrationRequiresChildSetup = false
     /// İlk kurulumda marka splash → onboarding; tamamlanınca giriş veya ana ekran (oturum durumuna göre).
     @AppStorage("luma_has_seen_title_splash") private var hasSeenTitleSplash = false
+    @State private var isPresentingPostRegistrationPaywall = false
 
     static let supabase = SupabaseClient(
         supabaseURL: AppConfig.supabaseURL,
@@ -39,15 +40,31 @@ struct OliaApp: App {
                         }
                     }
                 } else if authManager.isAuthenticated {
-                    if registrationRequiresChildSetup {
-                        RegistrationChildSetupView {
-                            registrationRequiresChildSetup = false
+                    ZStack {
+                        if registrationRequiresChildSetup {
+                            RegistrationChildSetupView {
+                                registrationRequiresChildSetup = false
+                            }
+                        } else {
+                            MainView()
                         }
-                    } else {
-                        MainView()
+                    }
+                    .sheet(isPresented: $isPresentingPostRegistrationPaywall, onDismiss: {
+                        UserDefaults.standard.set(false, forKey: LumaUserDefaultsKeys.showPostRegistrationPaywallOnce)
+                    }) {
+                        PaywallView(source: .manual)
+                            .environmentObject(subscriptionManager)
+                            .presentationDetents([.large])
+                            .presentationDragIndicator(.visible)
+                            .presentationCornerRadius(28)
                     }
                 } else {
                     LoginView()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .lumaPresentPostRegistrationPaywall)) { _ in
+                Task { @MainActor in
+                    await handlePostRegistrationPaywallRequest()
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: authManager.isSessionChecked)
@@ -69,6 +86,19 @@ struct OliaApp: App {
                 .tint(LumaTheme.lavender)
                 .scaleEffect(1.2)
         }
+    }
+
+    @MainActor
+    private func handlePostRegistrationPaywallRequest() async {
+        guard !isPresentingPostRegistrationPaywall else { return }
+        await subscriptionManager.refreshPlanFromServer()
+        guard subscriptionManager.plan == .free else {
+            UserDefaults.standard.set(false, forKey: LumaUserDefaultsKeys.showPostRegistrationPaywallOnce)
+            return
+        }
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        guard !isPresentingPostRegistrationPaywall else { return }
+        isPresentingPostRegistrationPaywall = true
     }
 }
 

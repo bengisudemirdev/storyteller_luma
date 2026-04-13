@@ -8,7 +8,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LumaWarmScreenBackground()
+                HomeMagicalScreenBackground()
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: HomeDashboardSectionSpacing.standard) {
@@ -18,9 +18,8 @@ struct HomeView: View {
                         ClassicTalesSection(tales: ClassicTaleItem.mockLibrary)
 
                         DashboardRecentStoriesSection(stories: viewModel.recentStories)
-
-                                            }
-                    .padding(.horizontal, 20)
+                    }
+                    .padding(.horizontal, HomeDashboardMetrics.horizontalPadding)
                     .padding(.bottom, 120)
                 }
                 .refreshable {
@@ -66,7 +65,8 @@ struct HomeView: View {
 
 /// Section spacing shared by Home layout (re-export friendly constant).
 enum HomeDashboardSectionSpacing {
-    static let standard: CGFloat = 28
+    /// Kartlar ve bölümler arasında daha ferah dikey ritim.
+    static let standard: CGFloat = 40
 }
 
 @MainActor

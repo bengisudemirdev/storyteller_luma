@@ -1,5 +1,6 @@
 /// Kamuya açık halk masalı geleneğine dayanan özgün Türkçe anlatımlar (Grimm, Perrault, Andersen rivayetleri).
 /// Şiddet ve korku unsurları uyku öncesi kullanım için yumuşatılmıştır.
+/// Tam metin, kapak üretimi seed’i ile hizalı tutulmalı: `luma-backend/scripts/classic-tales-full-stories.ts`.
 struct ClassicTaleItem: Identifiable, Hashable {
     let id: String
     let title: String

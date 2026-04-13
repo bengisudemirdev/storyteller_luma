@@ -23,6 +23,7 @@ python3 scripts/generate_ios_secrets.py
 | `REVENUECAT_API_KEY`    | RevenueCat public SDK key   |
 | `ELEVENLABS_API_KEY`    | ElevenLabs API key (masal seslendirme; boşsa iOS `AVSpeech` kullanılır) |
 | `ELEVENLABS_AGENT_ID`   | Convai agent ID (dashboard’daki agent) |
+| `FEEDBACK_EMAIL`        | Profil ekranındaki geri bildirimin gideceği adres (`mailto:`). Boşsa yedek `olia.destek@gmail.com` kullanılır — kendi adresinizi yazın. |
 
 > Backend’deki `luma-backend/.env` ile **aynı dosya değil**. Orada service role vb. var; iOS’ta yalnızca **anon** ve public anahtarlar kullanılır.
 

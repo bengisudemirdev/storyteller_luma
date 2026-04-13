@@ -19,9 +19,18 @@ const envSchema = z.object({
 
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
-  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
+  /** Aynı IP için pencere başına max istek (uygulama + Swagger ortak sayaç). */
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   STORIES_GENERATE_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   STORIES_GENERATE_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+  /** `true` / `1` ise genel ve masal-üretim rate limit devre dışı (yalnızca güvenilir ortamda). */
+  RATE_LIMIT_DISABLED: z
+    .preprocess((v) => {
+      if (v === undefined || v === null || v === "") return false;
+      const s = String(v).trim().toLowerCase();
+      return s === "true" || s === "1" || s === "yes";
+    }, z.boolean())
+    .default(false),
 
   // Usage limits (per day)
   DAILY_FREE_STORY_LIMIT: z.coerce.number().int().nonnegative().default(5),
@@ -35,6 +44,8 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(10),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   OPENAI_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.7),
+  /** `openai.images.generate` — `gpt-image-1` (default) or `dall-e-3` */
+  OPENAI_IMAGE_MODEL: z.string().min(1).default("gpt-image-1"),
 
   // Swagger / docs
   SWAGGER_ENABLED: z.coerce.boolean().default(process.env.NODE_ENV === "production" ? false : true),
@@ -83,6 +94,7 @@ export const env = {
   RATE_LIMIT_MAX: number;
   STORIES_GENERATE_RATE_LIMIT_WINDOW_MS: number;
   STORIES_GENERATE_RATE_LIMIT_MAX: number;
+  RATE_LIMIT_DISABLED: boolean;
   DAILY_FREE_STORY_LIMIT: number;
   DAILY_PREMIUM_STORY_LIMIT: number;
   SUPABASE_URL: string;
@@ -90,6 +102,7 @@ export const env = {
   OPENAI_API_KEY: string;
   OPENAI_MODEL: string;
   OPENAI_TEMPERATURE: number;
+  OPENAI_IMAGE_MODEL: string;
   SWAGGER_ENABLED: boolean;
   SWAGGER_BASIC_AUTH_USERNAME: string;
   SWAGGER_BASIC_AUTH_PASSWORD: string;

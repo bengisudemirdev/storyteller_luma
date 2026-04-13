@@ -27,7 +27,13 @@ enum APIClientError: LocalizedError {
             return "Geçersiz API URL."
         case .unauthorized:
             return "Yetkilendirme başarısız. Lütfen tekrar giriş yapın."
-        case .server(_, let message):
+        case .server(let code, let message):
+            if code == "RATE_LIMITED" {
+                return "Şu an çok fazla istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
+            }
+            if message.localizedCaseInsensitiveContains("rate limit") {
+                return "Şu an çok fazla istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
+            }
             return message
         case .decodingFailed:
             return "Sunucu yanıtı işlenemedi."

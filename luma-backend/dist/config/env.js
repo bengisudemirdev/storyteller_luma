@@ -19,9 +19,19 @@ const envSchema = zod_1.z.object({
     CORS_ORIGINS: zod_1.z.string().optional().default(""),
     // Rate limiting
     RATE_LIMIT_WINDOW_MS: zod_1.z.coerce.number().int().positive().default(900000),
-    RATE_LIMIT_MAX: zod_1.z.coerce.number().int().positive().default(120),
+    /** Aynı IP için pencere başına max istek (uygulama + Swagger ortak sayaç). */
+    RATE_LIMIT_MAX: zod_1.z.coerce.number().int().positive().default(300),
     STORIES_GENERATE_RATE_LIMIT_WINDOW_MS: zod_1.z.coerce.number().int().positive().default(900000),
     STORIES_GENERATE_RATE_LIMIT_MAX: zod_1.z.coerce.number().int().positive().default(30),
+    /** `true` / `1` ise genel ve masal-üretim rate limit devre dışı (yalnızca güvenilir ortamda). */
+    RATE_LIMIT_DISABLED: zod_1.z
+        .preprocess((v) => {
+        if (v === undefined || v === null || v === "")
+            return false;
+        const s = String(v).trim().toLowerCase();
+        return s === "true" || s === "1" || s === "yes";
+    }, zod_1.z.boolean())
+        .default(false),
     // Usage limits (per day)
     DAILY_FREE_STORY_LIMIT: zod_1.z.coerce.number().int().nonnegative().default(5),
     DAILY_PREMIUM_STORY_LIMIT: zod_1.z.coerce.number().int().nonnegative().default(50),
@@ -32,6 +42,8 @@ const envSchema = zod_1.z.object({
     OPENAI_API_KEY: zod_1.z.string().min(10),
     OPENAI_MODEL: zod_1.z.string().default("gpt-4o-mini"),
     OPENAI_TEMPERATURE: zod_1.z.coerce.number().min(0).max(2).default(0.7),
+    /** `openai.images.generate` — `gpt-image-1` (default) or `dall-e-3` */
+    OPENAI_IMAGE_MODEL: zod_1.z.string().min(1).default("gpt-image-1"),
     // Swagger / docs
     SWAGGER_ENABLED: zod_1.z.coerce.boolean().default(process.env.NODE_ENV === "production" ? false : true),
     SWAGGER_BASIC_AUTH_USERNAME: zod_1.z.string().min(1).default("docs_user"),

@@ -27,3 +27,8 @@ export function sanitizeModelOutputText(input: string, maxLen: number): string {
   return clamp(noCodeFences, maxLen);
 }
 
+/** Satır başı "1.", "2)" vb. paragraf numaralandırmasını kaldırır; düz anlatı metni kalır. */
+export function stripStoryParagraphNumbering(story: string): string {
+  return story.replace(/(^|\n)(\s*)\d{1,3}(?:\.\s+|\)\s+)/g, "$1$2");
+}
+
