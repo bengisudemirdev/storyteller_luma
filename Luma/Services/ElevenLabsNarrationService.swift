@@ -3,7 +3,7 @@ import Foundation
 
 // MARK: - API types
 
-private struct ElevenLabsAgentResponse: Decodable {
+struct ElevenLabsAgentResponse: Decodable {
     let conversation_config: ConversationConfig
 
     struct ConversationConfig: Decodable {
@@ -13,6 +13,25 @@ private struct ElevenLabsAgentResponse: Decodable {
     struct TTSConfig: Decodable {
         let voice_id: String
         let model_id: String?
+        let voice_settings: VoiceSettings?
+    }
+
+    struct VoiceSettings: Decodable {
+        let stability: Double?
+        let similarity_boost: Double?
+        let style: Double?
+        let use_speaker_boost: Bool?
+        let speed: Double?
+
+        var asDictionary: [String: Any] {
+            var dict: [String: Any] = [:]
+            if let stability { dict["stability"] = stability }
+            if let similarity_boost { dict["similarity_boost"] = similarity_boost }
+            if let style { dict["style"] = style }
+            if let use_speaker_boost { dict["use_speaker_boost"] = use_speaker_boost }
+            if let speed { dict["speed"] = speed }
+            return dict
+        }
     }
 }
 
@@ -41,20 +60,29 @@ enum ElevenLabsNarrationError: LocalizedError {
 enum ElevenLabsNarrationService {
     private static let apiHost = "api.elevenlabs.io"
 
-    private static var cachedVoice: (agentId: String, voiceId: String, modelId: String)?
+    private static var cachedVoice: (agentId: String, voiceId: String, modelId: String, voiceSettings: ElevenLabsAgentResponse.VoiceSettings?)?
 
     /// Agent API'den ses ve model bilgisi (oturum boyunca önbelleklenir).
-    static func resolveVoiceAndModel(apiKey: String, agentId: String) async throws -> (voiceId: String, modelId: String) {
-        if let c = cachedVoice, c.agentId == agentId {
-            return (c.voiceId, c.modelId)
+    static func resolveVoiceAndModel(
+        apiKey: String,
+        agentId: String
+    ) async throws -> (
+        voiceId: String,
+        modelId: String,
+        voiceSettings: ElevenLabsAgentResponse.VoiceSettings?
+    ) {
+        let normalizedAgentId = normalizeAgentId(agentId)
+        if let c = cachedVoice, c.agentId == normalizedAgentId {
+            return (c.voiceId, c.modelId, c.voiceSettings)
         }
-        let enc = agentId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? agentId
+        let enc = normalizedAgentId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? normalizedAgentId
         guard let url = URL(string: "https://\(apiHost)/v1/convai/agents/\(enc)") else {
             throw ElevenLabsNarrationError.invalidURL
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        request.timeoutInterval = 20
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -65,8 +93,9 @@ enum ElevenLabsNarrationService {
         guard !voiceId.isEmpty else { throw ElevenLabsNarrationError.missingVoiceId }
 
         let modelId = sanitizedModelId(decoded.conversation_config.tts.model_id)
-        cachedVoice = (agentId, voiceId, modelId)
-        return (voiceId, modelId)
+        let voiceSettings = decoded.conversation_config.tts.voice_settings
+        cachedVoice = (normalizedAgentId, voiceId, modelId, voiceSettings)
+        return (voiceId, modelId, voiceSettings)
     }
 
     /// Uzun metinleri TTS limitine göre böler, her parça için MP3 indirir, geçici dosya URL'leri döner.
@@ -74,7 +103,8 @@ enum ElevenLabsNarrationService {
         text: String,
         apiKey: String,
         voiceId: String,
-        modelId: String
+        modelId: String,
+        voiceSettings: ElevenLabsAgentResponse.VoiceSettings?
     ) async throws -> [URL] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ElevenLabsNarrationError.emptyText }
@@ -83,7 +113,13 @@ enum ElevenLabsNarrationService {
         var urls: [URL] = []
         for (index, chunk) in chunks.enumerated() {
             try Task.checkCancellation()
-            let data = try await requestSpeechData(text: chunk, apiKey: apiKey, voiceId: voiceId, modelId: modelId)
+            let data = try await requestSpeechData(
+                text: chunk,
+                apiKey: apiKey,
+                voiceId: voiceId,
+                modelId: modelId,
+                voiceSettings: voiceSettings
+            )
             let tmp = FileManager.default.temporaryDirectory
                 .appendingPathComponent("luma_elevenlabs_\(UUID().uuidString)_\(index).mp3")
             try data.write(to: tmp, options: .atomic)
@@ -96,7 +132,8 @@ enum ElevenLabsNarrationService {
         text: String,
         apiKey: String,
         voiceId: String,
-        modelId: String
+        modelId: String,
+        voiceSettings: ElevenLabsAgentResponse.VoiceSettings?
     ) async throws -> Data {
         let vEnc = voiceId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? voiceId
         var components = URLComponents()
@@ -108,13 +145,20 @@ enum ElevenLabsNarrationService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 35
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "text": text,
             "model_id": modelId
         ]
+        if let voiceSettings {
+            let settings = voiceSettings.asDictionary
+            if !settings.isEmpty {
+                body["voice_settings"] = settings
+            }
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -171,6 +215,37 @@ enum ElevenLabsNarrationService {
             }
         }
         return result.filter { !$0.isEmpty }
+    }
+
+    private static func normalizeAgentId(_ raw: String) -> String {
+        var value = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+
+        // URL ya da path yapıştıysa sadece son segmenti al.
+        if let slash = value.lastIndex(of: "/"), slash < value.index(before: value.endIndex) {
+            value = String(value[value.index(after: slash)...])
+        }
+
+        // Sondaki .git / git gibi yapışmış ekleri temizle.
+        if value.hasSuffix(".git") {
+            value = String(value.dropLast(4))
+        }
+        if value.hasPrefix("agent_"), value.hasSuffix("git"), value.count > 30 {
+            value = String(value.dropLast(3))
+        }
+
+        // Non-agent metnin içinden güvenli şekilde agent token'ını çek.
+        if let range = value.range(of: #"agent_[a-zA-Z0-9]+"#, options: .regularExpression) {
+            value = String(value[range])
+        }
+
+        // Noktalama/boşluk artıkları.
+        while let last = value.unicodeScalars.last,
+              !(CharacterSet.alphanumerics.contains(last) || last == "_") {
+            value.removeLast()
+        }
+        return value
     }
 }
 

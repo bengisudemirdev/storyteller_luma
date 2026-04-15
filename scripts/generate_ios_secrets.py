@@ -19,6 +19,7 @@ KEYS = [
     ("REVENUECAT_API_KEY", "revenueCatAPIKey"),
     ("ELEVENLABS_API_KEY", "elevenLabsAPIKey"),
     ("ELEVENLABS_AGENT_ID", "elevenLabsAgentId"),
+    ("ELEVENLABS_VOICE_ID", "elevenLabsVoiceId"),
     ("FEEDBACK_EMAIL", "feedbackEmail"),
     # İsteğe bağlı CDN tabanı .../classic-tales (sonunda / yok). Boşsa Supabase URL + bucket ile üretilir.
     ("CLASSIC_TALE_COVERS_BASE_URL", "classicTaleCoversBaseURL"),

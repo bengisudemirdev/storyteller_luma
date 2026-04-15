@@ -69,7 +69,7 @@ class CreateStoryViewModel: ObservableObject {
                 generatedStory = story.content
                 showReaderView = true
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userFacingTurkishMessage
                 showErrorAlert = true
                 AppLogger.error("stories.create.failed", [
                     "childId": selectedChild?.id.uuidString ?? "none",

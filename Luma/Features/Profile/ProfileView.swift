@@ -20,6 +20,8 @@ struct ProfileView: View {
                         profileHero
                             .padding(.top, 8)
 
+                        premiumSection
+
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Çocuk Profilleri")
                                 .font(.system(size: 22, weight: .bold, design: .serif))
@@ -222,29 +224,11 @@ struct ProfileView: View {
         }
     }
 
-    private var accountSettingsSection: some View {
+    private var premiumSection: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Hesap ve Abonelik")
+            Text("Premium")
                 .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
-                .padding(.top, 4)
-            HStack {
-                Image(systemName: "envelope.fill")
-                    .foregroundStyle(HomeDashboardPalette.accentOrange)
-                    .frame(width: 30)
-                Text("E-posta")
-                    .foregroundStyle(HomeDashboardPalette.ink)
-                Spacer()
-                Text(viewModel.parentEmail)
-                    .foregroundStyle(HomeDashboardPalette.muted)
-                    .lineLimit(1)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
-                    .fill(HomeDashboardPalette.cardSurface)
-                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 3)
-            )
 
             Button {
                 isShowingPaywall = true
@@ -279,6 +263,32 @@ struct ProfileView: View {
                 )
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private var accountSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            Text("Hesap")
+                .font(.system(size: 22, weight: .bold, design: .serif))
+                .foregroundStyle(HomeDashboardPalette.ink)
+                .padding(.top, 4)
+            HStack {
+                Image(systemName: "envelope.fill")
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .frame(width: 30)
+                Text("E-posta")
+                    .foregroundStyle(HomeDashboardPalette.ink)
+                Spacer()
+                Text(viewModel.parentEmail)
+                    .foregroundStyle(HomeDashboardPalette.muted)
+                    .lineLimit(1)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                    .fill(HomeDashboardPalette.cardSurface)
+                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 3)
+            )
         }
     }
 
@@ -334,8 +344,7 @@ struct ProfileView: View {
     @ViewBuilder
     func childRow(child: ChildModel) -> some View {
         HStack(spacing: 15) {
-            Text(child.safeAvatarEmoji)
-                .font(.system(size: 40))
+            AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 40, color: HomeDashboardPalette.nightMid)
                 .frame(width: 70, height: 70)
                 .background(
                     Circle()
@@ -375,7 +384,7 @@ struct ChildDetailView: View {
             LumaTheme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 VStack(spacing: 15) {
-                    Text(child.safeAvatarEmoji).font(.system(size: 80))
+                    AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 80, color: HomeDashboardPalette.nightMid)
                         .frame(width: 140, height: 140).background(Circle().fill(LumaTheme.lavender.opacity(0.1)))
                     Text(child.name).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(LumaTheme.text)
                     Text("\(child.age) Yaşında").foregroundColor(LumaTheme.secondaryText)
@@ -643,8 +652,11 @@ struct AddChildView: View {
                                 lineWidth: 2
                             )
                     )
-                Text(ChildModel.sanitizeAvatarEmoji(viewModel.selectedEmoji))
-                    .font(.system(size: 30))
+                AvatarGlyphView(
+                    emoji: ChildModel.sanitizeAvatarEmoji(viewModel.selectedEmoji),
+                    size: 30,
+                    color: HomeDashboardPalette.nightMid
+                )
             }
             Text(viewModel.newChildName.isEmpty ? "İsim yazıldığında burada görünür" : viewModel.newChildName)
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
@@ -671,8 +683,7 @@ struct AddChildView: View {
 
     private func addChildEmojiCell(emoji: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(emoji)
-                .font(.system(size: 22))
+            AvatarGlyphView(emoji: emoji, size: 22, color: HomeDashboardPalette.nightMid)
                 .frame(maxWidth: .infinity)
                 .aspectRatio(1, contentMode: .fit)
                 .background(
@@ -828,8 +839,7 @@ struct EditChildView: View {
                                 HStack(spacing: 10) {
                                     ForEach(viewModel.availableEmojis, id: \.self) { emoji in
                                         let isSelected = viewModel.selectedEmoji == emoji
-                                        Text(emoji)
-                                            .font(.system(size: 28))
+                                        AvatarGlyphView(emoji: emoji, size: 28, color: HomeDashboardPalette.nightMid)
                                             .frame(width: 44, height: 44)
                                             .background(isSelected ? LumaTheme.lavender.opacity(0.2) : Color.white)
                                             .cornerRadius(12)

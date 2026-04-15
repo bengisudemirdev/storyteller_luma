@@ -6,11 +6,11 @@ struct RegistrationChildSetupView: View {
 
     @State private var childName = ""
     @State private var childAgeText = ""
-    @State private var avatarEmoji = "🦊"
+    @State private var avatarEmoji = ChildModel.defaultAvatarEmoji
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    private let avatarChoices = ["🦊", "🦄", "🦁", "🐰", "🐼", "🦖", "🦋", "🐙", "🐵", "🐥"]
+    private let avatarChoices = ChildModel.supportedAvatarEmojis
     private let emojiColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
 
     private var trimmedName: String {
@@ -122,8 +122,7 @@ struct RegistrationChildSetupView: View {
                                             avatarEmoji = emoji
                                         }
                                     } label: {
-                                        Text(emoji)
-                                            .font(.system(size: 24))
+                                        AvatarGlyphView(emoji: emoji, size: 24, color: HomeDashboardPalette.nightMid)
                                             .frame(maxWidth: .infinity)
                                             .aspectRatio(1, contentMode: .fit)
                                             .background(
@@ -248,8 +247,7 @@ struct RegistrationChildSetupView: View {
                                 lineWidth: 2
                             )
                     )
-                Text(avatarEmoji)
-                    .font(.system(size: 32))
+                AvatarGlyphView(emoji: avatarEmoji, size: 32, color: HomeDashboardPalette.nightMid)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Önizleme")
@@ -331,7 +329,7 @@ struct RegistrationChildSetupView: View {
                 NotificationCenter.default.post(name: .lumaPresentPostRegistrationPaywall, object: nil)
             }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userFacingTurkishMessage
         }
         isSaving = false
     }

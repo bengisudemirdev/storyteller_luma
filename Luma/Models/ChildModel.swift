@@ -3,6 +3,7 @@ import Foundation
 
 struct ChildModel: Codable, Identifiable, Equatable {
     static let defaultAvatarEmoji = "🦊"
+    static let supportedAvatarEmojis: [String] = ["🦊", "🦄", "🦁", "🐰", "🐼", "🦖", "🦋", "🐙", "🐵", "🐥"]
 
     let id: UUID
     /// Ebeveyn kullanıcı id (API: `user_id` veya `parent_id`)
@@ -109,7 +110,7 @@ struct ChildModel: Codable, Identifiable, Equatable {
 
         guard let firstCharacter = trimmed.first else { return defaultAvatarEmoji }
         let glyph = String(firstCharacter)
-        if glyph.unicodeScalars.contains(where: { $0.properties.isEmoji }) {
+        if supportedAvatarEmojis.contains(glyph) {
             return glyph
         }
         return defaultAvatarEmoji

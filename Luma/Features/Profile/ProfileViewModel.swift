@@ -19,7 +19,7 @@ class ProfileViewModel: ObservableObject {
     @Published var isShowingDetailSheet = false
     @Published var parentEmail: String = ""
 
-    let availableEmojis = ["🦊", "🦄", "🦁", "🐰", "🐼", "🦖", "🦋", "🐙", "🐵", "🐥"]
+    let availableEmojis = ChildModel.supportedAvatarEmojis
     private var lastChildrenFetchAt: Date?
     private let minChildrenFetchInterval: TimeInterval = 8
     private var isFetchingChildren = false
@@ -61,7 +61,7 @@ class ProfileViewModel: ObservableObject {
                     "context": "ProfileViewModel",
                     "error": String(describing: type(of: error))
                 ])
-                errorMessage = "Veriler alınırken bir hata oluştu: \(error.localizedDescription)"
+                errorMessage = "Veriler alınırken bir hata oluştu: \(error.userFacingTurkishMessage)"
             }
         }
     }
@@ -103,7 +103,7 @@ class ProfileViewModel: ObservableObject {
             AppLogger.error("children.create.failed", [
                 "error": String(describing: type(of: error))
             ])
-            errorMessage = error.localizedDescription
+            errorMessage = error.userFacingTurkishMessage
             isLoading = false
             return false
         }
@@ -155,7 +155,7 @@ class ProfileViewModel: ObservableObject {
                 "childId": baseChild.id.uuidString,
                 "error": String(describing: type(of: error))
             ])
-            errorMessage = error.localizedDescription
+            errorMessage = error.userFacingTurkishMessage
             isLoading = false
             return false
         }
@@ -184,7 +184,7 @@ class ProfileViewModel: ObservableObject {
             isLoading = false
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userFacingTurkishMessage
             isLoading = false
             return false
         }

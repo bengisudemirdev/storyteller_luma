@@ -43,10 +43,19 @@ enum APIClientError: LocalizedError {
             if code == "OPENAI_CONFIG_ERROR" {
                 return "Masal servisi geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin."
             }
+            if code == "OPENAI_MODEL_NOT_FOUND" {
+                return "Masal servisi model ayarı geçersiz. Lütfen destek ile iletişime geçin."
+            }
+            if code == "OPENAI_PROMPT_TOO_LONG" {
+                return "Masal isteği çok uzun. Lütfen ek detayları biraz kısaltıp tekrar deneyin."
+            }
+            if code == "OPENAI_UPSTREAM_ERROR" {
+                return "Masal servisi şu an meşgul. Lütfen birazdan tekrar deneyin."
+            }
             if message.localizedCaseInsensitiveContains("rate limit") {
                 return "Şu an çok fazla istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
             }
-            return message
+            return "Sunucu isteği işleyemedi. Lütfen tekrar deneyin."
         case .decodingFailed:
             return "Sunucu yanıtı işlenemedi."
         case .invalidResponse:
@@ -103,7 +112,7 @@ final class APIClient {
         } catch let error as URLError {
             throw APIClientError.networkFailure(Self.describeURLError(error))
         } catch {
-            throw APIClientError.networkFailure(error.localizedDescription)
+            throw APIClientError.networkFailure("Ağ bağlantısında bir sorun oluştu. Lütfen tekrar deneyin.")
         }
 
         guard let http = response as? HTTPURLResponse else {
@@ -142,20 +151,19 @@ final class APIClient {
     }
 
     private static func describeURLError(_ error: URLError) -> String {
-        let base = error.localizedDescription
         switch error.code {
         case .notConnectedToInternet:
-            return "İnternet bağlantısı yok. \(base)"
+            return "İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edin."
         case .cannotFindHost, .dnsLookupFailed:
-            return "Sunucu adresi çözülemedi. BACKEND_BASE_URL’i kontrol edin. \(base)"
+            return "Sunucu adresi çözülemedi. Lütfen daha sonra tekrar deneyin."
         case .timedOut:
-            return "İstek zaman aşımına uğradı. Backend çalışıyor mu? \(base)"
+            return "İstek zaman aşımına uğradı. Lütfen tekrar deneyin."
         case .secureConnectionFailed, .serverCertificateUntrusted:
-            return "Güvenli bağlantı kurulamadı (HTTPS/sertifika). \(base)"
+            return "Güvenli bağlantı kurulamadı (HTTPS/sertifika)."
         case .appTransportSecurityRequiresSecureConnection:
-            return "ATS: HTTP API engellendi. HTTPS kullanın veya yerel ağ için Info.plist’te NSAllowsLocalNetworking açık olsun. \(base)"
+            return "Güvenli bağlantı gereksinimi nedeniyle istek engellendi."
         default:
-            return base
+            return "Ağ bağlantısında bir sorun oluştu. Lütfen tekrar deneyin."
         }
     }
 }

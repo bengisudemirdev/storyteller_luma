@@ -15,7 +15,7 @@ struct HomeView: View {
                         HomeHeroSection()
                             .padding(.top, 8)
 
-                        ClassicTalesSection(tales: ClassicTaleItem.mockLibrary)
+                        ClassicTalesSection(tales: viewModel.classicTales)
 
                         DashboardRecentStoriesSection(stories: viewModel.recentStories)
                     }
@@ -72,6 +72,7 @@ enum HomeDashboardSectionSpacing {
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var children: [ChildModel] = []
+    @Published var classicTales: [ClassicTaleItem] = ClassicTaleItem.mockLibrary
     @Published var recentStories: [StoryModel] = []
     @Published var isLoadingInitial: Bool = false
     @Published var selectedChild: ChildModel? = nil
@@ -84,9 +85,11 @@ class HomeViewModel: ObservableObject {
 
         do {
             async let childrenTask: [ChildModel] = fetchChildren()
+            async let classicTalesTask: [ClassicTaleItem] = fetchClassicTales()
             async let storiesTask: [StoryModel] = fetchStories()
-            let (fetchedChildren, fetchedStories) = try await (childrenTask, storiesTask)
+            let (fetchedChildren, fetchedClassicTales, fetchedStories) = try await (childrenTask, classicTalesTask, storiesTask)
             self.children = fetchedChildren
+            self.classicTales = fetchedClassicTales
             self.recentStories = fetchedStories
 
             if selectedChild == nil {
@@ -134,6 +137,21 @@ class HomeViewModel: ObservableObject {
                 "error": String(describing: error)
             ])
             return []
+        }
+    }
+
+    private func fetchClassicTales() async -> [ClassicTaleItem] {
+        do {
+            let apiTales = try await StoryService.fetchClassicTales(limit: 30)
+            if apiTales.isEmpty {
+                return ClassicTaleItem.mockLibrary
+            }
+            return apiTales
+        } catch {
+            AppLogger.warning("classic_tales.fetch.failed", [
+                "errorType": String(describing: type(of: error))
+            ])
+            return ClassicTaleItem.mockLibrary
         }
     }
 }
@@ -216,8 +234,7 @@ struct ChildCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(child.safeAvatarEmoji)
-                .font(.system(size: 36))
+            AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 36, color: LumaTheme.lavender)
                 .frame(width: 64, height: 64)
                 .background(
                     Circle()
@@ -272,7 +289,7 @@ struct SelectedChildDetailSection: View {
                     .font(.caption)
                     .foregroundColor(LumaTheme.secondaryText)
                 if !child.safeAvatarEmoji.isEmpty {
-                    Text(child.safeAvatarEmoji)
+                    AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 16, color: LumaTheme.lavender)
                 }
             }
 

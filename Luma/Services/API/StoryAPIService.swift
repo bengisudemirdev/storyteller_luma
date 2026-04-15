@@ -22,6 +22,18 @@ struct StoryDetailDataDTO: Decodable {
     let story: StoryModel
 }
 
+private struct StoryAudioDataDTO: Decodable {
+    let story: StoryModel?
+    let audioUrl: String?
+    let audio_url: String?
+
+    enum CodingKeys: String, CodingKey {
+        case story
+        case audioUrl
+        case audio_url
+    }
+}
+
 enum StoryAPIService {
     private static let client = APIClient.shared
 
@@ -143,6 +155,25 @@ enum StoryAPIService {
         let _: StoryDetailDataDTO = try await client.request(endpoint)
     }
 
+    static func generateStoryAudioURL(id: UUID) async throws -> String {
+        let endpoint = APIEndpoint(
+            path: "/v1/stories/\(id.uuidString)/audio",
+            method: .post,
+            timeoutInterval: 120
+        )
+        let data: StoryAudioDataDTO = try await client.request(endpoint)
+        if let direct = data.audioUrl, !direct.isEmpty {
+            return direct
+        }
+        if let snake = data.audio_url, !snake.isEmpty {
+            return snake
+        }
+        if let storyAudio = data.story?.audio_url, !storyAudio.isEmpty {
+            return storyAudio
+        }
+        throw APIClientError.decodingFailed
+    }
+
     private static func shouldRetryGenerate(_ error: APIClientError) -> Bool {
         switch error {
         case .networkFailure:
@@ -153,6 +184,10 @@ enum StoryAPIService {
                 || normalized == "BAD_GATEWAY"
                 || normalized == "SERVICE_UNAVAILABLE"
                 || normalized == "GATEWAY_TIMEOUT"
+                || normalized == "OPENAI_REQUEST_FAILED"
+                || normalized == "OPENAI_UPSTREAM_ERROR"
+                || normalized == "OPENAI_TIMEOUT"
+                || normalized == "OPENAI_RATE_LIMITED"
         default:
             return false
         }

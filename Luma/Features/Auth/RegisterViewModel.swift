@@ -36,14 +36,14 @@ class RegisterViewModel: ObservableObject {
             _ = try await OliaApp.supabase.auth.signUp(email: email, password: password)
         } catch {
             UserDefaults.standard.set(false, forKey: "luma_registration_requires_child_setup")
-            errorMessage = error.localizedDescription
+            errorMessage = error.userFacingTurkishMessage
             isLoading = false
             return false
         }
         do {
             _ = try await AuthAPIService.syncCurrentUser(force: true)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userFacingTurkishMessage
         }
         isLoading = false
         return true

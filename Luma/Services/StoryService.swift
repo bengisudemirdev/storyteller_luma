@@ -8,6 +8,9 @@
 import Foundation
 
 enum StoryService {
+    static func fetchClassicTales(limit: Int = 30) async throws -> [ClassicTaleItem] {
+        try await ClassicTalesAPIService.fetchClassicTales(limit: limit)
+    }
 
     /// Giriş yapmış kullanıcının kayıtlı masallarını döner.
     static func fetchSavedStories() async throws -> [StoryModel] {
@@ -36,5 +39,10 @@ enum StoryService {
     /// Belirli bir masalı (id ile) siler.
     static func deleteStory(id: UUID) async throws {
         try await StoryAPIService.deleteStory(id: id)
+    }
+
+    /// Belirli bir masal için backend üzerinden seslendirme üretir ve audio URL döner.
+    static func generateStoryAudioURL(id: UUID) async throws -> String {
+        try await StoryAPIService.generateStoryAudioURL(id: id)
     }
 }

@@ -498,77 +498,19 @@ struct ClassicTalePreviewView: View {
     let tale: ClassicTaleItem
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    HomeDashboardPalette.cream,
-                    HomeDashboardPalette.creamDeep
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        StoryReaderView(
+            child: nil,
+            storyTitle: tale.title,
+            storyContent: """
+            \(tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines))
 
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    StoryPhotoCoverView(
-                        imageURL: AppConfig.classicTaleCoverImageURL(taleId: tale.id),
-                        fallbackTemplate: tale.coverTemplate,
-                        title: tale.title,
-                        subtitle: nil,
-                        tag: tale.tag,
-                        showsTextOverlay: false,
-                        cornerRadius: StoryCoverMetrics.cornerRadius,
-                        width: min(UIScreen.main.bounds.width - 48, 300)
-                    )
-                    .frame(maxWidth: .infinity)
-
-                    Text(tale.title)
-                        .font(.system(size: 28, weight: .bold, design: .serif))
-                        .foregroundStyle(HomeDashboardPalette.ink)
-
-                    Text(tale.tag)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .fill(HomeDashboardPalette.accentOrange.opacity(0.15))
-                        )
-
-                    Text(tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines))
-                        .font(.system(size: 17, weight: .regular, design: .serif))
-                        .foregroundStyle(HomeDashboardPalette.ink.opacity(0.92))
-                        .lineSpacing(7)
-
-                    Text(tale.attribution)
-                        .font(.system(size: 12, weight: .regular, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.muted)
-                        .italic()
-                        .padding(.top, 4)
-
-                    NavigationLink {
-                        CreateStoryView()
-                    } label: {
-                        Text("Kendi masalını oluştur")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(HomeDashboardPalette.accentOrange)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 8)
-                }
-                .padding(24)
-                .padding(.bottom, 40)
-            }
-        }
-        .navigationBarTitleDisplayMode(.inline)
+            Kaynak Notu:
+            \(tale.attribution)
+            """,
+            showSaveButton: false,
+            story: nil,
+            onSave: nil
+        )
     }
 }
 
@@ -724,15 +666,17 @@ private struct DashboardRecentStoryCard: View {
                 .font(.system(size: 14, weight: .semibold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
                 .lineLimit(2)
+                .frame(height: 36, alignment: .topLeading)
 
-            if let date = story.created_at {
-                Text(Self.dateFormatter.string(from: date))
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
-            }
+            Text(story.created_at.map { Self.dateFormatter.string(from: $0) } ?? " ")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                .lineLimit(1)
+                .frame(height: 14, alignment: .topLeading)
         }
         .padding(14)
         .frame(width: 164, alignment: .leading)
+        .frame(height: 192, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
                 .fill(HomeDashboardPalette.dashboardCanvas)
