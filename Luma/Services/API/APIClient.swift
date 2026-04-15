@@ -31,6 +31,18 @@ enum APIClientError: LocalizedError {
             if code == "RATE_LIMITED" {
                 return "Şu an çok fazla istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
             }
+            if code == "INTERNAL_SERVER_ERROR" {
+                return "Sunucuda beklenmeyen bir sorun oluştu. Kısa bir süre sonra tekrar dene."
+            }
+            if code == "OPENAI_TIMEOUT" {
+                return "Masal üretimi bu denemede zaman aşımına uğradı. Lütfen tekrar deneyin."
+            }
+            if code == "OPENAI_RATE_LIMITED" {
+                return "Masal servisi yoğun. Birkaç saniye sonra tekrar deneyin."
+            }
+            if code == "OPENAI_CONFIG_ERROR" {
+                return "Masal servisi geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+            }
             if message.localizedCaseInsensitiveContains("rate limit") {
                 return "Şu an çok fazla istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
             }

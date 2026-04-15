@@ -41,7 +41,7 @@ class RegisterViewModel: ObservableObject {
             return false
         }
         do {
-            _ = try await AuthAPIService.syncCurrentUser()
+            _ = try await AuthAPIService.syncCurrentUser(force: true)
         } catch {
             errorMessage = error.localizedDescription
         }

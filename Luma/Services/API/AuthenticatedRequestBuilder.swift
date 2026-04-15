@@ -45,17 +45,27 @@ struct AuthenticatedRequestBuilder {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.httpBody = jsonBody
+        if let timeout = endpoint.timeoutInterval {
+            request.timeoutInterval = timeout
+        }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         let token = try await sessionProvider.accessToken()
         #if DEBUG
-        print("[Olia DEBUG] Authorization: Bearer \(token)")
+        print("[Olia DEBUG] Authorization: Bearer \(Self.redactedToken(token))")
         print("[Olia DEBUG] İstek: \(endpoint.method.rawValue) \(endpoint.path)")
         #endif
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         return request
+    }
+
+    private static func redactedToken(_ token: String) -> String {
+        guard token.count > 16 else { return "REDACTED" }
+        let prefix = token.prefix(8)
+        let suffix = token.suffix(8)
+        return "\(prefix)...\(suffix)"
     }
 }
 

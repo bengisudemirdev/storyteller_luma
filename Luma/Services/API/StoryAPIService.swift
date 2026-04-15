@@ -44,7 +44,12 @@ enum StoryAPIService {
             "endpoint": "/v1/stories/generate"
         ])
 
-        let endpoint = APIEndpoint(path: "/v1/stories/generate", method: .post)
+        // Hikaye üretimi LLM/medya adımları nedeniyle diğer endpoint'lere göre daha uzun sürebilir.
+        let endpoint = APIEndpoint(
+            path: "/v1/stories/generate",
+            method: .post,
+            timeoutInterval: 180
+        )
         let body = StoryGenerateRequestDTO(
             childId: childId,
             theme: theme,
@@ -54,48 +59,67 @@ enum StoryAPIService {
             storyGoal: storyGoal
         )
 
-        do {
-            let data: StoryGenerateDataDTO = try await client.request(endpoint, body: body)
-            AppLogger.info("stories.generate.response_received", [
-                "childId": childId.uuidString,
-                "theme": theme,
-                "storyId": data.story.id.uuidString,
-                "result": "ok"
-            ])
-            return data.story
-        } catch let err as APIClientError {
-            let code: String
-            switch err {
-            case .decodingFailed:
-                code = "decode_failed"
-            case .unauthorized:
-                code = "unauthorized"
-            case .server(let c, _):
-                code = c
-            default:
-                code = "client_error"
-            }
-            AppLogger.error("stories.generate.failed", [
-                "childId": childId.uuidString,
-                "theme": theme,
-                "errorKind": "\(err)",
-                "errorCode": code
-            ])
-            if case .decodingFailed = err {
-                AppLogger.error("stories.generate.decode_failed", [
+        let maxAttempts = 2
+        for attempt in 1...maxAttempts {
+            do {
+                let data: StoryGenerateDataDTO = try await client.request(endpoint, body: body)
+                AppLogger.info("stories.generate.response_received", [
                     "childId": childId.uuidString,
-                    "theme": theme
+                    "theme": theme,
+                    "storyId": data.story.id.uuidString,
+                    "result": "ok",
+                    "attempt": "\(attempt)"
                 ])
+                return data.story
+            } catch let err as APIClientError {
+                if attempt < maxAttempts, shouldRetryGenerate(err) {
+                    AppLogger.info("stories.generate.retrying", [
+                        "childId": childId.uuidString,
+                        "theme": theme,
+                        "attempt": "\(attempt)",
+                        "nextAttempt": "\(attempt + 1)",
+                        "errorKind": "\(err)"
+                    ])
+                    try await Task.sleep(nanoseconds: retryDelay(forAttempt: attempt))
+                    continue
+                }
+
+                let code: String
+                switch err {
+                case .decodingFailed:
+                    code = "decode_failed"
+                case .unauthorized:
+                    code = "unauthorized"
+                case .server(let c, _):
+                    code = c
+                default:
+                    code = "client_error"
+                }
+                AppLogger.error("stories.generate.failed", [
+                    "childId": childId.uuidString,
+                    "theme": theme,
+                    "attempt": "\(attempt)",
+                    "errorKind": "\(err)",
+                    "errorCode": code
+                ])
+                if case .decodingFailed = err {
+                    AppLogger.error("stories.generate.decode_failed", [
+                        "childId": childId.uuidString,
+                        "theme": theme
+                    ])
+                }
+                throw err
+            } catch {
+                AppLogger.error("stories.generate.failed", [
+                    "childId": childId.uuidString,
+                    "theme": theme,
+                    "attempt": "\(attempt)",
+                    "errorKind": "unknown"
+                ])
+                throw error
             }
-            throw err
-        } catch {
-            AppLogger.error("stories.generate.failed", [
-                "childId": childId.uuidString,
-                "theme": theme,
-                "errorKind": "unknown"
-            ])
-            throw error
         }
+        throw APIClientError.invalidResponse
     }
 
     static func fetchStories(limit: Int = 20) async throws -> [StoryModel] {
@@ -117,5 +141,25 @@ enum StoryAPIService {
     static func deleteStory(id: UUID) async throws {
         let endpoint = APIEndpoint(path: "/v1/stories/\(id.uuidString)", method: .delete)
         let _: StoryDetailDataDTO = try await client.request(endpoint)
+    }
+
+    private static func shouldRetryGenerate(_ error: APIClientError) -> Bool {
+        switch error {
+        case .networkFailure:
+            return true
+        case .server(let code, _):
+            let normalized = code.uppercased()
+            return normalized == "INTERNAL_SERVER_ERROR"
+                || normalized == "BAD_GATEWAY"
+                || normalized == "SERVICE_UNAVAILABLE"
+                || normalized == "GATEWAY_TIMEOUT"
+        default:
+            return false
+        }
+    }
+
+    private static func retryDelay(forAttempt attempt: Int) -> UInt64 {
+        let seconds = attempt == 1 ? 2 : 4
+        return UInt64(seconds) * 1_000_000_000
     }
 }

@@ -20,16 +20,38 @@ class ProfileViewModel: ObservableObject {
     @Published var parentEmail: String = ""
 
     let availableEmojis = ["🦊", "🦄", "🦁", "🐰", "🐼", "🦖", "🦋", "🐙", "🐵", "🐥"]
+    private var lastChildrenFetchAt: Date?
+    private let minChildrenFetchInterval: TimeInterval = 8
+    private var isFetchingChildren = false
 
-    func fetchChildren() async {
-        isLoading = true
+    func fetchChildren(forceRefresh: Bool = false) async {
+        if isFetchingChildren { return }
+        if !forceRefresh,
+           let lastFetch = lastChildrenFetchAt,
+           Date().timeIntervalSince(lastFetch) < minChildrenFetchInterval {
+            return
+        }
+
+        isFetchingChildren = true
+        let shouldManageLoadingState = !isLoading
+        if shouldManageLoadingState {
+            isLoading = true
+        }
         errorMessage = nil
+        defer {
+            isFetchingChildren = false
+            if shouldManageLoadingState {
+                isLoading = false
+            }
+        }
+
         if let user = OliaApp.supabase.auth.currentUser {
             parentEmail = user.email ?? "Ebeveyn"
             AppLogger.info("children.fetch.started", ["context": "ProfileViewModel"])
             do {
                 let response = try await ChildrenAPIService.fetchChildren()
                 children = response
+                lastChildrenFetchAt = Date()
                 AppLogger.info("children.fetch.completed", [
                     "context": "ProfileViewModel",
                     "count": "\(response.count)"
@@ -42,7 +64,6 @@ class ProfileViewModel: ObservableObject {
                 errorMessage = "Veriler alınırken bir hata oluştu: \(error.localizedDescription)"
             }
         }
-        isLoading = false
     }
 
     func addChild() async -> Bool {
@@ -70,7 +91,7 @@ class ProfileViewModel: ObservableObject {
                 fears: currentFears.isEmpty ? [] : currentFears
             )
             AppLogger.info("children.create.completed", [:])
-            await fetchChildren()
+            await fetchChildren(forceRefresh: true)
             newChildName = ""
             newChildAge = ""
             newChildAgeGroup = .sixToEight
@@ -123,7 +144,7 @@ class ProfileViewModel: ObservableObject {
                 "childId": baseChild.id.uuidString
             ])
 
-            await fetchChildren()
+            await fetchChildren(forceRefresh: true)
             isLoading = false
             isEditSheetPresented = false
             editingChild = nil
@@ -159,7 +180,7 @@ class ProfileViewModel: ObservableObject {
         do {
             try await ChildrenAPIService.deleteChild(id: child.id)
 
-            await fetchChildren()
+            await fetchChildren(forceRefresh: true)
             isLoading = false
             return true
         } catch {

@@ -18,7 +18,7 @@ class LoginViewModel: ObservableObject {
         errorMessage = nil
         do {
             try await OliaApp.supabase.auth.signIn(email: email, password: password)
-            _ = try await AuthAPIService.syncCurrentUser()
+            _ = try await AuthAPIService.syncCurrentUser(force: true)
             isLoading = false
             return true
         } catch {

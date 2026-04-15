@@ -18,18 +18,37 @@ enum AuthSessionProviderError: LocalizedError {
 
 final class AuthSessionProvider: AuthSessionProviding {
     static let shared = AuthSessionProvider()
+    private let tokenCoordinator = AuthTokenCoordinator()
 
     private init() {}
 
     func accessToken() async throws -> String {
-        // Access token süresi dolduysa yenilemeyi dene (başarısızsa mevcut session ile devam).
-        _ = try? await OliaApp.supabase.auth.refreshSession()
+        try await tokenCoordinator.accessToken()
+    }
+}
+
+private actor AuthTokenCoordinator {
+    private var lastRefreshAttemptAt: Date?
+    private let minRefreshInterval: TimeInterval = 600
+
+    func accessToken() async throws -> String {
+        let now = Date()
+        if shouldAttemptRefresh(now: now) {
+            _ = try? await OliaApp.supabase.auth.refreshSession()
+            lastRefreshAttemptAt = now
+        }
+
         let session = try await OliaApp.supabase.auth.session
         let token = session.accessToken
         if token.isEmpty {
             throw AuthSessionProviderError.missingSession
         }
         return token
+    }
+
+    private func shouldAttemptRefresh(now: Date) -> Bool {
+        guard let lastRefreshAttemptAt else { return true }
+        return now.timeIntervalSince(lastRefreshAttemptAt) >= minRefreshInterval
     }
 }
 

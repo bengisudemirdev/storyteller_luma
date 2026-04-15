@@ -61,7 +61,9 @@ struct ProfileView: View {
                 }
             }
             .navigationBarHidden(true)
-            .onAppear { refreshData() }
+            .task {
+                await viewModel.fetchChildren()
+            }
             .sheet(isPresented: $isShowingAddProfile) {
                 AddChildView(viewModel: viewModel, isShowing: $isShowingAddProfile)
                     .presentationDetents([.large])
@@ -328,8 +330,6 @@ struct ProfileView: View {
         }
         .padding(.top, 12)
     }
-
-    private func refreshData() { Task { await viewModel.fetchChildren() } }
 
     @ViewBuilder
     func childRow(child: ChildModel) -> some View {

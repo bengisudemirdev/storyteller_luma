@@ -26,6 +26,7 @@ import {
 } from "../../helpers/storyPromptPreferences";
 import { logStructured } from "../../utils/structuredLog";
 import { storyCoverImageService } from "../../services/storyCoverImage.service";
+import { isPostgrestLikeError } from "../../utils/postgrestError";
 
 export type StoryRow = {
   id: string;
@@ -50,6 +51,8 @@ const openAiStoryOutputSchema = z.object({
 /** Kayıt öncesi masal gövdesi üst sınırı (prompt hedefleriyle uyumlu). */
 const STORY_CONTENT_MAX_CHARS_PREMIUM = 3800;
 const STORY_CONTENT_MAX_CHARS_FREE = 2400;
+const OPENAI_TIMEOUT_MS = 90_000;
+const OPENAI_MAX_ATTEMPTS = 2;
 
 export type GenerateStoryInput = {
   userId: string;
@@ -100,6 +103,59 @@ function getTodayUTCString(): string {
   const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(now.getUTCDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new ApiError(504, "OPENAI_TIMEOUT", timeoutMessage));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
+
+function normalizeStoryGenerateError(err: unknown, fallbackCode: string, fallbackMessage: string): ApiError {
+  if (err instanceof ApiError) return err;
+
+  if (isPostgrestLikeError(err)) {
+    return new ApiError(500, fallbackCode, fallbackMessage, {
+      postgrestCode: err.code,
+      postgrestDetails: err.details,
+      postgrestHint: err.hint
+    });
+  }
+
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes("rate limit") || msg.includes("429")) {
+      return ApiError.tooManyRequests("OPENAI_RATE_LIMITED", "Story provider rate limit exceeded. Please retry shortly.");
+    }
+    if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("etimedout")) {
+      return new ApiError(504, "OPENAI_TIMEOUT", "Story provider timed out. Please retry.");
+    }
+    if (msg.includes("invalid api key") || msg.includes("401")) {
+      return new ApiError(500, "OPENAI_CONFIG_ERROR", "Story provider configuration error.");
+    }
+  }
+
+  return new ApiError(502, fallbackCode, fallbackMessage);
+}
+
+function isRetryableOpenAIError(err: ApiError): boolean {
+  return err.code === "OPENAI_TIMEOUT" || err.code === "OPENAI_RATE_LIMITED" || err.code === "OPENAI_REQUEST_FAILED";
 }
 
 function buildChildPreferencesFromChildRow(
@@ -398,34 +454,66 @@ class StoriesService {
       let openAiMs = 0;
       let openAiOk = false;
       try {
-        const openAiResponse = await openai.chat.completions.create({
-          model: env.OPENAI_MODEL,
-          response_format: { type: "json_object" as const },
-          temperature: premium ? 0.9 : 0.7,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: userPrompt }
-          ]
-        });
-        openAiMs = Date.now() - tOpenAI;
+        let content: string | null = null;
+        for (let attempt = 1; attempt <= OPENAI_MAX_ATTEMPTS; attempt += 1) {
+          const attemptStart = Date.now();
+          try {
+            const openAiResponse = await withTimeout(
+              openai.chat.completions.create({
+                model: env.OPENAI_MODEL,
+                response_format: { type: "json_object" as const },
+                temperature: premium ? 0.9 : 0.7,
+                messages: [
+                  { role: "system", content: system },
+                  { role: "user", content: userPrompt }
+                ]
+              }),
+              OPENAI_TIMEOUT_MS,
+              "Story provider timed out. Please retry."
+            );
+            openAiMs = Date.now() - tOpenAI;
 
-        const content = openAiResponse.choices[0]?.message?.content;
-        if (!content) {
-          logStructured("error", "stories.generate.openai_failed", {
-            ...baseFields,
-            durationMs: openAiMs,
-            category: "external_api",
-            result: "empty_response"
-          });
-          throw new ApiError(502, "OPENAI_EMPTY_RESPONSE", "OpenAI returned empty response");
+            content = openAiResponse.choices[0]?.message?.content ?? null;
+            if (!content) {
+              throw new ApiError(502, "OPENAI_EMPTY_RESPONSE", "OpenAI returned empty response");
+            }
+
+            openAiOk = true;
+            logStructured("info", "stories.generate.openai_succeeded", {
+              ...baseFields,
+              durationMs: Date.now() - attemptStart,
+              totalOpenAiDurationMs: openAiMs,
+              attempt,
+              result: "ok"
+            });
+            break;
+          } catch (rawErr) {
+            const normalized = normalizeStoryGenerateError(
+              rawErr,
+              "OPENAI_REQUEST_FAILED",
+              "Story provider request failed."
+            );
+            const retryable = attempt < OPENAI_MAX_ATTEMPTS && isRetryableOpenAIError(normalized);
+
+            logStructured("error", "stories.generate.openai_failed", {
+              ...baseFields,
+              durationMs: Date.now() - attemptStart,
+              totalOpenAiDurationMs: Date.now() - tOpenAI,
+              category: "external_api",
+              result: retryable ? "retrying" : "error",
+              errorCode: normalized.code,
+              attempt,
+              retryable
+            });
+
+            if (!retryable) throw normalized;
+            await sleep(1000 * attempt);
+          }
         }
 
-        openAiOk = true;
-        logStructured("info", "stories.generate.openai_succeeded", {
-          ...baseFields,
-          durationMs: openAiMs,
-          result: "ok"
-        });
+        if (!content) {
+          throw new ApiError(502, "OPENAI_EMPTY_RESPONSE", "OpenAI returned empty response");
+        }
 
         let parsed: { title: string; story: string };
         try {
@@ -480,7 +568,11 @@ class StoriesService {
             category: "database",
             result: "insert_failed"
           });
-          throw error ?? new ApiError(500, "STORY_CREATE_FAILED", "Failed to save story");
+          throw normalizeStoryGenerateError(
+            error ?? new Error("Failed to save story"),
+            "STORY_CREATE_FAILED",
+            "Failed to save story"
+          );
         }
 
         logStructured("info", "stories.generate.db_saved", {
@@ -531,10 +623,10 @@ class StoriesService {
             durationMs: openAiMs,
             category: "external_api",
             result: "error",
-            errorCode: err instanceof ApiError ? err.code : "UNKNOWN"
+            errorCode: normalizeStoryGenerateError(err, "OPENAI_REQUEST_FAILED", "Story provider request failed.").code
           });
         }
-        throw err;
+        throw normalizeStoryGenerateError(err, "STORY_GENERATE_FAILED", "Story generation failed");
       }
     } catch (err) {
       if (usageReserved) {
@@ -569,7 +661,7 @@ class StoriesService {
         result: "failed"
       });
 
-      throw err;
+      throw normalizeStoryGenerateError(err, "STORY_GENERATE_FAILED", "Story generation failed");
     }
   }
 }
