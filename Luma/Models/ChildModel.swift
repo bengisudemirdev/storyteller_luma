@@ -2,6 +2,8 @@
 import Foundation
 
 struct ChildModel: Codable, Identifiable, Equatable {
+    static let defaultAvatarEmoji = "🦊"
+
     let id: UUID
     /// Ebeveyn kullanıcı id (API: `user_id` veya `parent_id`)
     let parentId: UUID
@@ -11,6 +13,10 @@ struct ChildModel: Codable, Identifiable, Equatable {
     let interests: [String]?
     let fears: [String]?
     let profile: String?
+    
+    var safeAvatarEmoji: String {
+        Self.sanitizeAvatarEmoji(avatarEmoji)
+    }
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -29,7 +35,7 @@ struct ChildModel: Codable, Identifiable, Equatable {
         parentId: UUID,
         name: String,
         age: Int,
-        avatarEmoji: String = "🦊",
+        avatarEmoji: String = ChildModel.defaultAvatarEmoji,
         interests: [String]? = nil,
         fears: [String]? = nil,
         profile: String? = nil
@@ -38,7 +44,7 @@ struct ChildModel: Codable, Identifiable, Equatable {
         self.parentId = parentId
         self.name = name
         self.age = age
-        self.avatarEmoji = avatarEmoji
+        self.avatarEmoji = Self.sanitizeAvatarEmoji(avatarEmoji)
         self.interests = interests
         self.fears = fears
         self.profile = profile
@@ -60,7 +66,9 @@ struct ChildModel: Codable, Identifiable, Equatable {
         } else {
             self.age = 7
         }
-        self.avatarEmoji = try container.decodeIfPresent(String.self, forKey: .avatarEmoji) ?? "🦊"
+        self.avatarEmoji = Self.sanitizeAvatarEmoji(
+            try container.decodeIfPresent(String.self, forKey: .avatarEmoji)
+        )
         self.interests = Self.decodeOptionalStringArray(from: container, forKey: .interests)
         self.fears = Self.decodeOptionalStringArray(from: container, forKey: .fears)
         self.profile = try container.decodeIfPresent(String.self, forKey: .profile)
@@ -83,7 +91,7 @@ struct ChildModel: Codable, Identifiable, Equatable {
         try container.encode(parentId, forKey: .parentId)
         try container.encode(name, forKey: .name)
         try container.encode(age, forKey: .age)
-        try container.encode(avatarEmoji, forKey: .avatarEmoji)
+        try container.encode(Self.sanitizeAvatarEmoji(avatarEmoji), forKey: .avatarEmoji)
         try container.encodeIfPresent(interests, forKey: .interests)
         try container.encodeIfPresent(fears, forKey: .fears)
         try container.encodeIfPresent(profile, forKey: .profile)
@@ -91,5 +99,19 @@ struct ChildModel: Codable, Identifiable, Equatable {
 
     static func == (lhs: ChildModel, rhs: ChildModel) -> Bool {
         lhs.id == rhs.id
+    }
+
+    static func sanitizeAvatarEmoji(_ rawValue: String?) -> String {
+        guard let rawValue else { return defaultAvatarEmoji }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return defaultAvatarEmoji }
+        if trimmed == "?" || trimmed.contains("\u{FFFD}") { return defaultAvatarEmoji }
+
+        guard let firstCharacter = trimmed.first else { return defaultAvatarEmoji }
+        let glyph = String(firstCharacter)
+        if glyph.unicodeScalars.contains(where: { $0.properties.isEmoji }) {
+            return glyph
+        }
+        return defaultAvatarEmoji
     }
 }

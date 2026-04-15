@@ -10,7 +10,7 @@ class ProfileViewModel: ObservableObject {
     @Published var newChildName = ""
     @Published var newChildAge = ""
     @Published var newChildAgeGroup: LumaAgeGroup = .sixToEight
-    @Published var selectedEmoji = "🦊"
+    @Published var selectedEmoji = ChildModel.defaultAvatarEmoji
     @Published var interests: [String] = []
     @Published var fears: [String] = []
     @Published var editingChild: ChildModel? = nil
@@ -86,7 +86,7 @@ class ProfileViewModel: ObservableObject {
                 name: newChildName,
                 age: ageInt,
                 profile: nil,
-                avatarEmoji: selectedEmoji,
+                avatarEmoji: ChildModel.sanitizeAvatarEmoji(selectedEmoji),
                 interests: currentInterests.isEmpty ? [] : currentInterests,
                 fears: currentFears.isEmpty ? [] : currentFears
             )
@@ -115,7 +115,7 @@ class ProfileViewModel: ObservableObject {
         newChildName = child.name
         newChildAge = String(child.age)
         newChildAgeGroup = LumaAgeGroup.from(age: child.age)
-        selectedEmoji = child.avatarEmoji
+        selectedEmoji = child.safeAvatarEmoji
         interests = child.interests ?? []
         fears = child.fears ?? []
         isEditSheetPresented = true
@@ -136,7 +136,7 @@ class ProfileViewModel: ObservableObject {
                 name: newChildName,
                 age: ageInt,
                 profile: nil,
-                avatarEmoji: selectedEmoji,
+                avatarEmoji: ChildModel.sanitizeAvatarEmoji(selectedEmoji),
                 interests: interests,
                 fears: fears
             )
@@ -148,7 +148,7 @@ class ProfileViewModel: ObservableObject {
             isLoading = false
             isEditSheetPresented = false
             editingChild = nil
-            selectedEmoji = availableEmojis.first ?? "🦊"
+            selectedEmoji = availableEmojis.first ?? ChildModel.defaultAvatarEmoji
             return true
         } catch {
             AppLogger.error("children.update.failed", [

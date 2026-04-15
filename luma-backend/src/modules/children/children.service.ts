@@ -33,6 +33,8 @@ type UpdateChildPatch = {
   fears?: string[] | null;
 };
 
+const DEFAULT_AVATAR_EMOJI = "🦊";
+
 function coerceStringArray(v: unknown): string[] {
   if (Array.isArray(v)) {
     return (v as unknown[]).map((x) => String(x)).filter((s) => s.length > 0);
@@ -51,6 +53,14 @@ function coerceStringArray(v: unknown): string[] {
   return [];
 }
 
+function normalizeAvatarEmoji(raw: unknown): string {
+  if (typeof raw !== "string") return DEFAULT_AVATAR_EMOJI;
+  const trimmed = raw.trim();
+  if (!trimmed) return DEFAULT_AVATAR_EMOJI;
+  if (trimmed === "?" || trimmed.includes("\uFFFD")) return DEFAULT_AVATAR_EMOJI;
+  return Array.from(trimmed)[0] ?? DEFAULT_AVATAR_EMOJI;
+}
+
 /** Normalizes DB rows (e.g. before migration or null arrays). */
 export function normalizeChildRow(raw: unknown): ChildRow {
   const r = raw as Record<string, unknown>;
@@ -60,7 +70,7 @@ export function normalizeChildRow(raw: unknown): ChildRow {
     name: String(r.name),
     age: typeof r.age === "number" ? r.age : r.age == null ? null : Number(r.age),
     profile: r.profile == null ? null : String(r.profile),
-    avatar_emoji: typeof r.avatar_emoji === "string" && r.avatar_emoji.trim() ? r.avatar_emoji : "🦊",
+    avatar_emoji: normalizeAvatarEmoji(r.avatar_emoji),
     interests: coerceStringArray(r.interests),
     fears: coerceStringArray(r.fears),
     created_at: r.created_at != null ? String(r.created_at) : undefined,
@@ -72,7 +82,7 @@ class ChildrenService {
   async createChild(input: CreateChildInput): Promise<ChildRow> {
     const { userId, name, age, profile, avatar_emoji, interests, fears } = input;
 
-    const emoji = (avatar_emoji ?? "🦊").trim() || "🦊";
+    const emoji = normalizeAvatarEmoji(avatar_emoji);
     const interestList = Array.isArray(interests) ? interests : [];
     const fearList = Array.isArray(fears) ? fears : [];
 
@@ -124,7 +134,7 @@ class ChildrenService {
     if (patch.age !== undefined) payload.age = patch.age;
     if (patch.profile !== undefined) payload.profile = patch.profile;
     if (patch.avatar_emoji !== undefined) {
-      const e = (patch.avatar_emoji ?? "🦊").trim() || "🦊";
+      const e = normalizeAvatarEmoji(patch.avatar_emoji);
       payload.avatar_emoji = e;
     }
     if (patch.interests !== undefined) payload.interests = Array.isArray(patch.interests) ? patch.interests : [];

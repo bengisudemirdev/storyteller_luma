@@ -314,7 +314,7 @@ struct CreateStoryView: View {
     private func childSelectionCard(child: ChildModel) -> some View {
         let isSelected = viewModel.selectedChild?.id == child.id
         VStack(spacing: 8) {
-            Text(child.avatarEmoji)
+            Text(child.safeAvatarEmoji)
                 .font(.system(size: 35))
                 .frame(width: 60, height: 60)
                 .background(

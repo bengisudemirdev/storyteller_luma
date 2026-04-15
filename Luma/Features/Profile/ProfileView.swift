@@ -334,7 +334,7 @@ struct ProfileView: View {
     @ViewBuilder
     func childRow(child: ChildModel) -> some View {
         HStack(spacing: 15) {
-            Text(child.avatarEmoji)
+            Text(child.safeAvatarEmoji)
                 .font(.system(size: 40))
                 .frame(width: 70, height: 70)
                 .background(
@@ -375,7 +375,7 @@ struct ChildDetailView: View {
             LumaTheme.bg.ignoresSafeArea()
             VStack(spacing: 0) {
                 VStack(spacing: 15) {
-                    Text(child.avatarEmoji).font(.system(size: 80))
+                    Text(child.safeAvatarEmoji).font(.system(size: 80))
                         .frame(width: 140, height: 140).background(Circle().fill(LumaTheme.lavender.opacity(0.1)))
                     Text(child.name).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(LumaTheme.text)
                     Text("\(child.age) Yaşında").foregroundColor(LumaTheme.secondaryText)
@@ -643,7 +643,7 @@ struct AddChildView: View {
                                 lineWidth: 2
                             )
                     )
-                Text(viewModel.selectedEmoji)
+                Text(ChildModel.sanitizeAvatarEmoji(viewModel.selectedEmoji))
                     .font(.system(size: 30))
             }
             Text(viewModel.newChildName.isEmpty ? "İsim yazıldığında burada görünür" : viewModel.newChildName)

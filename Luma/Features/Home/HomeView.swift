@@ -216,7 +216,7 @@ struct ChildCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(child.avatarEmoji)
+            Text(child.safeAvatarEmoji)
                 .font(.system(size: 36))
                 .frame(width: 64, height: 64)
                 .background(
@@ -271,8 +271,8 @@ struct SelectedChildDetailSection: View {
                 Label("\(child.age) yaş", systemImage: "figure.child")
                     .font(.caption)
                     .foregroundColor(LumaTheme.secondaryText)
-                if !child.avatarEmoji.isEmpty {
-                    Text(child.avatarEmoji)
+                if !child.safeAvatarEmoji.isEmpty {
+                    Text(child.safeAvatarEmoji)
                 }
             }
 

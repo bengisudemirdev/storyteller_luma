@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct LoginView: View {
     private enum LoginFocusField: Hashable {
@@ -39,12 +40,7 @@ struct LoginView: View {
                     Spacer()
 
                     VStack(spacing: 10) {
-                        Image("lumalogo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 180, height: 180)
-                            .clipShape(RoundedRectangle(cornerRadius: 40))
-                            .shadow(color: LumaTheme.lavender.opacity(0.3), radius: 20, x: 0, y: 10)
+                        brandIconView
                             .scaleEffect(isAnimate ? 1.05 : 1.0)
 
                         Text(AppBrand.displayName)
@@ -142,6 +138,34 @@ struct LoginView: View {
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var brandIconView: some View {
+        if UIImage(named: "lumalogo") != nil {
+            Image("lumalogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 180, height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 40))
+                .shadow(color: LumaTheme.lavender.opacity(0.3), radius: 20, x: 0, y: 10)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 40, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [LumaTheme.lavender.opacity(0.9), LumaTheme.softBlue]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Image(systemName: "sparkles")
+                    .font(.system(size: 72, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 180, height: 180)
+            .shadow(color: LumaTheme.lavender.opacity(0.3), radius: 20, x: 0, y: 10)
         }
     }
 
