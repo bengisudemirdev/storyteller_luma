@@ -8,6 +8,7 @@ struct StoryCoverTemplateView: View {
     var tag: String?
     /// Kapak illüstrasyonu; başlık ayrı ekranda gösterilecekse `false`.
     var showsTextOverlay: Bool = true
+    var titleOverlayExtraBottomInset: CGFloat = 0
     var cornerRadius: CGFloat = StoryCoverMetrics.cornerRadius
     var width: CGFloat = StoryCoverMetrics.defaultWidth
 
@@ -20,6 +21,7 @@ struct StoryCoverTemplateView: View {
                     subtitle: subtitle,
                     tag: tag,
                     showsTextOverlay: showsTextOverlay,
+                    titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                     cornerRadius: cornerRadius,
                     width: width
                 )
@@ -29,6 +31,7 @@ struct StoryCoverTemplateView: View {
                     subtitle: subtitle,
                     tag: tag,
                     showsTextOverlay: showsTextOverlay,
+                    titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                     cornerRadius: cornerRadius,
                     width: width
                 )
@@ -38,6 +41,7 @@ struct StoryCoverTemplateView: View {
                     subtitle: subtitle,
                     tag: tag,
                     showsTextOverlay: showsTextOverlay,
+                    titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                     cornerRadius: cornerRadius,
                     width: width
                 )
@@ -47,6 +51,7 @@ struct StoryCoverTemplateView: View {
                     subtitle: subtitle,
                     tag: tag,
                     showsTextOverlay: showsTextOverlay,
+                    titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                     cornerRadius: cornerRadius,
                     width: width
                 )
@@ -56,6 +61,7 @@ struct StoryCoverTemplateView: View {
                     subtitle: subtitle,
                     tag: tag,
                     showsTextOverlay: showsTextOverlay,
+                    titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                     cornerRadius: cornerRadius,
                     width: width
                 )
@@ -65,6 +71,7 @@ struct StoryCoverTemplateView: View {
                     subtitle: subtitle,
                     tag: tag,
                     showsTextOverlay: showsTextOverlay,
+                    titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                     cornerRadius: cornerRadius,
                     width: width
                 )

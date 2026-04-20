@@ -15,7 +15,7 @@ struct HomeView: View {
                         HomeHeroSection()
                             .padding(.top, 8)
 
-                        ClassicTalesSection(tales: viewModel.classicTales)
+                        ClassicTalesSection(classicTales: viewModel.classicTales)
 
                         DashboardRecentStoriesSection(stories: viewModel.recentStories)
                     }
@@ -72,8 +72,9 @@ enum HomeDashboardSectionSpacing {
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var children: [ChildModel] = []
-    @Published var classicTales: [ClassicTaleItem] = ClassicTaleItem.mockLibrary
     @Published var recentStories: [StoryModel] = []
+    /// `GET /v1/classic-tales`; hata veya boş yanıtta `ClassicTaleItem.bundledTales` kullanılır.
+    @Published var classicTales: [ClassicTaleItem] = ClassicTaleItem.bundledTales
     @Published var isLoadingInitial: Bool = false
     @Published var selectedChild: ChildModel? = nil
     @Published private(set) var hasSeenPolicyOnboarding: Bool = UserDefaults.standard.bool(forKey: "luma_has_seen_policy_onboarding")
@@ -85,12 +86,16 @@ class HomeViewModel: ObservableObject {
 
         do {
             async let childrenTask: [ChildModel] = fetchChildren()
-            async let classicTalesTask: [ClassicTaleItem] = fetchClassicTales()
             async let storiesTask: [StoryModel] = fetchStories()
-            let (fetchedChildren, fetchedClassicTales, fetchedStories) = try await (childrenTask, classicTalesTask, storiesTask)
+            let (fetchedChildren, fetchedStories) = try await (childrenTask, storiesTask)
+            let fetchedClassics = await fetchClassicTalesFromAPI()
             self.children = fetchedChildren
-            self.classicTales = fetchedClassicTales
             self.recentStories = fetchedStories
+            self.classicTales = fetchedClassics
+
+            Task(priority: .utility) {
+                await ClassicTaleRemoteNarrationFetcher.prefetchRemoteAudio(for: fetchedClassics)
+            }
 
             if selectedChild == nil {
                 selectedChild = fetchedChildren.first
@@ -140,18 +145,17 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    private func fetchClassicTales() async -> [ClassicTaleItem] {
+    private func fetchClassicTalesFromAPI() async -> [ClassicTaleItem] {
         do {
-            let apiTales = try await StoryService.fetchClassicTales(limit: 30)
-            if apiTales.isEmpty {
-                return ClassicTaleItem.mockLibrary
-            }
-            return apiTales
+            let tales = try await StoryService.fetchClassicTales()
+            return tales.isEmpty ? ClassicTaleItem.bundledTales : tales
         } catch {
-            AppLogger.warning("classic_tales.fetch.failed", [
-                "errorType": String(describing: type(of: error))
+            AppLogger.error("classic_tales.fetch.failed", [
+                "context": "HomeViewModel",
+                "errorType": String(describing: type(of: error)),
+                "error": String(describing: error)
             ])
-            return ClassicTaleItem.mockLibrary
+            return ClassicTaleItem.bundledTales
         }
     }
 }
@@ -234,7 +238,8 @@ struct ChildCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 36, color: LumaTheme.lavender)
+            Text(child.avatarEmoji)
+                .font(.system(size: 36))
                 .frame(width: 64, height: 64)
                 .background(
                     Circle()
@@ -288,8 +293,8 @@ struct SelectedChildDetailSection: View {
                 Label("\(child.age) yaş", systemImage: "figure.child")
                     .font(.caption)
                     .foregroundColor(LumaTheme.secondaryText)
-                if !child.safeAvatarEmoji.isEmpty {
-                    AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 16, color: LumaTheme.lavender)
+                if !child.avatarEmoji.isEmpty {
+                    Text(child.avatarEmoji)
                 }
             }
 

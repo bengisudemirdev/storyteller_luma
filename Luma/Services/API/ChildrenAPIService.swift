@@ -32,6 +32,20 @@ struct UpdateChildRequestDTO: Encodable {
 
 struct ChildDataDTO: Decodable {
     let child: ChildModel
+
+    private enum CodingKeys: String, CodingKey {
+        case child
+    }
+
+    /// Sunucu `{ data: { child: {...} } }` veya `{ data: { ...çocuk alanları düz } }` dönebilir.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if c.contains(.child) {
+            self.child = try c.decode(ChildModel.self, forKey: .child)
+        } else {
+            self.child = try ChildModel(from: decoder)
+        }
+    }
 }
 
 struct ChildrenDataDTO: Decodable {

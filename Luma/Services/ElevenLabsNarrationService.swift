@@ -98,6 +98,23 @@ enum ElevenLabsNarrationService {
         return (voiceId, modelId, voiceSettings)
     }
 
+    /// `ELEVENLABS_VOICE_ID` doluysa doğrudan bu sesi kullanır (agent API çağrısı yok); boşsa Convai agent’tan okur.
+    static func resolveVoiceModelForNarration(
+        apiKey: String,
+        agentId: String,
+        preferredVoiceId: String?
+    ) async throws -> (
+        voiceId: String,
+        modelId: String,
+        voiceSettings: ElevenLabsAgentResponse.VoiceSettings?
+    ) {
+        let trimmed = preferredVoiceId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty, !trimmed.uppercased().contains("YOUR_") {
+            return (trimmed, sanitizedModelId(nil), nil)
+        }
+        return try await resolveVoiceAndModel(apiKey: apiKey, agentId: agentId)
+    }
+
     /// Uzun metinleri TTS limitine göre böler, her parça için MP3 indirir, geçici dosya URL'leri döner.
     static func synthesizeToTempFiles(
         text: String,
@@ -258,11 +275,20 @@ final class ElevenLabsSequentialPlayer: NSObject {
     private var pendingTempFiles: [URL] = []
 
     /// Sırayla MP3 çalar; üst seviyedeki `Task` iptal edildiğinde `checkCancellation` ile durur.
-    func play(urls: [URL]) async throws {
+    /// - Parameter deleteSourceFilesAfterPlayback: `false` ise önbellekteki kalıcı dosyalar silinmez (klasik masallar).
+    func play(urls: [URL], deleteSourceFilesAfterPlayback: Bool = true) async throws {
         stop()
         guard !urls.isEmpty else { return }
-        pendingTempFiles = urls
-        defer { cleanupTempAll() }
+        if deleteSourceFilesAfterPlayback {
+            pendingTempFiles = urls
+        } else {
+            pendingTempFiles = []
+        }
+        defer {
+            if deleteSourceFilesAfterPlayback {
+                cleanupTempAll()
+            }
+        }
         await activateSession()
         for url in urls {
             try Task.checkCancellation()

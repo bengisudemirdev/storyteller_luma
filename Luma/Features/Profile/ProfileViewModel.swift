@@ -25,7 +25,15 @@ class ProfileViewModel: ObservableObject {
     private var isFetchingChildren = false
 
     func fetchChildren(forceRefresh: Bool = false) async {
-        if isFetchingChildren { return }
+        if isFetchingChildren {
+            if !forceRefresh { return }
+            // Güncelleme sonrası yenileme, halihazırda süren isteği bekleyip tekrar dener (üst süre ~6 sn).
+            var waits = 0
+            while isFetchingChildren, waits < 100 {
+                try? await Task.sleep(nanoseconds: 60_000_000)
+                waits += 1
+            }
+        }
         if !forceRefresh,
            let lastFetch = lastChildrenFetchAt,
            Date().timeIntervalSince(lastFetch) < minChildrenFetchInterval {
@@ -79,6 +87,8 @@ class ProfileViewModel: ObservableObject {
 
         isLoading = true
         let ageInt = suggestedAge(for: newChildAgeGroup)
+        let safeInterests = Self.sanitizeTagList(currentInterests)
+        let safeFears = Self.sanitizeTagList(currentFears)
 
         do {
             AppLogger.info("children.create.request_sent", [:])
@@ -87,8 +97,8 @@ class ProfileViewModel: ObservableObject {
                 age: ageInt,
                 profile: nil,
                 avatarEmoji: ChildModel.sanitizeAvatarEmoji(selectedEmoji),
-                interests: currentInterests.isEmpty ? [] : currentInterests,
-                fears: currentFears.isEmpty ? [] : currentFears
+                interests: safeInterests.isEmpty ? [] : safeInterests,
+                fears: safeFears.isEmpty ? [] : safeFears
             )
             AppLogger.info("children.create.completed", [:])
             await fetchChildren(forceRefresh: true)
@@ -112,6 +122,7 @@ class ProfileViewModel: ObservableObject {
     /// Düzenleme moduna başlar: var olan çocuğun bilgilerini form alanlarına taşır.
     func beginEditing(child: ChildModel) {
         editingChild = child
+        errorMessage = nil
         newChildName = child.name
         newChildAge = String(child.age)
         newChildAgeGroup = LumaAgeGroup.from(age: child.age)
@@ -124,25 +135,44 @@ class ProfileViewModel: ObservableObject {
     /// Var olan çocuğu günceller.
     func updateChild() async -> Bool {
         guard let baseChild = editingChild else { return false }
+        let trimmedName = newChildName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorMessage = "Lütfen çocuğun adını gir."
+            return false
+        }
+
         isLoading = true
+        errorMessage = nil
 
         let ageInt = suggestedAge(for: newChildAgeGroup)
+        let safeInterests = Self.sanitizeTagList(interests)
+        let safeFears = Self.sanitizeTagList(fears)
         do {
             AppLogger.info("children.update.request_sent", [
                 "childId": baseChild.id.uuidString
             ])
-            _ = try await ChildrenAPIService.updateChild(
+            let updated = try await ChildrenAPIService.updateChild(
                 id: baseChild.id,
-                name: newChildName,
+                name: trimmedName,
                 age: ageInt,
                 profile: nil,
                 avatarEmoji: ChildModel.sanitizeAvatarEmoji(selectedEmoji),
-                interests: interests,
-                fears: fears
+                interests: safeInterests,
+                fears: safeFears
             )
             AppLogger.info("children.update.completed", [
                 "childId": baseChild.id.uuidString
             ])
+
+            interests = safeInterests
+            fears = safeFears
+            newChildName = trimmedName
+            if let idx = children.firstIndex(where: { $0.id == updated.id }) {
+                children[idx] = updated
+            }
+            if selectedChildForDetail?.id == updated.id {
+                selectedChildForDetail = updated
+            }
 
             await fetchChildren(forceRefresh: true)
             isLoading = false
@@ -151,14 +181,59 @@ class ProfileViewModel: ObservableObject {
             selectedEmoji = availableEmojis.first ?? ChildModel.defaultAvatarEmoji
             return true
         } catch {
-            AppLogger.error("children.update.failed", [
+            var logFields: [String: String] = [
                 "childId": baseChild.id.uuidString,
-                "error": String(describing: type(of: error))
-            ])
+                "payloadAge": "\(ageInt)",
+                "interestsCount": "\(safeInterests.count)",
+                "fearsCount": "\(safeFears.count)"
+            ]
+            logFields.merge(Self.logFieldsForChildUpdateError(error)) { _, new in new }
+            AppLogger.error("children.update.failed", logFields)
             errorMessage = error.userFacingTurkishMessage
             isLoading = false
             return false
         }
+    }
+
+    /// Çocuk güncelleme hatalarında ayrıntı (konsol; sunucu `code` / `message` ve istemci vakaları).
+    private static func logFieldsForChildUpdateError(_ error: Error) -> [String: String] {
+        var f: [String: String] = [
+            "errorType": String(describing: type(of: error)),
+            "localizedDescription": error.localizedDescription
+        ]
+        if let api = error as? APIClientError {
+            switch api {
+            case .server(let code, let message):
+                f["apiErrorCode"] = code
+                f["apiErrorMessage"] = message
+            case .networkFailure(let message):
+                f["networkFailure"] = message
+            case .unauthorized: f["clientError"] = "unauthorized"
+            case .decodingFailed: f["clientError"] = "decodingFailed"
+            case .invalidResponse: f["clientError"] = "invalidResponse"
+            case .emptyData: f["clientError"] = "emptyData"
+            case .invalidURL: f["clientError"] = "invalidURL"
+            }
+        }
+        let ns = error as NSError
+        f["nsDomain"] = ns.domain
+        f["nsCode"] = "\(ns.code)"
+        if let u = ns.userInfo[NSUnderlyingErrorKey] as? Error {
+            f["underlyingError"] = String(describing: u)
+        }
+        if let s = ns.userInfo[NSLocalizedDescriptionKey] as? String, !s.isEmpty {
+            f["nsLocalizedDescription"] = s
+        }
+        return f
+    }
+
+    /// API `maxItems: 25` ve boş/çok uzun etiketlerden kaçınmak için.
+    private static func sanitizeTagList(_ tags: [String]) -> [String] {
+        tags
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(25)
+            .map { String($0.prefix(200)) }
     }
 
     // MARK: - Age helpers

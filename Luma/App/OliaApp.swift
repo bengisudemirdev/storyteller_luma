@@ -20,6 +20,8 @@ struct OliaApp: App {
     init() {
         Purchases.logLevel = .info
         Purchases.configure(withAPIKey: Secrets.revenueCatAPIKey)
+        // ElevenLabs tanımlıysa tüm klasik masal sesleri arka planda indirilir (kullanıcı ekranı beklemez).
+        ClassicTaleNarrationPrefetcher.schedulePrefetchIfNeeded()
     }
 
     var body: some Scene {

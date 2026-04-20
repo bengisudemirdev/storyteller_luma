@@ -70,7 +70,9 @@ struct LoginView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        Button(action: {}) {
+                        NavigationLink {
+                            ForgotPasswordView()
+                        } label: {
                             Text("Şifremi Unuttum")
                                 .font(.caption)
                                 .foregroundColor(LumaTheme.lavender)

@@ -15,6 +15,28 @@ enum AuthAPIService {
     static func syncCurrentUser(force: Bool = false) async throws -> AuthMeUserDTO {
         try await syncCoordinator.sync(force: force)
     }
+
+    /// `POST /v1/auth/forgot-password` — sunucu Supabase `resetPasswordForEmail` çağırır; yanıt her zaman 200 (enumerasyon yok).
+    static func sendForgotPassword(email: String) async throws -> String {
+        let endpoint = APIEndpoint(path: "/v1/auth/forgot-password", method: .post)
+        let data: ForgotPasswordMessageDTO = try await APIClient.shared.requestWithoutAuthentication(
+            endpoint,
+            body: ForgotPasswordEmailBody(email: email)
+        )
+        let trimmed = data.message?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+        return "Bu e-posta için bir hesap varsa, kısa süre içinde sıfırlama talimatları gönderilir."
+    }
+}
+
+private struct ForgotPasswordEmailBody: Encodable {
+    let email: String
+}
+
+private struct ForgotPasswordMessageDTO: Decodable {
+    let message: String?
 }
 
 private enum AuthMeSyncError: LocalizedError {

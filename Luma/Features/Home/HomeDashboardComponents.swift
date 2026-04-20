@@ -50,6 +50,10 @@ enum HomeDashboardMetrics {
     /// Kart içi yatay padding iki yandan; kapak genişliği.
     static let classicCoverInnerWidth: CGFloat = classicCardWidth - classicCardPadding * 2
     static let classicCarouselSpacing: CGFloat = 20
+    /// Kapak üzerindeki başlık / etiket grubunu alt kenardan hafifçe yukarı alır.
+    static let classicTaleTitleOverlayLift: CGFloat = 8
+    /// `MainView`: alt sekme çubuğu ile ses mini paneli aynı yatay hizada dursun diye ortak kenar boşluğu.
+    static let mainFloatingChromeHorizontalInset: CGFloat = 28
 }
 
 // MARK: - Shared screen chrome (Home, Profil, Masal oluştur)
@@ -380,7 +384,7 @@ struct ClassicTaleCard: View {
     let tale: ClassicTaleItem
 
     private var classicCoverURL: URL? {
-        AppConfig.classicTaleCoverImageURL(taleId: tale.id)
+        tale.resolvedCoverImageURL
     }
 
     private var coverClip: UnevenRoundedRectangle {
@@ -407,6 +411,7 @@ struct ClassicTaleCard: View {
                     subtitle: nil,
                     tag: tale.tag,
                     showsTextOverlay: true,
+                    titleOverlayExtraBottomInset: HomeDashboardMetrics.classicTaleTitleOverlayLift,
                     cornerRadius: HomeDashboardMetrics.classicCoverTopCorner,
                     width: HomeDashboardMetrics.classicCoverInnerWidth
                 )
@@ -456,39 +461,103 @@ struct ClassicTaleCard: View {
     }
 }
 
+/// Klasik masallar yatay karuseli için sayfa göstergesi (kaydırma ile senkron).
+private struct ClassicTalesCarouselPageIndicator: View {
+    let currentIndex: Int
+    let pageCount: Int
+
+    var body: some View {
+        StoryReadingPageDots(currentIndex: currentIndex, pageCount: pageCount)
+    }
+}
+
 struct ClassicTalesSection: View {
-    let tales: [ClassicTaleItem]
+    let classicTales: [ClassicTaleItem]
+
+    @State private var scrollPositionId: String?
+
+    private var carouselTales: [ClassicTaleItem] {
+        Array(classicTales.prefix(10))
+    }
+
+    private var currentCarouselPageIndex: Int {
+        guard let id = scrollPositionId,
+              let idx = carouselTales.firstIndex(where: { $0.id == id }) else {
+            return 0
+        }
+        return idx
+    }
+
+    private var showsPagination: Bool {
+        carouselTales.count > 1
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Klasik Masallar")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                    .tracking(-0.6)
-                    .foregroundStyle(HomeDashboardPalette.ink)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Klasik Masallar")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .tracking(-0.6)
+                        .foregroundStyle(HomeDashboardPalette.ink)
 
-                Text("Sevilen klasik masalları keşfet")
-                    .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    Text("Sevilen klasik masalları keşfet")
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                }
+
+                Spacer(minLength: 8)
+
+                NavigationLink {
+                    ClassicTalesLibraryView(tales: classicTales)
+                } label: {
+                    Text("Tümünü Gör")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                }
+                .buttonStyle(.plain)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: HomeDashboardMetrics.classicCarouselSpacing) {
-                    ForEach(tales) { tale in
+                    ForEach(carouselTales) { tale in
                         ClassicTaleCard(tale: tale)
+                            .id(tale.id)
                     }
                 }
                 .padding(.vertical, 8)
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $scrollPositionId)
             .contentMargins(.horizontal, 0, for: .scrollContent)
+            .onAppear {
+                if scrollPositionId == nil, let first = carouselTales.first {
+                    scrollPositionId = first.id
+                }
+            }
+            .onChange(of: carouselTales.map(\.id)) { _, newIds in
+                guard !newIds.isEmpty else {
+                    scrollPositionId = nil
+                    return
+                }
+                if let id = scrollPositionId, newIds.contains(id) { return }
+                scrollPositionId = newIds.first
+            }
+
+            if showsPagination {
+                ClassicTalesCarouselPageIndicator(
+                    currentIndex: currentCarouselPageIndex,
+                    pageCount: carouselTales.count
+                )
+                .padding(.top, 2)
+            }
 
             Text("Bu masallar çocuk gelişimi ve pedagojik değerlere uygun olacak şekilde seçilip yumuşak bir dille düzenlenmiştir; uyku öncesi için sakin ve güvenli bir ton hedeflenir.")
                 .font(.system(size: 14, weight: .regular, design: .rounded))
                 .foregroundStyle(HomeDashboardPalette.sectionCaption)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 4)
+                .padding(.top, showsPagination ? 10 : 4)
         }
     }
 }
@@ -497,20 +566,163 @@ struct ClassicTalesSection: View {
 struct ClassicTalePreviewView: View {
     let tale: ClassicTaleItem
 
-    var body: some View {
-        StoryReaderView(
-            child: nil,
-            storyTitle: tale.title,
-            storyContent: """
-            \(tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines))
+    @State private var currentPage = 0
+    @EnvironmentObject private var appUIState: AppUIState
 
-            Kaynak Notu:
-            \(tale.attribution)
-            """,
-            showSaveButton: false,
-            story: nil,
-            onSave: nil
+    private var storyPages: [String] {
+        StoryReadingPagination.pages(
+            from: tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines),
+            firstPageBudget: 900,
+            otherPageBudget: 1600
         )
+    }
+
+    private var pageCount: Int {
+        max(storyPages.count, 1)
+    }
+
+    /// İlk sayfada kompakt kapak (liste kartı kadar büyük göstermeye gerek yok).
+    private var coverWidth: CGFloat {
+        min(UIScreen.main.bounds.width - 48, 148)
+    }
+
+    var body: some View {
+        ZStack {
+            StoryReadingWarmBackground()
+
+            VStack(spacing: 0) {
+                TabView(selection: $currentPage) {
+                    ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 14) {
+                                if index == 0 {
+                                    StoryPhotoCoverView(
+                                        imageURL: tale.resolvedCoverImageURL,
+                                        fallbackTemplate: tale.coverTemplate,
+                                        title: tale.title,
+                                        subtitle: nil,
+                                        tag: tale.tag,
+                                        showsTextOverlay: false,
+                                        cornerRadius: StoryCoverMetrics.cornerRadius,
+                                        width: coverWidth
+                                    )
+                                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 6)
+                                    .frame(maxWidth: .infinity)
+                                }
+
+                                StoryReadingTextCard {
+                                    VStack(alignment: .leading, spacing: 14) {
+                                        if index == 0 {
+                                            VStack(alignment: .leading, spacing: 10) {
+                                                Capsule()
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                HomeDashboardPalette.accentOrange,
+                                                                HomeDashboardPalette.accentOrangeSoft
+                                                            ],
+                                                            startPoint: .leading,
+                                                            endPoint: .trailing
+                                                        )
+                                                    )
+                                                    .frame(width: 44, height: 5)
+
+                                                Text(tale.title)
+                                                    .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
+                                                    .foregroundStyle(HomeDashboardPalette.ink)
+                                                    .fixedSize(horizontal: false, vertical: true)
+
+                                                Text(tale.tag)
+                                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 5)
+                                                    .background(
+                                                        Capsule(style: .continuous)
+                                                            .fill(HomeDashboardPalette.accentOrange.opacity(0.15))
+                                                    )
+                                            }
+                                        }
+
+                                        Text(pageText)
+                                            .storyReadingBodyStyle()
+                                            .fixedSize(horizontal: false, vertical: true)
+
+                                        if index == storyPages.count - 1 {
+                                            Text(tale.attribution)
+                                                .font(.system(size: 12, weight: .regular, design: .rounded))
+                                                .foregroundStyle(HomeDashboardPalette.muted)
+                                                .italic()
+                                                .padding(.top, 8)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                                .frame(maxWidth: .infinity)
+                            }
+                            .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                            .padding(.top, 8)
+                            .padding(.bottom, 12)
+                        }
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                NavigationLink {
+                    CreateStoryView()
+                } label: {
+                    Text("Kendi masalını oluştur")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            HomeDashboardPalette.accentOrange,
+                                            HomeDashboardPalette.accentOrangeSoft
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                        .shadow(color: HomeDashboardPalette.accentOrange.opacity(0.22), radius: 6, x: 0, y: 3)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                .padding(.top, 4)
+                .padding(.bottom, 6)
+                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                .frame(maxWidth: .infinity)
+
+                StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
+            }
+        }
+        .navigationTitle(tale.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(HomeDashboardPalette.dashboardCanvas.opacity(0.94), for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                StoryNarrationButton(
+                    text: tale.narrationText,
+                    displayTitle: tale.title,
+                    classicTaleCacheId: tale.id,
+                    readerChrome: true
+                )
+            }
+        }
+        .onAppear {
+            appUIState.isTabBarVisible = false
+            currentPage = min(currentPage, max(pageCount - 1, 0))
+        }
+        .onDisappear {
+            appUIState.isTabBarVisible = true
+        }
     }
 }
 
@@ -525,15 +737,28 @@ struct DashboardRecentStoriesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Son Masalların")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                    .tracking(-0.6)
-                    .foregroundStyle(HomeDashboardPalette.ink)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Son Masalların")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .tracking(-0.6)
+                        .foregroundStyle(HomeDashboardPalette.ink)
 
-                Text("Kayıtlı masallarına buradan devam et")
-                    .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    Text("Kayıtlı masallarına buradan devam et")
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                }
+
+                Spacer(minLength: 8)
+
+                NavigationLink {
+                    SavedStoriesLibraryView()
+                } label: {
+                    Text("Tümünü Gör")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                }
+                .buttonStyle(.plain)
             }
 
             if stories.isEmpty {
@@ -666,17 +891,15 @@ private struct DashboardRecentStoryCard: View {
                 .font(.system(size: 14, weight: .semibold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
                 .lineLimit(2)
-                .frame(height: 36, alignment: .topLeading)
 
-            Text(story.created_at.map { Self.dateFormatter.string(from: $0) } ?? " ")
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                .lineLimit(1)
-                .frame(height: 14, alignment: .topLeading)
+            if let date = story.created_at {
+                Text(Self.dateFormatter.string(from: date))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+            }
         }
         .padding(14)
         .frame(width: 164, alignment: .leading)
-        .frame(height: 192, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
                 .fill(HomeDashboardPalette.dashboardCanvas)

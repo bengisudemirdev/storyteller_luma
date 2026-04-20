@@ -381,67 +381,214 @@ struct ChildDetailView: View {
 
     var body: some View {
         ZStack {
-            LumaTheme.bg.ignoresSafeArea()
-            VStack(spacing: 0) {
-                VStack(spacing: 15) {
-                    AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 80, color: HomeDashboardPalette.nightMid)
-                        .frame(width: 140, height: 140).background(Circle().fill(LumaTheme.lavender.opacity(0.1)))
-                    Text(child.name).font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(LumaTheme.text)
-                    Text("\(child.age) Yaşında").foregroundColor(LumaTheme.secondaryText)
-                }
-                .padding(.vertical, 30)
-                ScrollView {
-                    VStack(spacing: 20) {
-                        detailInfoCard(title: "Neleri Sever?", items: child.interests ?? [], icon: "heart.fill", color: .red)
-                        detailInfoCard(title: "Nelerden Kaçınmalı?", items: child.fears ?? [], icon: "shield.fill", color: .blue)
-                    }
-                    .padding(20)
+            LumaWarmScreenBackground()
 
-                    HStack(spacing: 12) {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 8)
+
+                    childDetailHero
+
+                    VStack(spacing: 14) {
+                        detailInfoCard(
+                            title: "Neleri sever?",
+                            subtitle: "Masallarda öne çıkarırız",
+                            items: child.interests ?? [],
+                            icon: "heart.fill",
+                            accent: HomeDashboardPalette.accentOrange
+                        )
+                        detailInfoCard(
+                            title: "Nelerden kaçınmalı?",
+                            subtitle: "Hikâyelerde yumuşatırız",
+                            items: child.fears ?? [],
+                            icon: "shield.fill",
+                            accent: HomeDashboardPalette.nightMid.opacity(0.85)
+                        )
+                    }
+                    .padding(.horizontal, HomeDashboardMetrics.horizontalPadding)
+                    .padding(.top, 8)
+
+                    VStack(spacing: 10) {
                         Button {
                             dismiss()
                             onEdit()
                         } label: {
-                            Label("Profili Düzenle", systemImage: "pencil")
+                            Label("Profili düzenle", systemImage: "pencil")
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.ink)
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(LumaTheme.lavender)
-                                .foregroundColor(.white)
-                                .cornerRadius(14)
+                                .padding(.vertical, 15)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    HomeDashboardPalette.moonGlow,
+                                                    HomeDashboardPalette.accentOrangeSoft.opacity(0.92)
+                                                ],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .shadow(color: HomeDashboardPalette.accentOrange.opacity(0.35), radius: 12, x: 0, y: 5)
+                                )
                         }
+                        .buttonStyle(.plain)
 
                         Button {
                             dismiss()
                             onDelete()
                         } label: {
-                            Label("Profili Sil", systemImage: "trash")
+                            Label("Profili sil", systemImage: "trash")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color.red.opacity(0.92))
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.red.opacity(0.12))
-                                .foregroundColor(.red)
-                                .cornerRadius(14)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(Color.red.opacity(0.08))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(Color.red.opacity(0.22), lineWidth: 1)
+                                )
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, HomeDashboardMetrics.horizontalPadding)
+                    .padding(.top, 22)
+                    .padding(.bottom, 28)
                 }
             }
         }
         .overlay(alignment: .topTrailing) {
             Button(action: { dismiss() }) {
-                Image(systemName: "xmark.circle.fill").font(.title).foregroundColor(LumaTheme.lavender).padding()
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(HomeDashboardPalette.accentOrange.opacity(0.22))
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(HomeDashboardPalette.accentOrange.opacity(0.35), lineWidth: 1)
+                    )
             }
+            .buttonStyle(.plain)
+            .padding(.top, 12)
+            .padding(.trailing, 16)
+            .accessibilityLabel(String(localized: "Kapat"))
         }
     }
 
-    private func detailInfoCard(title: String, items: [String], icon: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: icon).font(.headline).foregroundColor(color)
-            if items.isEmpty { Text("Bilgi girilmemiş").italic().foregroundColor(.gray) }
-            else { FlowLayout(items: items, color: color) }
+    private var childDetailHero: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                HomeDashboardPalette.accentOrangeSoft.opacity(0.45),
+                                HomeDashboardPalette.creamDeep
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 124, height: 124)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        HomeDashboardPalette.accentOrange.opacity(0.55),
+                                        HomeDashboardPalette.accentOrangeSoft.opacity(0.25)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
+                            )
+                    )
+                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 14, x: 0, y: 8)
+
+                AvatarGlyphView(emoji: child.safeAvatarEmoji, size: 56, color: HomeDashboardPalette.nightMid)
+            }
+
+            Text(child.name)
+                .font(.system(size: 26, weight: .bold, design: .serif))
+                .foregroundStyle(HomeDashboardPalette.ink)
+                .multilineTextAlignment(.center)
+
+            Text("\(child.age) yaşında")
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.muted)
         }
-        .padding().frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white).cornerRadius(20)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 20)
+        .padding(.bottom, 12)
+    }
+
+    private func detailInfoCard(title: String, subtitle: String, items: [String], icon: String, accent: Color) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(accent.opacity(0.12))
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.muted)
+                }
+                Spacer(minLength: 0)
+            }
+
+            if items.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "text.badge.plus")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption.opacity(0.85))
+                    Text("Henüz bilgi eklenmedi — düzenleyerek ekleyebilirsin.")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 4)
+            } else {
+                FlowLayout(items: items, color: accent)
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                .fill(HomeDashboardPalette.cardSurface)
+                .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 8)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            accent.opacity(0.2),
+                            HomeDashboardPalette.cardEdgeStroke
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
     }
 }
 
@@ -621,8 +768,16 @@ struct AddChildView: View {
         }
     }
 
+    private var addChildPreviewNameTrimmed: String {
+        viewModel.newChildName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var addChildPreviewShowsName: Bool {
+        !addChildPreviewNameTrimmed.isEmpty
+    }
+
     private var avatarPreviewHero: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             ZStack {
                 Circle()
                     .fill(
@@ -658,16 +813,25 @@ struct AddChildView: View {
                     color: HomeDashboardPalette.nightMid
                 )
             }
-            Text(viewModel.newChildName.isEmpty ? "İsim yazıldığında burada görünür" : viewModel.newChildName)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .fixedSize()
+
+            Text(addChildPreviewShowsName ? addChildPreviewNameTrimmed : "İsim yazıldığında burada görünür")
+                .font(
+                    .system(
+                        size: addChildPreviewShowsName ? 17 : 15,
+                        weight: addChildPreviewShowsName ? .bold : .semibold,
+                        design: .rounded
+                    )
+                )
                 .foregroundStyle(
-                    viewModel.newChildName.isEmpty
-                        ? HomeDashboardPalette.muted.opacity(0.7)
-                        : HomeDashboardPalette.ink
+                    addChildPreviewShowsName
+                        ? HomeDashboardPalette.ink
+                        : HomeDashboardPalette.muted.opacity(0.7)
                 )
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Spacer(minLength: 0)
+                .minimumScaleFactor(0.75)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
         .background(
@@ -826,12 +990,20 @@ struct EditChildView: View {
                 ScrollView {
                     VStack(spacing: 25) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Çocuğun Adı").font(.headline).foregroundColor(.black)
+                            Text("Çocuğun adı")
+                                .font(.headline)
+                                .foregroundColor(.black)
                             TextField("Örn: Elif", text: $viewModel.newChildName)
+                                .textContentType(.name)
+                                .textInputAutocapitalization(.words)
+                                .submitLabel(.done)
                                 .foregroundColor(.black)
                                 .padding()
                                 .background(Color.white)
                                 .cornerRadius(12)
+                            Text("Masallarda ve profilde bu isim görünür.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Avatar Emoji").font(.headline).foregroundColor(.black)
@@ -925,6 +1097,13 @@ struct EditChildView: View {
                         .background(LumaTheme.lavender)
                         .cornerRadius(15)
                         .disabled(viewModel.isLoading)
+
+                        if let err = viewModel.errorMessage, !err.isEmpty {
+                            Text(err)
+                                .font(.footnote)
+                                .foregroundStyle(Color.red.opacity(0.92))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .padding()
                 }
@@ -943,7 +1122,41 @@ struct EditChildView: View {
 struct TagLayoutView: View {
     @Binding var tags: [String]
     let color: Color
-    var body: some View { FlowLayout(items: tags, color: color) }
+
+    var body: some View {
+        if tags.isEmpty {
+            EmptyView()
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(tags.enumerated()), id: \.offset) { index, item in
+                        HStack(spacing: 4) {
+                            Text(item)
+                                .font(.caption)
+                                .bold()
+                                .lineLimit(1)
+                            Button {
+                                tags.remove(at: index)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.caption)
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(color.opacity(0.55))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Kaldır")
+                        }
+                        .padding(.leading, 12)
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 8)
+                        .background(color.opacity(0.1))
+                        .foregroundColor(color)
+                        .clipShape(Capsule())
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct FlowLayout: View {

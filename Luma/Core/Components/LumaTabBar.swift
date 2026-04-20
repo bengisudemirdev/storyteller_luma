@@ -66,7 +66,7 @@ struct LumaTabBar: View {
                 .stroke(Color.white.opacity(0.55), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.12), radius: 24, x: 0, y: 12)
-        .padding(.horizontal, 28)
+        .padding(.horizontal, HomeDashboardMetrics.mainFloatingChromeHorizontalInset)
         .padding(.bottom, 12)
     }
 }

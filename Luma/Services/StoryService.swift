@@ -8,13 +8,17 @@
 import Foundation
 
 enum StoryService {
-    static func fetchClassicTales(limit: Int = 30) async throws -> [ClassicTaleItem] {
-        try await ClassicTalesAPIService.fetchClassicTales(limit: limit)
+    static func fetchClassicTales() async throws -> [ClassicTaleItem] {
+        try await ClassicTalesAPIService.fetchClassicTales()
     }
 
-    /// Giriş yapmış kullanıcının kayıtlı masallarını döner.
-    static func fetchSavedStories() async throws -> [StoryModel] {
-        return try await StoryAPIService.fetchStories(limit: 20)
+    static func fetchClassicTaleDetail(taleId: String) async throws -> ClassicTaleItem? {
+        try await ClassicTalesAPIService.fetchClassicTaleDetail(taleId: taleId)
+    }
+
+    /// Giriş yapmış kullanıcının kayıtlı masallarını döner (`limit` üst sınırı API ile uyumlu).
+    static func fetchSavedStories(limit: Int = 20) async throws -> [StoryModel] {
+        try await StoryAPIService.fetchStories(limit: limit)
     }
 
     /// Kalıcı çocuk tercihleri sunucuda `childId` ile okunur; burada yalnızca bu masala özel alanlar gider.

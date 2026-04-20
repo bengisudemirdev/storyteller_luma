@@ -22,7 +22,8 @@ python3 scripts/generate_ios_secrets.py
 | `BACKEND_BASE_URL`      | Express API kökü (örn. `https://luma.beysemi.com`) |
 | `REVENUECAT_API_KEY`    | RevenueCat public SDK key   |
 | `ELEVENLABS_API_KEY`    | ElevenLabs API key (masal seslendirme; boşsa iOS `AVSpeech` kullanılır) |
-| `ELEVENLABS_AGENT_ID`   | Convai agent ID (dashboard’daki agent) |
+| `ELEVENLABS_AGENT_ID`   | Convai agent ID (TTS sesi buradan da okunabilir) |
+| `ELEVENLABS_VOICE_ID`   | İsteğe bağlı: doğrudan kullanılacak `voice_id` (doluysa seslendirme önce bunu kullanır; agent çağrısı atlanabilir) |
 | `FEEDBACK_EMAIL`        | Profil ekranındaki geri bildirimin gideceği adres (`mailto:`). Boşsa yedek `olia.destek@gmail.com` kullanılır — kendi adresinizi yazın. |
 
 > Backend’deki `luma-backend/.env` ile **aynı dosya değil**. Orada service role vb. var; iOS’ta yalnızca **anon** ve public anahtarlar kullanılır.

@@ -6,6 +6,7 @@ struct SpaceCoverTemplateView: View {
     var subtitle: String?
     var tag: String?
     var showsTextOverlay: Bool = true
+    var titleOverlayExtraBottomInset: CGFloat = 0
     var cornerRadius: CGFloat
     var width: CGFloat
 
@@ -101,7 +102,8 @@ struct SpaceCoverTemplateView: View {
                     title: title,
                     subtitle: subtitle,
                     tag: tag,
-                    position: .bottom
+                    position: .bottom,
+                    extraBottomInset: titleOverlayExtraBottomInset
                 )
             }
         }

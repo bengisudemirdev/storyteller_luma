@@ -8,6 +8,8 @@ struct StoryPhotoCoverView: View {
     var subtitle: String?
     var tag: String?
     var showsTextOverlay: Bool
+    /// Kapak başlığını alt kenardan hafifçe yukarı alır (ör. ana sayfa klasik masal kartları).
+    var titleOverlayExtraBottomInset: CGFloat = 0
     var cornerRadius: CGFloat
     var width: CGFloat
 
@@ -26,7 +28,12 @@ struct StoryPhotoCoverView: View {
                                     .scaledToFill()
                                 if showsTextOverlay {
                                     StoryCoverBottomScrim()
-                                    StoryCoverTitleOverlay(title: title, subtitle: subtitle, tag: tag)
+                                    StoryCoverTitleOverlay(
+                                        title: title,
+                                        subtitle: subtitle,
+                                        tag: tag,
+                                        extraBottomInset: titleOverlayExtraBottomInset
+                                    )
                                 }
                             }
                         case .empty:
@@ -41,6 +48,7 @@ struct StoryPhotoCoverView: View {
                                 subtitle: subtitle,
                                 tag: tag,
                                 showsTextOverlay: showsTextOverlay,
+                                titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                                 cornerRadius: cornerRadius,
                                 width: width
                             )
@@ -51,6 +59,7 @@ struct StoryPhotoCoverView: View {
                                 subtitle: subtitle,
                                 tag: tag,
                                 showsTextOverlay: showsTextOverlay,
+                                titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                                 cornerRadius: cornerRadius,
                                 width: width
                             )
@@ -63,6 +72,7 @@ struct StoryPhotoCoverView: View {
                         subtitle: subtitle,
                         tag: tag,
                         showsTextOverlay: showsTextOverlay,
+                        titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
                         cornerRadius: cornerRadius,
                         width: width
                     )

@@ -240,6 +240,7 @@ struct CreateStoryView: View {
     private var readerViewContainer: some View {
         StoryReaderView(
             child: viewModel.selectedChild,
+            heroDisplayName: viewModel.selectedChild == nil ? viewModel.childName : nil,
             storyTitle: "\(viewModel.childName)'nın Masalı",
             storyContent: viewModel.generatedStory,
             showSaveButton: false,

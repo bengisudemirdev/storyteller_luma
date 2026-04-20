@@ -7,6 +7,8 @@ struct StoryCoverTitleOverlay: View {
     var tag: String?
     /// Üst veya alt yerleşim
     var position: TitlePosition = .bottom
+    /// Başlık grubunu alttan biraz yukarı taşır (kapak alt kenarından ek boşluk).
+    var extraBottomInset: CGFloat = 0
 
     enum TitlePosition {
         case top
@@ -50,7 +52,9 @@ struct StoryCoverTitleOverlay: View {
             if position == .top { Spacer(minLength: 0) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: position == .top ? .topLeading : .bottomLeading)
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.top, 14)
+        .padding(.bottom, 14 + extraBottomInset)
     }
 }
 

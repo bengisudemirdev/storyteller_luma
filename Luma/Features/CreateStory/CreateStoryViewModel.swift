@@ -31,25 +31,23 @@ class CreateStoryViewModel: ObservableObject {
         ])
 
         Task {
+            var ephemeralChildId: UUID?
             do {
                 let childId: UUID
                 if let existing = selectedChild {
                     childId = existing.id
                 } else {
+                    // Üretim API’si childId istiyor; kalıcı profil istenmiyorsa geçici kayıt açılıp masal sonrası silinir.
                     let newChild = try await ChildrenAPIService.createChild(
                         name: trimmedName,
-                        age: nil,
+                        age: 7,
                         profile: nil,
-                        avatarEmoji: nil,
+                        avatarEmoji: ChildModel.defaultAvatarEmoji,
                         interests: nil,
                         fears: nil
                     )
                     childId = newChild.id
-                    if !children.contains(where: { $0.id == newChild.id }) {
-                        children.append(newChild)
-                    }
-                    selectedChild = newChild
-                    childName = newChild.name
+                    ephemeralChildId = newChild.id
                 }
 
                 let backendTheme = mapThemeToBackend(selectedTheme)
@@ -65,14 +63,36 @@ class CreateStoryViewModel: ObservableObject {
                     selectedInterests: perStoryInterests,
                     storyGoal: nil
                 )
+
+                if let tempId = ephemeralChildId {
+                    do {
+                        try await ChildrenAPIService.deleteChild(id: tempId)
+                    } catch {
+                        AppLogger.error("children.delete.ephemeral_failed", [
+                            "childId": tempId.uuidString,
+                            "error": String(describing: type(of: error))
+                        ])
+                    }
+                }
+
                 generatedStoryModel = story
                 generatedStory = story.content
                 showReaderView = true
             } catch {
+                if let tempId = ephemeralChildId {
+                    do {
+                        try await ChildrenAPIService.deleteChild(id: tempId)
+                    } catch {
+                        AppLogger.error("children.delete.ephemeral_failed", [
+                            "childId": tempId.uuidString,
+                            "error": String(describing: type(of: error))
+                        ])
+                    }
+                }
                 errorMessage = error.userFacingTurkishMessage
                 showErrorAlert = true
                 AppLogger.error("stories.create.failed", [
-                    "childId": selectedChild?.id.uuidString ?? "none",
+                    "childId": selectedChild?.id.uuidString ?? ephemeralChildId?.uuidString ?? "none",
                     "theme": mapThemeToBackend(selectedTheme),
                     "error": String(describing: type(of: error))
                 ])
