@@ -7,7 +7,9 @@ enum SubscriptionPlan: String, Codable {
 
 struct SubscriptionLimits {
     let maxChildren: Int?
-    let maxDailyStories: Int?
+    let maxWeeklyStories: Int?
+    let maxWeeklyNarrations: Int?
+    let hasOneTimeNarrationTrial: Bool
     let maxSavedStories: Int?
 }
 
@@ -17,13 +19,17 @@ extension SubscriptionPlan {
         case .free:
             return SubscriptionLimits(
                 maxChildren: 1,
-                maxDailyStories: 3,
+                maxWeeklyStories: 1,
+                maxWeeklyNarrations: nil,
+                hasOneTimeNarrationTrial: true,
                 maxSavedStories: 10
             )
         case .premium:
             return SubscriptionLimits(
                 maxChildren: nil,
-                maxDailyStories: nil,
+                maxWeeklyStories: 7,
+                maxWeeklyNarrations: 5,
+                hasOneTimeNarrationTrial: false,
                 maxSavedStories: nil
             )
         }

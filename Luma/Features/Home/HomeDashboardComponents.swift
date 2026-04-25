@@ -11,7 +11,7 @@ enum HomeDashboardPalette {
     static let screenTop = dashboardCanvas
     static let screenBottom = dashboardCanvas
     /// Bölüm alt açıklamaları (Zinc 500).
-    static let sectionCaption = Color(hex: "71717A")
+    static let sectionCaption = Color(hex: "6E5D63")
 
     static let nightTop = Color(hex: "2D2640")
     static let nightMid = Color(hex: "4A3F6B")
@@ -21,8 +21,9 @@ enum HomeDashboardPalette {
     static let heroDeepMid = Color(hex: "241B45")
     static let heroDeepBottom = Color(hex: "3D2F6A")
     static let moonGlow = Color(hex: "FFF8E7")
-    static let accentOrange = Color(hex: "E8956A")
-    static let accentOrangeSoft = Color(hex: "F4B08C")
+    static let accentOrange = Color(hex: "E47C45")
+    static let accentOrangeSoft = Color(hex: "F6B278")
+    static let accentCandy = Color(hex: "FF9D7A")
     static let tabActiveAmber = Color(hex: "F59E0B")
     static let starTint = Color.white.opacity(0.92)
     static let heroTitle = Color.white
@@ -32,28 +33,29 @@ enum HomeDashboardPalette {
     static let cardSurface = Color.white
     static let cardShadow = Color.black.opacity(0.07)
     /// Kart gölgesi: ~0 10px 30px rgba(0,0,0,0.05)
-    static let cardElevatedShadow = Color.black.opacity(0.05)
+    static let cardElevatedShadow = Color.black.opacity(0.07)
     /// Aynı renk zeminde kart sınırı (düşük kontrast).
     static let cardEdgeStroke = Color(hex: "2C2A32").opacity(0.08)
 }
 
 enum HomeDashboardMetrics {
     static let horizontalPadding: CGFloat = 20
-    static let sectionSpacing: CGFloat = 28
+    static let sectionSpacing: CGFloat = 34
     static let heroCornerRadius: CGFloat = 28
     static let cardCornerRadius: CGFloat = 20
-    static let classicCardWidth: CGFloat = 176
-    static let classicCardPadding: CGFloat = 14
+    static let classicCardWidth: CGFloat = 166
+    static let classicCardPadding: CGFloat = 12
     /// Kapak: üst köşeler 24, alt biraz daha sıkı.
     static let classicCoverTopCorner: CGFloat = 24
     static let classicCoverBottomCorner: CGFloat = 16
     /// Kart içi yatay padding iki yandan; kapak genişliği.
     static let classicCoverInnerWidth: CGFloat = classicCardWidth - classicCardPadding * 2
-    static let classicCarouselSpacing: CGFloat = 20
+    static let classicCarouselSpacing: CGFloat = 12
     /// Kapak üzerindeki başlık / etiket grubunu alt kenardan hafifçe yukarı alır.
     static let classicTaleTitleOverlayLift: CGFloat = 8
     /// `MainView`: alt sekme çubuğu ile ses mini paneli aynı yatay hizada dursun diye ortak kenar boşluğu.
     static let mainFloatingChromeHorizontalInset: CGFloat = 28
+    static let quickActionCardHeight: CGFloat = 114
 }
 
 // MARK: - Shared screen chrome (Home, Profil, Masal oluştur)
@@ -403,7 +405,7 @@ struct ClassicTaleCard: View {
         NavigationLink {
             ClassicTalePreviewView(tale: tale)
         } label: {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 StoryPhotoCoverView(
                     imageURL: classicCoverURL,
                     fallbackTemplate: tale.coverTemplate,
@@ -423,19 +425,34 @@ struct ClassicTaleCard: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.black.opacity(0.05),
-                                        Color.black.opacity(0.32)
+                                        HomeDashboardPalette.accentCandy.opacity(0.08),
+                                        HomeDashboardPalette.nightMid.opacity(0.22)
                                     ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 )
                             )
                             .allowsHitTesting(false)
                     }
                 }
 
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Masal zamanı")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(HomeDashboardPalette.accentOrange)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
+                )
+
                 Text(tale.teaser)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(HomeDashboardPalette.sectionCaption)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -443,14 +460,34 @@ struct ClassicTaleCard: View {
             .padding(HomeDashboardMetrics.classicCardPadding)
             .frame(width: HomeDashboardMetrics.classicCardWidth, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
-                    .fill(HomeDashboardPalette.dashboardCanvas)
+                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white,
+                                HomeDashboardPalette.cream.opacity(0.95)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
-                    .stroke(HomeDashboardPalette.cardEdgeStroke, lineWidth: 1)
+                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                HomeDashboardPalette.accentOrange.opacity(0.22),
+                                HomeDashboardPalette.cardEdgeStroke
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             )
-            .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 10, x: 0, y: 6)
+            .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 8)
+            .shadow(color: HomeDashboardPalette.accentCandy.opacity(0.13), radius: 10, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .scrollTransition(.interactive, axis: .horizontal) { content, phase in
@@ -475,6 +512,7 @@ struct ClassicTalesSection: View {
     let classicTales: [ClassicTaleItem]
 
     @State private var scrollPositionId: String?
+    @State private var isInfoBubbleVisible = false
 
     private var carouselTales: [ClassicTaleItem] {
         Array(classicTales.prefix(10))
@@ -493,29 +531,96 @@ struct ClassicTalesSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
                     Text("Klasik Masallar")
                         .font(.system(size: 26, weight: .bold, design: .serif))
                         .tracking(-0.6)
                         .foregroundStyle(HomeDashboardPalette.ink)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Sevilen klasik masalları keşfet")
-                        .font(.system(size: 14, weight: .regular, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                }
+                    Spacer(minLength: 8)
 
-                Spacer(minLength: 8)
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                            isInfoBubbleVisible.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                            .frame(width: 24, height: 24)
+                            .background(
+                                Circle()
+                                    .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
+                            )
+                    }
+                    .buttonStyle(.plain)
 
-                NavigationLink {
-                    ClassicTalesLibraryView(tales: classicTales)
-                } label: {
-                    Text("Tümünü Gör")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    NavigationLink {
+                        ClassicTalesLibraryView(tales: classicTales)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Tümünü Gör")
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+
+                Text("Sevilen klasik masalları keşfet")
+                    .font(.system(size: 14, weight: .regular, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+            }
+
+            if isInfoBubbleVisible {
+                HStack(alignment: .top, spacing: 8) {
+                    Text("Bu masallar çocuk gelişimi ve pedagojik değerlere uygun olacak şekilde seçilip yumuşak bir dille düzenlenmiştir; uyku öncesi için sakin ve güvenli bir ton hedeflenir.")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 4)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isInfoBubbleVisible = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.74))
+                )
+                .overlay(alignment: .topLeading) {
+                    Image(systemName: "triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.white.opacity(0.74))
+                        .rotationEffect(.degrees(180))
+                        .offset(x: 156, y: -8)
+                }
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .top)),
+                    removal: .opacity
+                ))
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -525,7 +630,7 @@ struct ClassicTalesSection: View {
                             .id(tale.id)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
@@ -553,11 +658,6 @@ struct ClassicTalesSection: View {
                 .padding(.top, 2)
             }
 
-            Text("Bu masallar çocuk gelişimi ve pedagojik değerlere uygun olacak şekilde seçilip yumuşak bir dille düzenlenmiştir; uyku öncesi için sakin ve güvenli bir ton hedeflenir.")
-                .font(.system(size: 14, weight: .regular, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, showsPagination ? 10 : 4)
         }
     }
 }
@@ -728,6 +828,83 @@ struct ClassicTalePreviewView: View {
 
 // MARK: - Create story card
 
+struct DashboardQuickActionsSection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                NavigationLink {
+                    CreateStoryView()
+                } label: {
+                    quickActionCard(
+                        icon: "wand.and.stars",
+                        title: "Yeni Masal Oluştur",
+                        subtitle: "Hızlıca kişisel bir masal hazırla",
+                        gradient: [HomeDashboardPalette.accentOrange, HomeDashboardPalette.accentOrangeSoft]
+                    )
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink {
+                    SavedStoriesLibraryView()
+                } label: {
+                    quickActionCard(
+                        icon: "books.vertical.fill",
+                        title: "Kütüphanem",
+                        subtitle: "Kayıtlı masallara devam et",
+                        gradient: [HomeDashboardPalette.nightMid, HomeDashboardPalette.heroDeepBottom]
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func quickActionCard(
+        icon: String,
+        title: String,
+        subtitle: String,
+        gradient: [Color]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.96))
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.2))
+                )
+
+            Text(title)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white)
+                .lineLimit(2)
+
+            Text(subtitle)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.86))
+                .lineLimit(2)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: HomeDashboardMetrics.quickActionCardHeight, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: gradient,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 6)
+    }
+}
 
 
 // MARK: - Recent stories (dashboard styling)
@@ -736,9 +913,23 @@ struct DashboardRecentStoriesSection: View {
     let stories: [StoryModel]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "moon.stars.fill")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Sana Özel")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
+                    )
+
                     Text("Son Masalların")
                         .font(.system(size: 26, weight: .bold, design: .serif))
                         .tracking(-0.6)
@@ -754,9 +945,19 @@ struct DashboardRecentStoriesSection: View {
                 NavigationLink {
                     SavedStoriesLibraryView()
                 } label: {
-                    Text("Tümünü Gör")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    HStack(spacing: 4) {
+                        Text("Tümünü Gör")
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -779,17 +980,35 @@ struct DashboardRecentStoriesSection: View {
                                 .foregroundStyle(HomeDashboardPalette.sectionCaption)
                         }
                         Spacer()
+                        Text("Masal Oluştur")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(HomeDashboardPalette.accentOrange.opacity(0.13))
+                            )
                     }
                     .padding(18)
                     .background(
-                        RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
-                            .fill(HomeDashboardPalette.dashboardCanvas)
+                        RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white,
+                                        HomeDashboardPalette.cream.opacity(0.92)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
-                            .stroke(HomeDashboardPalette.cardEdgeStroke, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                            .stroke(HomeDashboardPalette.accentOrange.opacity(0.22), lineWidth: 1)
                     )
-                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 10, x: 0, y: 6)
+                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 8)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -870,9 +1089,13 @@ private struct DashboardRecentStoryCard: View {
                 }
 
                 LinearGradient(
-                    colors: [.white.opacity(0.12), .black.opacity(0.18)],
-                    startPoint: .top,
-                    endPoint: .bottom
+                    colors: [
+                        HomeDashboardPalette.accentCandy.opacity(0.12),
+                        HomeDashboardPalette.accentOrange.opacity(0.08),
+                        HomeDashboardPalette.nightMid.opacity(0.12)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
                 .clipShape(thumbShape)
                 .allowsHitTesting(false)
@@ -884,7 +1107,7 @@ private struct DashboardRecentStoryCard: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 92)
+            .frame(height: 102)
             .clipShape(thumbShape)
 
             Text(story.title)
@@ -897,18 +1120,46 @@ private struct DashboardRecentStoryCard: View {
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(HomeDashboardPalette.sectionCaption)
             }
+
+            HStack(spacing: 4) {
+                Text("Devam et")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(HomeDashboardPalette.accentOrange)
         }
         .padding(14)
-        .frame(width: 164, alignment: .leading)
+        .frame(width: 172, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
-                .fill(HomeDashboardPalette.dashboardCanvas)
+            RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white,
+                            HomeDashboardPalette.cream.opacity(0.95)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
-                .stroke(HomeDashboardPalette.cardEdgeStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            HomeDashboardPalette.accentOrange.opacity(0.22),
+                            HomeDashboardPalette.cardEdgeStroke
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
-        .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 10, x: 0, y: 6)
+        .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 8)
+        .shadow(color: HomeDashboardPalette.accentCandy.opacity(0.12), radius: 10, x: 0, y: 4)
         .scrollTransition(.interactive, axis: .horizontal) { content, phase in
             content
                 .scaleEffect(phase.isIdentity ? 1 : 0.97)

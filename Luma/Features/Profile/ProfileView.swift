@@ -9,7 +9,15 @@ struct ProfileView: View {
     @State private var isShowingPolicies = false
     @State private var isShowingPaywall = false
     @State private var isShowingFeedbackSheet = false
+    @State private var isShowingAccountSecuritySheet = false
+    @State private var accountSecurityDetent: PresentationDetent = .large
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+
+    private enum ProfileCardMetrics {
+        static let horizontalPadding: CGFloat = 14
+        static let minHeight: CGFloat = 78
+        static let iconSize: CGFloat = 40
+    }
 
     var body: some View {
         NavigationView {
@@ -64,6 +72,7 @@ struct ProfileView: View {
             }
             .navigationBarHidden(true)
             .task {
+                await subscriptionManager.refreshPlanFromServer()
                 await viewModel.fetchChildren()
             }
             .sheet(isPresented: $isShowingAddProfile) {
@@ -88,6 +97,15 @@ struct ProfileView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
+            }
+            .sheet(isPresented: $isShowingAccountSecuritySheet) {
+                AccountSecuritySheet(viewModel: viewModel)
+                    .presentationDetents([.medium, .large], selection: $accountSecurityDetent)
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(28)
+                    .onAppear {
+                        accountSecurityDetent = .large
+                    }
             }
             .sheet(isPresented: $viewModel.isShowingDetailSheet) {
                 if let child = viewModel.selectedChildForDetail {
@@ -158,7 +176,15 @@ struct ProfileView: View {
             Button {
                 isShowingPolicies = true
             } label: {
-                HStack {
+                HStack(spacing: 14) {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
+                        .background(
+                            Circle()
+                                .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
+                        )
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Ebeveyn destekli, yaşa uyarlanmış, güvenli hikâye deneyimi")
                             .font(.subheadline.weight(.semibold))
@@ -167,15 +193,17 @@ struct ProfileView: View {
                             .font(.caption)
                             .foregroundStyle(HomeDashboardPalette.muted)
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.accentOrange)
                 }
-                .padding(18)
+                .padding(ProfileCardMetrics.horizontalPadding)
+                .frame(minHeight: ProfileCardMetrics.minHeight)
                 .background(
                     RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
                         .fill(HomeDashboardPalette.cardSurface)
-                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 12, x: 0, y: 5)
+                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
                 )
             }
             .buttonStyle(.plain)
@@ -194,7 +222,7 @@ struct ProfileView: View {
                     Image(systemName: "bubble.left.and.bubble.right.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .frame(width: 44, height: 44)
+                        .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
                         .background(
                             Circle()
                                 .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
@@ -213,7 +241,8 @@ struct ProfileView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
                 }
-                .padding(16)
+                .padding(ProfileCardMetrics.horizontalPadding)
+                .frame(minHeight: ProfileCardMetrics.minHeight)
                 .background(
                     RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
                         .fill(HomeDashboardPalette.cardSurface)
@@ -233,10 +262,15 @@ struct ProfileView: View {
             Button {
                 isShowingPaywall = true
             } label: {
-                HStack {
+                HStack(spacing: 14) {
                     Image(systemName: "star.circle.fill")
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .frame(width: 30)
+                        .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
+                        .background(
+                            Circle()
+                                .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
+                        )
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Plan")
                             .foregroundStyle(HomeDashboardPalette.ink)
@@ -244,6 +278,9 @@ struct ProfileView: View {
                             .font(.caption)
                             .fontWeight(.bold)
                             .foregroundStyle(subscriptionManager.plan == .premium ? HomeDashboardPalette.accentOrange : HomeDashboardPalette.muted)
+                        Text(subscriptionDetailText)
+                            .font(.caption2)
+                            .foregroundStyle(HomeDashboardPalette.muted)
                     }
                     Spacer()
                     if subscriptionManager.plan == .free {
@@ -255,11 +292,16 @@ struct ProfileView: View {
                             .font(.caption.bold())
                             .foregroundStyle(Color.green.opacity(0.85))
                     }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
                 }
-                .padding(16)
+                .padding(ProfileCardMetrics.horizontalPadding)
+                .frame(minHeight: ProfileCardMetrics.minHeight)
                 .background(
                     RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
-                        .fill(HomeDashboardPalette.accentOrange.opacity(0.1))
+                        .fill(HomeDashboardPalette.cardSurface)
+                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
                 )
             }
             .buttonStyle(.plain)
@@ -272,25 +314,71 @@ struct ProfileView: View {
                 .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
                 .padding(.top, 4)
-            HStack {
-                Image(systemName: "envelope.fill")
-                    .foregroundStyle(HomeDashboardPalette.accentOrange)
-                    .frame(width: 30)
-                Text("E-posta")
-                    .foregroundStyle(HomeDashboardPalette.ink)
-                Spacer()
-                Text(viewModel.parentEmail)
-                    .foregroundStyle(HomeDashboardPalette.muted)
-                    .lineLimit(1)
+            Button {
+                isShowingAccountSecuritySheet = true
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
+                        .background(
+                            Circle()
+                                .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
+                        )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("E-posta ve şifre")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(HomeDashboardPalette.ink)
+                        Text(viewModel.parentEmail)
+                            .font(.caption)
+                            .foregroundStyle(HomeDashboardPalette.muted)
+                            .lineLimit(1)
+                        Text("Hesap bilgilerini güncelle")
+                            .font(.caption)
+                            .foregroundStyle(HomeDashboardPalette.muted)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
+                }
+                .padding(ProfileCardMetrics.horizontalPadding)
+                .frame(minHeight: ProfileCardMetrics.minHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                        .fill(HomeDashboardPalette.cardSurface)
+                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
+                )
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
-                    .fill(HomeDashboardPalette.cardSurface)
-                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 3)
-            )
+            .buttonStyle(.plain)
         }
     }
+
+    private var subscriptionDetailText: String {
+        let statusLabel: String
+        switch subscriptionManager.status {
+        case "active":
+            statusLabel = "Aktif"
+        case "inactive":
+            statusLabel = "Pasif"
+        default:
+            statusLabel = "Bilinmiyor"
+        }
+
+        if let periodEnd = subscriptionManager.currentPeriodEnd {
+            return "Durum: \(statusLabel) · Bitiş: \(Self.subscriptionDateFormatter.string(from: periodEnd))"
+        }
+        return "Durum: \(statusLabel)"
+    }
+
+    private static let subscriptionDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
 
     private var emptyStateView: some View {
         Text(viewModel.errorMessage ?? "Henüz bir çocuk profili eklemediniz.")
@@ -370,6 +458,160 @@ struct ProfileView: View {
                 .fill(HomeDashboardPalette.cardSurface)
                 .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
         )
+    }
+}
+
+private struct AccountSecuritySheet: View {
+    @ObservedObject var viewModel: ProfileViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var email: String = ""
+    @State private var newPassword: String = ""
+    @State private var confirmPassword: String = ""
+    @State private var statusMessage: String?
+    @State private var isErrorStatus = false
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                LumaWarmScreenBackground()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Group {
+                            Text("Hesap E-postası")
+                                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.ink)
+
+                            TextField("ornek@eposta.com", text: $email)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .keyboardType(.emailAddress)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.white.opacity(0.9))
+                                )
+
+                            Button {
+                                Task {
+                                    await updateEmail()
+                                }
+                            } label: {
+                                if viewModel.isLoading {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                } else {
+                                    Text("E-postayı Güncelle")
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                }
+                            }
+                            .disabled(viewModel.isLoading)
+                            .background(HomeDashboardPalette.accentOrange)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        Group {
+                            Text("Şifre Değiştir")
+                                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.ink)
+
+                            SecureField("Yeni şifre (en az 6 karakter)", text: $newPassword)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.white.opacity(0.9))
+                                )
+
+                            SecureField("Yeni şifre (tekrar)", text: $confirmPassword)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.white.opacity(0.9))
+                                )
+
+                            Button {
+                                Task {
+                                    await updatePassword()
+                                }
+                            } label: {
+                                if viewModel.isLoading {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                } else {
+                                    Text("Şifreyi Güncelle")
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                }
+                            }
+                            .disabled(viewModel.isLoading)
+                            .background(HomeDashboardPalette.nightMid)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+
+                        if let statusMessage, !statusMessage.isEmpty {
+                            Text(statusMessage)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(isErrorStatus ? Color.red.opacity(0.9) : Color.green.opacity(0.85))
+                                .padding(10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill((isErrorStatus ? Color.red : Color.green).opacity(0.1))
+                                )
+                        }
+                    }
+                    .padding(20)
+                    .padding(.bottom, 34)
+                }
+            }
+            .navigationTitle("Hesap Güvenliği")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Kapat") { dismiss() }
+                }
+            }
+            .onAppear {
+                email = viewModel.parentEmail
+            }
+        }
+    }
+
+    private func updateEmail() async {
+        do {
+            try await viewModel.updateAccountEmail(email)
+            isErrorStatus = false
+            statusMessage = "E-posta güncelleme isteği gönderildi. Gerekirse yeni adresini doğrula."
+        } catch {
+            isErrorStatus = true
+            statusMessage = (error as? LocalizedError)?.errorDescription ?? error.userFacingTurkishMessage
+        }
+    }
+
+    private func updatePassword() async {
+        do {
+            try await viewModel.updateAccountPassword(newPassword: newPassword, confirmPassword: confirmPassword)
+            isErrorStatus = false
+            statusMessage = "Şifre başarıyla güncellendi."
+            newPassword = ""
+            confirmPassword = ""
+        } catch {
+            isErrorStatus = true
+            statusMessage = (error as? LocalizedError)?.errorDescription ?? error.userFacingTurkishMessage
+        }
     }
 }
 

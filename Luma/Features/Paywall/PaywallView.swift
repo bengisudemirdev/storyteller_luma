@@ -35,8 +35,8 @@ struct PaywallView: View {
         case monthly
     }
 
-    private let yearlyPrice: Double = 499.99
-    private let monthlyPrice: Double = 69.99
+    private let yearlyPrice: Double = 1100
+    private let monthlyPrice: Double = 200
 
     var body: some View {
         ZStack {
@@ -228,13 +228,13 @@ struct PaywallView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     PaywallFeatureLine(
                         icon: "book.pages.fill",
-                        text: "Sınırsız masal, günlük limit yok",
+                        text: "Haftalık 7 masal oluşturma",
                         iconColor: HomeDashboardPalette.accentOrange,
                         compact: true
                     )
                     PaywallFeatureLine(
                         icon: "sparkles",
-                        text: "İsme ve yaşa göre kişiselleştirme",
+                        text: "Haftalık 5 masal seslendirme",
                         iconColor: LumaTheme.lavender,
                         compact: true
                     )
@@ -244,13 +244,13 @@ struct PaywallView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     PaywallFeatureLine(
                         icon: "figure.2.and.child.holdinghands",
-                        text: "Her çocuk için ayrı profil",
+                        text: "Öncelikli premium erişim",
                         iconColor: HomeDashboardPalette.nightMid.opacity(0.75),
                         compact: true
                     )
                     PaywallFeatureLine(
                         icon: "heart.fill",
-                        text: "Reklamsız, sakin okuma",
+                        text: "Sakin ve reklamsız okuma",
                         iconColor: HomeDashboardPalette.accentOrangeSoft,
                         compact: true
                     )
@@ -459,11 +459,11 @@ struct PaywallView: View {
     private var introText: String {
         switch source {
         case .storyLimitReached:
-            return "Bu gece limit doldu; yarın yenilenir. Premium ile bu gece de masal anlatabilirsin."
+            return "Free planda haftalık 1 masal hakkı bulunur. Premium ile haftada 7 masal oluşturabilir, 5 masalı seslendirebilirsin."
         case .childLimitReached:
-            return "Her çocuk için ayrı profil ve masallar — Premium’da kardeşler kendi dünyalarıyla uyur."
+            return "Premium ile ailedeki herkes için daha zengin masal deneyimi açılır."
         case .manual:
-            return "Masal saati bağ kurma ritüeli. Premium ile sınırsız, kişisel ve sakin."
+            return "Premium plan: aylık ₺200 veya yıllık ₺1100. Haftalık 7 masal oluşturma ve 5 seslendirme hakkı."
         }
     }
 
@@ -485,7 +485,9 @@ struct PaywallView: View {
                 }()
                 guard let package = chosen ?? packages.first else { return }
                 let result = try await Purchases.shared.purchase(package: package)
-                if result.customerInfo.entitlements.active["premium"] != nil {
+                if result.customerInfo.entitlements.active["oliapremium"] != nil
+                    || result.customerInfo.entitlements.active["lumapremium"] != nil
+                    || result.customerInfo.entitlements.active["premium"] != nil {
                     await subscriptionManager.refreshPlanFromServer()
                     dismiss()
                 }
@@ -496,7 +498,9 @@ struct PaywallView: View {
     private func restorePurchases() async {
         do {
             let info = try await Purchases.shared.restorePurchases()
-            if info.entitlements.active["premium"] != nil {
+            if info.entitlements.active["oliapremium"] != nil
+                || info.entitlements.active["lumapremium"] != nil
+                || info.entitlements.active["premium"] != nil {
                 await subscriptionManager.refreshPlanFromServer()
                 dismiss()
             }

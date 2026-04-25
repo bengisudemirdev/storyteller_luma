@@ -31,6 +31,14 @@ class CreateStoryViewModel: ObservableObject {
         ])
 
         Task {
+            await SubscriptionManager.shared.refreshPlanFromServer()
+            guard SubscriptionManager.shared.canGenerateStory() else {
+                errorMessage = "Bu plan için haftalık masal oluşturma hakkın doldu."
+                showErrorAlert = true
+                isLoading = false
+                return
+            }
+
             var ephemeralChildId: UUID?
             do {
                 let childId: UUID
@@ -78,6 +86,7 @@ class CreateStoryViewModel: ObservableObject {
                 generatedStoryModel = story
                 generatedStory = story.content
                 showReaderView = true
+                SubscriptionManager.shared.registerStoryGenerated()
             } catch {
                 if let tempId = ephemeralChildId {
                     do {

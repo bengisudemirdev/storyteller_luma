@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// İlk kurulumda (onboarding tamamlanmadan): marka başlığı + alt başlık, ardından otomatik geçiş.
 struct OnboardingTitleSplashView: View {
@@ -15,7 +16,7 @@ struct OnboardingTitleSplashView: View {
                 Spacer()
 
                 VStack(spacing: 20) {
-                    moonMark
+                    brandMark
 
                     Text(AppBrand.displayName)
                         .font(.system(size: 44, weight: .bold, design: .serif))
@@ -57,21 +58,31 @@ struct OnboardingTitleSplashView: View {
         }
     }
 
-    private var moonMark: some View {
-        Image(systemName: "moonphase.waning.crescent")
-            .font(.system(size: 58, weight: .ultraLight))
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [
-                        Color(hex: "FFF2D6"),
-                        Color(hex: "FFD9A0"),
-                        Color(hex: "F0B87A")
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+    @ViewBuilder
+    private var brandMark: some View {
+        if UIImage(named: "lumalogo") != nil {
+            Image("lumalogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 120, height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .shadow(color: Color(hex: "FFC978").opacity(0.3), radius: 16, x: 0, y: 6)
+        } else {
+            Image(systemName: "moonphase.waning.crescent")
+                .font(.system(size: 58, weight: .ultraLight))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color(hex: "FFF2D6"),
+                            Color(hex: "FFD9A0"),
+                            Color(hex: "F0B87A")
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
-            )
-            .shadow(color: Color(hex: "FFC978").opacity(0.45), radius: 18, x: 0, y: 6)
+                .shadow(color: Color(hex: "FFC978").opacity(0.45), radius: 18, x: 0, y: 6)
+        }
     }
 
     private var bookDivider: some View {

@@ -17,11 +17,14 @@ enum StoryReadingChrome {
 
 enum StoryReadingPagination {
     /// İlk sayfada başlık için gövdeye biraz daha az; sonraki sayfalar daha uzun olabilir.
-    static func pages(from storyContent: String, firstPageBudget: Int = 520, otherPageBudget: Int = 900) -> [String] {
+    static func pages(from storyContent: String, firstPageBudget: Int = 640, otherPageBudget: Int = 1050) -> [String] {
         let trimmed = storyContent.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [""] }
 
-        let maxPiece = min(firstPageBudget, otherPageBudget)
+        let normalizedFirstBudget = max(360, min(firstPageBudget, 1500))
+        let normalizedOtherBudget = max(520, min(otherPageBudget, 2200))
+
+        let maxPiece = min(normalizedFirstBudget, normalizedOtherBudget)
         let chunks = chunkText(trimmed, maxChunk: max(120, maxPiece))
 
         var pages: [String] = []
@@ -29,7 +32,7 @@ enum StoryReadingPagination {
         var isFirstPage = true
 
         for ch in chunks {
-            let budget = isFirstPage ? firstPageBudget : otherPageBudget
+            let budget = isFirstPage ? normalizedFirstBudget : normalizedOtherBudget
             let candidate = current.isEmpty ? ch : current + "\n\n" + ch
             if candidate.count <= budget {
                 current = candidate
@@ -44,6 +47,13 @@ enum StoryReadingPagination {
 
         if !current.isEmpty {
             pages.append(current)
+        }
+
+        // Son sayfada birkaç satırlık kırıntı kalırsa bir önceki sayfayla birleştir.
+        if pages.count >= 2, let last = pages.last, last.count < 220 {
+            let prevIndex = pages.count - 2
+            pages[prevIndex] += "\n\n" + last
+            pages.removeLast()
         }
 
         return pages.isEmpty ? [trimmed] : pages

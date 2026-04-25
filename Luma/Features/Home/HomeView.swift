@@ -13,14 +13,17 @@ struct HomeView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: HomeDashboardSectionSpacing.standard) {
                         HomeHeroSection()
-                            .padding(.top, 8)
+                            .padding(.top, 12)
+
+                        DashboardQuickActionsSection()
 
                         ClassicTalesSection(classicTales: viewModel.classicTales)
 
                         DashboardRecentStoriesSection(stories: viewModel.recentStories)
                     }
+                    .padding(.top, 4)
                     .padding(.horizontal, HomeDashboardMetrics.horizontalPadding)
-                    .padding(.bottom, 120)
+                    .padding(.bottom, 132)
                 }
                 .refreshable {
                     await viewModel.loadDashboard()
@@ -66,7 +69,7 @@ struct HomeView: View {
 /// Section spacing shared by Home layout (re-export friendly constant).
 enum HomeDashboardSectionSpacing {
     /// Kartlar ve bölümler arasında daha ferah dikey ritim.
-    static let standard: CGFloat = 40
+    static let standard: CGFloat = 36
 }
 
 @MainActor

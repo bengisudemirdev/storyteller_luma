@@ -244,7 +244,7 @@ struct CreateStoryView: View {
             storyTitle: "\(viewModel.childName)'nın Masalı",
             storyContent: viewModel.generatedStory,
             showSaveButton: false,
-            story: nil,
+            story: viewModel.generatedStoryModel,
             onSave: {
                 let childId = viewModel.generatedStoryModel?.child_id ?? viewModel.selectedChild?.id
                 if let childId {

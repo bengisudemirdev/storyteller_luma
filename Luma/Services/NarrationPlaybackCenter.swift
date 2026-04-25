@@ -16,6 +16,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
     private let queuePlayer = NarrationQueuePlayer()
     private let speechSynth = AVSpeechSynthesizer()
     private var elevenLabsTask: Task<Void, Never>?
+    private var storyAudioURLCache: [UUID: URL] = [:]
 
     private var activeContentKey: String = ""
     private var avSpeechText: String = ""
@@ -35,21 +36,30 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
 
     // MARK: - Kimlik (aynı içerikte duraklat / sürdür)
 
-    func contentKey(text: String, classicTaleCacheId: String?) -> String {
+    func contentKey(text: String, classicTaleCacheId: String?, storyId: UUID?) -> String {
         if let id = classicTaleCacheId, !id.isEmpty {
             return "classic:\(id)"
+        }
+        if let storyId {
+            return "story:\(storyId.uuidString)"
         }
         return "text:\(text.hashValue)"
     }
 
-    func isSameSession(text: String, classicTaleCacheId: String?) -> Bool {
-        contentKey(text: text, classicTaleCacheId: classicTaleCacheId) == activeContentKey
+    func isSameSession(text: String, classicTaleCacheId: String?, storyId: UUID? = nil) -> Bool {
+        contentKey(text: text, classicTaleCacheId: classicTaleCacheId, storyId: storyId) == activeContentKey
     }
 
     // MARK: - Başlat / durdur
 
-    func toggleOrStart(text: String, displayTitle: String, classicTaleCacheId: String?) {
-        let key = contentKey(text: text, classicTaleCacheId: classicTaleCacheId)
+    func toggleOrStart(
+        text: String,
+        displayTitle: String,
+        classicTaleCacheId: String?,
+        storyId: UUID? = nil,
+        storyAudioURL: String? = nil
+    ) {
+        let key = contentKey(text: text, classicTaleCacheId: classicTaleCacheId, storyId: storyId)
         if isSessionActive && activeContentKey == key {
             if isLoading {
                 stopEverything()
@@ -63,13 +73,21 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         activeContentKey = key
         self.displayTitle = displayTitle
 
-        if AppConfig.isElevenLabsNarrationConfigured {
+        let hasStoryAudioHint = !(storyAudioURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let shouldUseQueueEngine = AppConfig.isElevenLabsNarrationConfigured || storyId != nil || hasStoryAudioHint
+
+        if shouldUseQueueEngine {
             isSessionActive = true
             isPanelVisible = true
             isLoading = true
             engine = .queue
             elevenLabsTask = Task { [weak self] in
-                await self?.runElevenLabs(text: text, classicTaleCacheId: classicTaleCacheId)
+                await self?.runElevenLabs(
+                    text: text,
+                    classicTaleCacheId: classicTaleCacheId,
+                    storyId: storyId,
+                    storyAudioURL: storyAudioURL
+                )
             }
         } else {
             startAVSpeech(text: text)
@@ -148,7 +166,12 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
 
     // MARK: - ElevenLabs
 
-    private func runElevenLabs(text: String, classicTaleCacheId: String?) async {
+    private func runElevenLabs(
+        text: String,
+        classicTaleCacheId: String?,
+        storyId: UUID?,
+        storyAudioURL: String?
+    ) async {
         defer {
             if !Task.isCancelled {
                 isLoading = false
@@ -159,7 +182,16 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
             let urls: [URL]
             let deleteAfter: Bool
 
-            if let taleId = classicTaleCacheId,
+            if let storyId {
+                guard let remoteStoryAudio = await resolveStoryAudioURL(storyId: storyId, storyAudioURL: storyAudioURL) else {
+                    AppLogger.error("narration.center.story_audio.required_but_missing", [
+                        "storyId": storyId.uuidString
+                    ])
+                    throw APIClientError.invalidResponse
+                }
+                urls = [remoteStoryAudio]
+                deleteAfter = false
+            } else if let taleId = classicTaleCacheId,
                let cached = ClassicTaleNarrationCache.cachedChunkURLs(taleId: taleId),
                !cached.isEmpty {
                 urls = cached
@@ -193,6 +225,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
             isPaused = false
 
             await activateAudioSession()
+            SubscriptionManager.shared.registerNarrationUsed()
             queuePlayer.play(urls: urls, deleteSourceFilesAfterPlayback: deleteAfter) { [weak self] in
                 Task { @MainActor in
                     self?.handlePlaybackFullyEnded()
@@ -216,6 +249,51 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         }
     }
 
+    private func resolveStoryAudioURL(storyId: UUID?, storyAudioURL: String?) async -> URL? {
+        guard let storyId else { return nil }
+
+        if let cached = storyAudioURLCache[storyId] {
+            return cached
+        }
+
+        if let direct = Self.parseRemoteAudioURL(storyAudioURL) {
+            storyAudioURLCache[storyId] = direct
+            return direct
+        }
+
+        do {
+            let generated = try await StoryService.generateStoryAudioURL(id: storyId)
+            if let resolved = Self.parseRemoteAudioURL(generated) {
+                storyAudioURLCache[storyId] = resolved
+                return resolved
+            }
+        } catch {
+            AppLogger.error("narration.center.story_audio.generate_failed", [
+                "storyId": storyId.uuidString,
+                "error": String(describing: error)
+            ])
+        }
+
+        return nil
+    }
+
+    private static func parseRemoteAudioURL(_ rawValue: String?) -> URL? {
+        guard let value = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        if value.hasPrefix("//") {
+            return URL(string: "https:\(value)")
+        }
+        if let url = URL(string: value), url.scheme != nil {
+            return url
+        }
+        if value.hasPrefix("/") {
+            let base = AppConfig.backendBaseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return URL(string: "\(base)\(value)")
+        }
+        return nil
+    }
+
     // MARK: - AVSpeech
 
     private func startAVSpeech(text: String) {
@@ -226,6 +304,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         isPanelVisible = true
         isLoading = false
         isPaused = false
+        SubscriptionManager.shared.registerNarrationUsed()
 
         Task {
             await activateAudioSession()

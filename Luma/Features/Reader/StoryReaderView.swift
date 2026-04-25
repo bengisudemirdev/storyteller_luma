@@ -31,11 +31,16 @@ struct StoryReaderView: View {
     @State private var currentPage = 0
     @State private var isDeleting = false
     @State private var showDeleteAlert = false
+    @ObservedObject private var playback = NarrationPlaybackCenter.shared
     @EnvironmentObject private var appUIState: AppUIState
     @Environment(\.dismiss) var dismiss
 
     private var storyPages: [String] {
-        StoryReadingPagination.pages(from: storyContent)
+        StoryReadingPagination.pages(
+            from: storyContent,
+            firstPageBudget: 700,
+            otherPageBudget: 1200
+        )
     }
 
     private var pageCount: Int {
@@ -97,8 +102,14 @@ struct StoryReaderView: View {
 
                 StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
             }
+
+            if playback.isLoading {
+                narrationLoadingOverlay
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
         }
         .navigationBarHidden(true)
+        .animation(.easeInOut(duration: 0.2), value: playback.isLoading)
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
@@ -194,52 +205,11 @@ struct StoryReaderView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(alignment: .center, spacing: 8) {
-                StoryNarrationButton(text: storyContent, displayTitle: storyTitle, readerChrome: true)
-
-                if let onSave = onSave {
-                    Button {
-                        Task { await onSave() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "bookmark.fill")
-                            Text("Masalı Kaydet")
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.78)
-                        }
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(HomeDashboardPalette.accentOrange.opacity(0.14))
-                        )
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(HomeDashboardPalette.accentOrange.opacity(0.45), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                if story != nil {
-                    Button {
-                        showDeleteAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.red.opacity(0.88))
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(Color.red.opacity(0.08))
-                            )
-                    }
-                    .disabled(isDeleting)
-                    .buttonStyle(.plain)
-                }
+            ViewThatFits(in: .horizontal) {
+                headerActions(compact: false)
+                headerActions(compact: true)
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, StoryReadingChrome.horizontalPadding)
         .padding(.top, 10)
@@ -257,6 +227,65 @@ struct StoryReaderView: View {
         }
     }
 
+    @ViewBuilder
+    private func headerActions(compact: Bool) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            StoryNarrationButton(
+                text: storyContent,
+                displayTitle: storyTitle,
+                storyId: story?.id,
+                storyAudioURL: story?.audio_url,
+                readerChrome: true,
+                compact: compact
+            )
+
+            if let onSave = onSave {
+                Button {
+                    Task { await onSave() }
+                } label: {
+                    HStack(spacing: compact ? 0 : 6) {
+                        Image(systemName: "bookmark.fill")
+                        if !compact {
+                            Text("Masalı Kaydet")
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
+                        }
+                    }
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .padding(.horizontal, compact ? 9 : 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(HomeDashboardPalette.accentOrange.opacity(0.14))
+                    )
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(HomeDashboardPalette.accentOrange.opacity(0.45), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            if story != nil {
+                Button {
+                    showDeleteAlert = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.red.opacity(0.88))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(Color.red.opacity(0.08))
+                        )
+                }
+                .disabled(isDeleting)
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
     private func deleteStoryIfNeeded() async {
         guard let storyId = story?.id else { return }
         isDeleting = true
@@ -270,5 +299,39 @@ struct StoryReaderView: View {
             ])
         }
         isDeleting = false
+    }
+
+    private var narrationLoadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.18)
+                .ignoresSafeArea()
+
+            VStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(HomeDashboardPalette.accentOrange.opacity(0.16))
+                        .frame(width: 72, height: 72)
+                    ProgressView()
+                        .scaleEffect(1.35)
+                        .tint(HomeDashboardPalette.accentOrange)
+                }
+
+                Text("Seslendirme hazırlanıyor...")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(HomeDashboardPalette.cardSurface.opacity(0.97))
+                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 6)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(HomeDashboardPalette.accentOrange.opacity(0.18), lineWidth: 1)
+            )
+        }
+        .allowsHitTesting(true)
     }
 }

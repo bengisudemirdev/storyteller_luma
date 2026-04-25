@@ -2,6 +2,23 @@ import Foundation
 import Supabase
 import Combine
 
+enum ProfileAccountUpdateError: LocalizedError {
+    case invalidEmail
+    case passwordTooShort
+    case passwordMismatch
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidEmail:
+            return "Geçerli bir e-posta adresi girin."
+        case .passwordTooShort:
+            return "Şifre en az 6 karakter olmalı."
+        case .passwordMismatch:
+            return "Şifre ve tekrar şifresi aynı olmalı."
+        }
+    }
+}
+
 @MainActor
 class ProfileViewModel: ObservableObject {
     @Published var children: [ChildModel] = []
@@ -234,6 +251,51 @@ class ProfileViewModel: ObservableObject {
             .filter { !$0.isEmpty }
             .prefix(25)
             .map { String($0.prefix(200)) }
+    }
+
+    func updateAccountEmail(_ rawEmail: String) async throws {
+        let trimmed = rawEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard trimmed.contains("@"), trimmed.contains(".") else {
+            throw ProfileAccountUpdateError.invalidEmail
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await OliaApp.supabase.auth.update(user: UserAttributes(email: trimmed))
+            parentEmail = trimmed
+            AppLogger.info("profile.account.email.updated", [:])
+        } catch {
+            AppLogger.error("profile.account.email.update_failed", [
+                "errorType": String(describing: type(of: error)),
+                "error": String(describing: error)
+            ])
+            throw error
+        }
+    }
+
+    func updateAccountPassword(newPassword: String, confirmPassword: String) async throws {
+        guard newPassword.count >= 6 else {
+            throw ProfileAccountUpdateError.passwordTooShort
+        }
+        guard newPassword == confirmPassword else {
+            throw ProfileAccountUpdateError.passwordMismatch
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await OliaApp.supabase.auth.update(user: UserAttributes(password: newPassword))
+            AppLogger.info("profile.account.password.updated", [:])
+        } catch {
+            AppLogger.error("profile.account.password.update_failed", [
+                "errorType": String(describing: type(of: error)),
+                "error": String(describing: error)
+            ])
+            throw error
+        }
     }
 
     // MARK: - Age helpers
