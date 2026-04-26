@@ -40,8 +40,12 @@ class ProfileViewModel: ObservableObject {
     private var lastChildrenFetchAt: Date?
     private let minChildrenFetchInterval: TimeInterval = 8
     private var isFetchingChildren = false
+    private var hasLoadedChildrenOnce = false
 
     func fetchChildren(forceRefresh: Bool = false) async {
+        if hasLoadedChildrenOnce && !forceRefresh {
+            return
+        }
         if isFetchingChildren {
             if !forceRefresh { return }
             // Güncelleme sonrası yenileme, halihazırda süren isteği bekleyip tekrar dener (üst süre ~6 sn).
@@ -77,6 +81,7 @@ class ProfileViewModel: ObservableObject {
                 let response = try await ChildrenAPIService.fetchChildren()
                 children = response
                 lastChildrenFetchAt = Date()
+                hasLoadedChildrenOnce = true
                 AppLogger.info("children.fetch.completed", [
                     "context": "ProfileViewModel",
                     "count": "\(response.count)"

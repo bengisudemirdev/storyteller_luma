@@ -3,6 +3,7 @@ import SwiftUI
 struct CreateStoryView: View {
     @StateObject private var viewModel: CreateStoryViewModel
     @FocusState private var focusedField: Field?
+    @State private var hasLoadedScreenOnce = false
 
     private enum Field: Hashable { case childName; case interest }
 
@@ -164,6 +165,9 @@ struct CreateStoryView: View {
                             VStack(spacing: 4) {
                                 Text("Sihirli Masalı Yaz ✨")
                                     .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                Text("Maliyet: \(viewModel.storyCreditCost) kredi")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundStyle(HomeDashboardPalette.accentOrange)
                                 if let child = viewModel.selectedChild, let fears = child.fears, !fears.isEmpty {
                                     Text("Korkulardan arındırılmış güvenli bölge 🛡️")
                                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -210,28 +214,34 @@ struct CreateStoryView: View {
         } message: {
             Text(viewModel.errorMessage ?? "Bilinmeyen bir hata oluştu.")
         }
+        .sheet(isPresented: $viewModel.showCreditStore) {
+            PaywallView(source: .insufficientCredits(required: viewModel.storyCreditCost))
+        }
         .onAppear {
             setupSegmentedControl()
-            Task {
-                await viewModel.fetchChildren()
+        }
+        .task {
+            if hasLoadedScreenOnce { return }
+            hasLoadedScreenOnce = true
 
-                // Hızlı tema / dashboard akışından gelinmişse ön seçimleri uygula
-                if let child = initialChild {
-                    viewModel.selectedChild = child
-                    viewModel.childName = child.name
+            await viewModel.fetchChildren()
+
+            // Hızlı tema / dashboard akışından gelinmişse ön seçimleri uygula
+            if let child = initialChild {
+                viewModel.selectedChild = child
+                viewModel.childName = child.name
+            }
+            if let theme = initialTheme {
+                viewModel.selectedTheme = themes.contains(theme) ? theme : (themes.first ?? theme)
+            } else {
+                // Varsayılan tema, mevcut yaş grubuna göre ilk seçenek
+                if let first = themes.first {
+                    viewModel.selectedTheme = first
                 }
-                if let theme = initialTheme {
-                    viewModel.selectedTheme = themes.contains(theme) ? theme : (themes.first ?? theme)
-                } else {
-                    // Varsayılan tema, mevcut yaş grubuna göre ilk seçenek
-                    if let first = themes.first {
-                        viewModel.selectedTheme = first
-                    }
-                }
-                if autoStart {
-                    // Çocuk adı hazırsa otomatik masal üret
-                    viewModel.createStory()
-                }
+            }
+            if autoStart {
+                // Çocuk adı hazırsa otomatik masal üret
+                viewModel.createStory()
             }
         }
     }

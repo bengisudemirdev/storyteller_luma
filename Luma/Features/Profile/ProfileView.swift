@@ -11,7 +11,8 @@ struct ProfileView: View {
     @State private var isShowingFeedbackSheet = false
     @State private var isShowingAccountSecuritySheet = false
     @State private var accountSecurityDetent: PresentationDetent = .large
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var hasLoadedScreenOnce = false
+    @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
 
     private enum ProfileCardMetrics {
         static let horizontalPadding: CGFloat = 14
@@ -28,7 +29,7 @@ struct ProfileView: View {
                         profileHero
                             .padding(.top, 8)
 
-                        premiumSection
+                        creditSection
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Çocuk Profilleri")
@@ -72,7 +73,9 @@ struct ProfileView: View {
             }
             .navigationBarHidden(true)
             .task {
-                await subscriptionManager.refreshPlanFromServer()
+                if hasLoadedScreenOnce { return }
+                hasLoadedScreenOnce = true
+                await creditBalance.refreshBalance()
                 await viewModel.fetchChildren()
             }
             .sheet(isPresented: $isShowingAddProfile) {
@@ -87,7 +90,6 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $isShowingPaywall) {
                 PaywallView(source: .manual)
-                    .environmentObject(subscriptionManager)
             }
             .sheet(isPresented: $isShowingFeedbackSheet) {
                 ProfileFeedbackSheet(
@@ -253,9 +255,9 @@ struct ProfileView: View {
         }
     }
 
-    private var premiumSection: some View {
+    private var creditSection: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Premium")
+            Text("Krediler")
                 .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
 
@@ -272,26 +274,20 @@ struct ProfileView: View {
                                 .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
                         )
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Plan")
+                        Text("Kredi Bakiyesi")
                             .foregroundStyle(HomeDashboardPalette.ink)
-                        Text(subscriptionManager.plan.displayName)
+                        Text("\(creditBalance.balance) kredi")
                             .font(.caption)
                             .fontWeight(.bold)
-                            .foregroundStyle(subscriptionManager.plan == .premium ? HomeDashboardPalette.accentOrange : HomeDashboardPalette.muted)
-                        Text(subscriptionDetailText)
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        Text("Masal: \(CreditCost.story) kredi • Seslendirme: \(CreditCost.narration) kredi")
                             .font(.caption2)
                             .foregroundStyle(HomeDashboardPalette.muted)
                     }
                     Spacer()
-                    if subscriptionManager.plan == .free {
-                        Text("Premium'a Geç")
-                            .font(.caption.bold())
-                            .foregroundStyle(HomeDashboardPalette.accentOrange)
-                    } else {
-                        Text("Aktif")
-                            .font(.caption.bold())
-                            .foregroundStyle(Color.green.opacity(0.85))
-                    }
+                    Text("Kredi Al")
+                        .font(.caption.bold())
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
@@ -354,31 +350,6 @@ struct ProfileView: View {
             .buttonStyle(.plain)
         }
     }
-
-    private var subscriptionDetailText: String {
-        let statusLabel: String
-        switch subscriptionManager.status {
-        case "active":
-            statusLabel = "Aktif"
-        case "inactive":
-            statusLabel = "Pasif"
-        default:
-            statusLabel = "Bilinmiyor"
-        }
-
-        if let periodEnd = subscriptionManager.currentPeriodEnd {
-            return "Durum: \(statusLabel) · Bitiş: \(Self.subscriptionDateFormatter.string(from: periodEnd))"
-        }
-        return "Durum: \(statusLabel)"
-    }
-
-    private static let subscriptionDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "tr_TR")
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        return formatter
-    }()
 
     private var emptyStateView: some View {
         Text(viewModel.errorMessage ?? "Henüz bir çocuk profili eklemediniz.")

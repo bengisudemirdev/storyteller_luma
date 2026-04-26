@@ -83,5 +83,4 @@ struct MainView: View {
 
 #Preview {
     MainView()
-        .environmentObject(SubscriptionManager())
 }

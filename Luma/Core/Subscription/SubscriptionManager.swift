@@ -81,7 +81,7 @@ final class SubscriptionManager: ObservableObject {
             guard let max = plan.limits.maxWeeklyNarrations else { return true }
             return weeklyNarrationsUsed < max
         case .free:
-            return !freeNarrationTrialUsed
+            return false
         }
     }
 

@@ -19,50 +19,38 @@ struct StoryPhotoCoverView: View {
         ZStack(alignment: .bottomLeading) {
             Group {
                 if let imageURL {
-                    AsyncImage(url: imageURL) { phase in
-                        switch phase {
-                        case .success(let image):
-                            ZStack(alignment: .bottomLeading) {
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                if showsTextOverlay {
-                                    StoryCoverBottomScrim()
-                                    StoryCoverTitleOverlay(
-                                        title: title,
-                                        subtitle: subtitle,
-                                        tag: tag,
-                                        extraBottomInset: titleOverlayExtraBottomInset
-                                    )
-                                }
+                    CachedRemoteImage(url: imageURL) { image in
+                        ZStack(alignment: .bottomLeading) {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                            if showsTextOverlay {
+                                StoryCoverBottomScrim()
+                                StoryCoverTitleOverlay(
+                                    title: title,
+                                    subtitle: subtitle,
+                                    tag: tag,
+                                    extraBottomInset: titleOverlayExtraBottomInset
+                                )
                             }
-                        case .empty:
+                        }
+                    } placeholder: {
+                        if showsTextOverlay {
+                            StoryCoverTemplateView(
+                                type: fallbackTemplate,
+                                title: title,
+                                subtitle: subtitle,
+                                tag: tag,
+                                showsTextOverlay: showsTextOverlay,
+                                titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
+                                cornerRadius: cornerRadius,
+                                width: width
+                            )
+                        } else {
                             ZStack {
                                 Color.black.opacity(0.06)
                                 ProgressView()
                             }
-                        case .failure:
-                            StoryCoverTemplateView(
-                                type: fallbackTemplate,
-                                title: title,
-                                subtitle: subtitle,
-                                tag: tag,
-                                showsTextOverlay: showsTextOverlay,
-                                titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
-                                cornerRadius: cornerRadius,
-                                width: width
-                            )
-                        @unknown default:
-                            StoryCoverTemplateView(
-                                type: fallbackTemplate,
-                                title: title,
-                                subtitle: subtitle,
-                                tag: tag,
-                                showsTextOverlay: showsTextOverlay,
-                                titleOverlayExtraBottomInset: titleOverlayExtraBottomInset,
-                                cornerRadius: cornerRadius,
-                                width: width
-                            )
                         }
                     }
                 } else {

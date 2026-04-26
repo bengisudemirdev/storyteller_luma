@@ -26,7 +26,7 @@ struct HomeView: View {
                     .padding(.bottom, 132)
                 }
                 .refreshable {
-                    await viewModel.loadDashboard()
+                    await viewModel.loadDashboard(forceRefresh: true)
                 }
 
                 if viewModel.isLoadingInitial {
@@ -42,9 +42,6 @@ struct HomeView: View {
             await viewModel.loadDashboard()
         }
         .onAppear {
-            Task {
-                await viewModel.loadDashboard()
-            }
             if !viewModel.hasSeenPolicyOnboarding {
                 showFirstLaunchPolicy = true
                 viewModel.markPolicyOnboardingSeen()
@@ -81,8 +78,13 @@ class HomeViewModel: ObservableObject {
     @Published var isLoadingInitial: Bool = false
     @Published var selectedChild: ChildModel? = nil
     @Published private(set) var hasSeenPolicyOnboarding: Bool = UserDefaults.standard.bool(forKey: "luma_has_seen_policy_onboarding")
+    private var hasLoadedDashboardOnce = false
 
-    func loadDashboard() async {
+    func loadDashboard(forceRefresh: Bool = false) async {
+        if hasLoadedDashboardOnce && !forceRefresh {
+            return
+        }
+
         if children.isEmpty && recentStories.isEmpty {
             isLoadingInitial = true
         }
@@ -106,6 +108,8 @@ class HomeViewModel: ObservableObject {
                       !fetchedChildren.contains(where: { $0.id == current.id }) {
                 selectedChild = fetchedChildren.first
             }
+
+            hasLoadedDashboardOnce = true
         } catch {
             AppLogger.error("dashboard.load.failed", [
                 "errorType": String(describing: type(of: error)),

@@ -5,7 +5,6 @@ import RevenueCat
 @main
 struct OliaApp: App {
     @StateObject private var authManager = AuthManager()
-    @StateObject private var subscriptionManager = SubscriptionManager()
     @AppStorage("luma_has_completed_app_onboarding") private var hasCompletedAppOnboarding = false
     @AppStorage("luma_registration_requires_child_setup") private var registrationRequiresChildSetup = false
     /// İlk kurulumda marka splash → onboarding; tamamlanınca giriş veya ana ekran (oturum durumuna göre).
@@ -55,7 +54,6 @@ struct OliaApp: App {
                         UserDefaults.standard.set(false, forKey: LumaUserDefaultsKeys.showPostRegistrationPaywallOnce)
                     }) {
                         PaywallView(source: .manual)
-                            .environmentObject(subscriptionManager)
                             .presentationDetents([.large])
                             .presentationDragIndicator(.visible)
                             .presentationCornerRadius(28)
@@ -74,9 +72,8 @@ struct OliaApp: App {
             .animation(.easeInOut(duration: 0.25), value: registrationRequiresChildSetup)
             .animation(.easeInOut(duration: 0.35), value: hasCompletedAppOnboarding)
             .animation(.easeInOut(duration: 0.35), value: hasSeenTitleSplash)
-            .environmentObject(subscriptionManager)
             .task {
-                await subscriptionManager.refreshPlanFromServer()
+                await CreditBalanceViewModel.shared.refreshBalance()
             }
         }
     }
@@ -93,11 +90,7 @@ struct OliaApp: App {
     @MainActor
     private func handlePostRegistrationPaywallRequest() async {
         guard !isPresentingPostRegistrationPaywall else { return }
-        await subscriptionManager.refreshPlanFromServer()
-        guard subscriptionManager.plan == .free else {
-            UserDefaults.standard.set(false, forKey: LumaUserDefaultsKeys.showPostRegistrationPaywallOnce)
-            return
-        }
+        await CreditBalanceViewModel.shared.refreshBalance()
         try? await Task.sleep(nanoseconds: 350_000_000)
         guard !isPresentingPostRegistrationPaywall else { return }
         isPresentingPostRegistrationPaywall = true

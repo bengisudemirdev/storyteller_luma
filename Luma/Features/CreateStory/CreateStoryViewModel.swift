@@ -12,11 +12,14 @@ class CreateStoryViewModel: ObservableObject {
     @Published var generatedStory: String = ""
     @Published var showErrorAlert: Bool = false
     @Published var errorMessage: String? = nil
+    @Published var showCreditStore: Bool = false
     @Published var children: [ChildModel] = []
     @Published var selectedChild: ChildModel? = nil
     @Published var isSaving = false
     @Published var saveSuccess = false
     @Published var generatedStoryModel: StoryModel? = nil
+    private var hasLoadedChildrenOnce = false
+    let storyCreditCost: Int = CreditCost.story
 
     func createStory() {
         let trimmedName = childName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -31,9 +34,10 @@ class CreateStoryViewModel: ObservableObject {
         ])
 
         Task {
-            await SubscriptionManager.shared.refreshPlanFromServer()
-            guard SubscriptionManager.shared.canGenerateStory() else {
-                errorMessage = "Bu plan için haftalık masal oluşturma hakkın doldu."
+            await CreditBalanceViewModel.shared.refreshBalance()
+            guard CreditBalanceViewModel.shared.hasCredits(required: storyCreditCost) else {
+                errorMessage = "Bu islem icin en az \(storyCreditCost) kredi gerekiyor."
+                showCreditStore = true
                 showErrorAlert = true
                 isLoading = false
                 return
@@ -86,7 +90,7 @@ class CreateStoryViewModel: ObservableObject {
                 generatedStoryModel = story
                 generatedStory = story.content
                 showReaderView = true
-                SubscriptionManager.shared.registerStoryGenerated()
+                await CreditBalanceViewModel.shared.refreshBalance()
             } catch {
                 if let tempId = ephemeralChildId {
                     do {
@@ -110,12 +114,16 @@ class CreateStoryViewModel: ObservableObject {
         }
     }
 
-    func fetchChildren() async {
+    func fetchChildren(forceRefresh: Bool = false) async {
+        if hasLoadedChildrenOnce && !forceRefresh {
+            return
+        }
         AppLogger.info("children.fetch.started", [:])
         isLoading = true
         do {
             let fetched = try await ChildrenAPIService.fetchChildren()
             children = fetched
+            hasLoadedChildrenOnce = true
             AppLogger.info("children.fetch.completed", [
                 "count": "\(fetched.count)"
             ])

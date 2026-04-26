@@ -1071,18 +1071,15 @@ private struct DashboardRecentStoryCard: View {
                     )
 
                 if let urlStr = story.cover_image_url, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        case .empty:
+                    CachedRemoteImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        if story.cover_image_url?.isEmpty == false {
                             ProgressView()
                                 .tint(HomeDashboardPalette.accentOrange)
-                        case .failure:
-                            EmptyView()
-                        @unknown default:
+                        } else {
                             EmptyView()
                         }
                     }

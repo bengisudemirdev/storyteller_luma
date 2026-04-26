@@ -15,20 +15,23 @@ struct StoryNarrationButton: View {
     var compact: Bool = false
 
     @ObservedObject private var playback = NarrationPlaybackCenter.shared
+    @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
     @State private var showLimitAlert = false
-    @State private var isCheckingSubscription = false
+    @State private var showPaywall = false
+    @State private var isCheckingCredits = false
 
     var body: some View {
         Button {
             Task {
-                isCheckingSubscription = true
-                await SubscriptionManager.shared.refreshPlanFromServer()
-                guard SubscriptionManager.shared.canStartNarration() else {
+                isCheckingCredits = true
+                await creditBalance.refreshBalance()
+                guard creditBalance.hasCredits(required: CreditCost.narration) else {
+                    showPaywall = true
                     showLimitAlert = true
-                    isCheckingSubscription = false
+                    isCheckingCredits = false
                     return
                 }
-                isCheckingSubscription = false
+                isCheckingCredits = false
                 playback.toggleOrStart(
                     text: text,
                     displayTitle: displayTitle,
@@ -39,7 +42,7 @@ struct StoryNarrationButton: View {
             }
         } label: {
             HStack(spacing: compact ? 0 : 6) {
-                if isCheckingSubscription ||
+                if isCheckingCredits ||
                     (playback.isLoading && playback.isSameSession(text: text, classicTaleCacheId: classicTaleCacheId, storyId: storyId)) {
                     ProgressView()
                         .scaleEffect(0.85)
@@ -65,11 +68,14 @@ struct StoryNarrationButton: View {
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
-        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCheckingSubscription)
-        .alert("Seslendirme hakkı", isPresented: $showLimitAlert) {
+        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCheckingCredits)
+        .alert("Kredi bilgisi", isPresented: $showLimitAlert) {
             Button("Tamam", role: .cancel) { }
         } message: {
             Text(narrationLimitMessage)
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(source: .insufficientCredits(required: CreditCost.narration))
         }
     }
 
@@ -91,11 +97,6 @@ struct StoryNarrationButton: View {
     }
 
     private var narrationLimitMessage: String {
-        switch SubscriptionManager.shared.plan {
-        case .premium:
-            return "Premium planda haftalık 5 seslendirme hakkı bulunur. Bu haftaki hakkın doldu."
-        case .free:
-            return "Free planda seslendirme bir kerelik deneme hakkı olarak sunulur."
-        }
+        "Seslendirme icin en az \(CreditCost.narration) kredi gerekiyor."
     }
 }

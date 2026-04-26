@@ -225,7 +225,6 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
             isPaused = false
 
             await activateAudioSession()
-            SubscriptionManager.shared.registerNarrationUsed()
             queuePlayer.play(urls: urls, deleteSourceFilesAfterPlayback: deleteAfter) { [weak self] in
                 Task { @MainActor in
                     self?.handlePlaybackFullyEnded()
@@ -304,7 +303,6 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         isPanelVisible = true
         isLoading = false
         isPaused = false
-        SubscriptionManager.shared.registerNarrationUsed()
 
         Task {
             await activateAudioSession()
