@@ -22,9 +22,9 @@ struct CreditPackageConfig: Identifiable, Equatable {
             title: "Starter",
             subtitle: "Baslangic icin ideal",
             badge: "Baslangic icin ideal",
-            credits: 1500,
-            displayPrice: "149,99 TL",
-            valueHint: "3 masal",
+            credits: 1000,
+            displayPrice: "99,99 TL",
+            valueHint: "2 masal",
             ctaTitle: "Starter Al"
         ),
         .init(
@@ -32,9 +32,9 @@ struct CreditPackageConfig: Identifiable, Equatable {
             title: "Plus",
             subtitle: "Gunluk kullanim icin dengeli",
             badge: "En populer",
-            credits: 5000,
-            displayPrice: "449,99 TL",
-            valueHint: "1 tam sesli masal + 3 masal",
+            credits: 2500,
+            displayPrice: "199,99 TL",
+            valueHint: "5 masal",
             ctaTitle: "Plus Al"
         ),
         .init(
@@ -42,9 +42,9 @@ struct CreditPackageConfig: Identifiable, Equatable {
             title: "Family",
             subtitle: "Aile kullanimi icin guclu",
             badge: "Aile favorisi",
-            credits: 12000,
-            displayPrice: "949,99 TL",
-            valueHint: "3 tam sesli masal + 1 masal",
+            credits: 7500,
+            displayPrice: "399,99 TL",
+            valueHint: "2 seslendirme + 3 masal",
             ctaTitle: "Family Al"
         ),
         .init(
@@ -52,9 +52,9 @@ struct CreditPackageConfig: Identifiable, Equatable {
             title: "Mega",
             subtitle: "Yogun kullanimda en iyi deger",
             badge: "En iyi deger",
-            credits: 30000,
-            displayPrice: "2.199,99 TL",
-            valueHint: "8 tam sesli masal + 2 masal",
+            credits: 20000,
+            displayPrice: "799,99 TL",
+            valueHint: "5 tam sesli masal + 5 masal",
             ctaTitle: "Mega Al"
         )
     ]

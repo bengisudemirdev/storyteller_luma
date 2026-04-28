@@ -546,7 +546,7 @@ struct ClassicTalesSection: View {
                 Spacer(minLength: 8)
 
                 NavigationLink {
-                    ClassicTalesLibraryView()
+                    ClassicTalesLibraryView(tales: classicTales)
                 } label: {
                     Text("Tümünü Gör")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -631,11 +631,29 @@ struct ClassicTalesSection: View {
 
         }
     }
-}
+
 
 /// Klasik masal kartına basınca açılan tam metin okuma ekranı.
 struct ClassicTalePreviewView: View {
     let tale: ClassicTaleItem
+    @State private var currentPage = 0
+    @EnvironmentObject private var appUIState: AppUIState
+
+    private var storyPages: [String] {
+        StoryReadingPagination.pages(
+            from: tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines),
+            firstPageBudget: 900,
+            otherPageBudget: 1600
+        )
+    }
+
+    private var pageCount: Int {
+        max(storyPages.count, 1)
+    }
+
+    private var coverWidth: CGFloat {
+        min(UIScreen.main.bounds.width - 48, 148)
+    }
 
     var body: some View {
         ZStack {
@@ -756,6 +774,24 @@ struct ClassicTalePreviewView: View {
         }
         .navigationTitle(tale.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(HomeDashboardPalette.dashboardCanvas.opacity(0.94), for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                StoryNarrationButton(
+                    text: tale.narrationText,
+                    displayTitle: tale.title,
+                    classicTaleCacheId: tale.id,
+                    readerChrome: true
+                )
+            }
+        }
+        .onAppear {
+            appUIState.isTabBarVisible = false
+            currentPage = min(currentPage, max(pageCount - 1, 0))
+        }
+        .onDisappear {
+            appUIState.isTabBarVisible = true
+        }
     }
 }
 
