@@ -531,57 +531,28 @@ struct ClassicTalesSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 10) {
-                    Text("Klasik Masallar")
-                        .font(.system(size: 26, weight: .bold, design: .serif))
-                        .tracking(-0.6)
-                        .foregroundStyle(HomeDashboardPalette.ink)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Klasik Masallar")
+                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .tracking(-0.6)
+                    .foregroundStyle(HomeDashboardPalette.ink)
 
-                    Spacer(minLength: 8)
-
-                    Button {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
-                            isInfoBubbleVisible.toggle()
-                        }
-                    } label: {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(HomeDashboardPalette.accentOrange)
-                            .frame(width: 24, height: 24)
-                            .background(
-                                Circle()
-                                    .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
-                            )
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink {
-                        ClassicTalesLibraryView(tales: classicTales)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("Tümünü Gör")
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    Text("Sevilen klasik masalları keşfet")
+                        .font(.system(size: 14, weight: .regular, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
                 }
 
-                Text("Sevilen klasik masalları keşfet")
-                    .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                Spacer(minLength: 8)
+
+                NavigationLink {
+                    ClassicTalesLibraryView()
+                } label: {
+                    Text("Tümünü Gör")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                }
+                .buttonStyle(.plain)
             }
 
             if isInfoBubbleVisible {
@@ -665,26 +636,6 @@ struct ClassicTalesSection: View {
 /// Klasik masal kartına basınca açılan tam metin okuma ekranı.
 struct ClassicTalePreviewView: View {
     let tale: ClassicTaleItem
-
-    @State private var currentPage = 0
-    @EnvironmentObject private var appUIState: AppUIState
-
-    private var storyPages: [String] {
-        StoryReadingPagination.pages(
-            from: tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines),
-            firstPageBudget: 900,
-            otherPageBudget: 1600
-        )
-    }
-
-    private var pageCount: Int {
-        max(storyPages.count, 1)
-    }
-
-    /// İlk sayfada kompakt kapak (liste kartı kadar büyük göstermeye gerek yok).
-    private var coverWidth: CGFloat {
-        min(UIScreen.main.bounds.width - 48, 148)
-    }
 
     var body: some View {
         ZStack {
@@ -805,24 +756,6 @@ struct ClassicTalePreviewView: View {
         }
         .navigationTitle(tale.title)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(HomeDashboardPalette.dashboardCanvas.opacity(0.94), for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                StoryNarrationButton(
-                    text: tale.narrationText,
-                    displayTitle: tale.title,
-                    classicTaleCacheId: tale.id,
-                    readerChrome: true
-                )
-            }
-        }
-        .onAppear {
-            appUIState.isTabBarVisible = false
-            currentPage = min(currentPage, max(pageCount - 1, 0))
-        }
-        .onDisappear {
-            appUIState.isTabBarVisible = true
-        }
     }
 }
 
