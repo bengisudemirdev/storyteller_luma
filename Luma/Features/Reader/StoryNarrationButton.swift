@@ -15,35 +15,22 @@ struct StoryNarrationButton: View {
     var compact: Bool = false
 
     @ObservedObject private var playback = NarrationPlaybackCenter.shared
-    @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
     @State private var showLimitAlert = false
     @State private var showPaywall = false
-    @State private var isCheckingCredits = false
 
     var body: some View {
         Button {
-            Task {
-                isCheckingCredits = true
-                await creditBalance.refreshBalance()
-                guard creditBalance.hasCredits(required: CreditCost.narration) else {
-                    showPaywall = true
-                    showLimitAlert = true
-                    isCheckingCredits = false
-                    return
-                }
-                isCheckingCredits = false
-                playback.toggleOrStart(
-                    text: text,
-                    displayTitle: displayTitle,
-                    classicTaleCacheId: classicTaleCacheId,
-                    storyId: storyId,
-                    storyAudioURL: storyAudioURL
-                )
-            }
+            playback.toggleOrStart(
+                text: text,
+                displayTitle: displayTitle,
+                classicTaleCacheId: classicTaleCacheId,
+                storyId: storyId,
+                storyAudioURL: storyAudioURL
+            )
         } label: {
             HStack(spacing: compact ? 0 : 6) {
-                if isCheckingCredits ||
-                    (playback.isLoading && playback.isSameSession(text: text, classicTaleCacheId: classicTaleCacheId, storyId: storyId)) {
+                if playback.isLoading &&
+                    playback.isSameSession(text: text, classicTaleCacheId: classicTaleCacheId, storyId: storyId) {
                     ProgressView()
                         .scaleEffect(0.85)
                         .tint(readerChrome ? HomeDashboardPalette.accentOrange : LumaTheme.text)
@@ -68,20 +55,46 @@ struct StoryNarrationButton: View {
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
-        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCheckingCredits)
-        .alert("Kredi bilgisi", isPresented: $showLimitAlert) {
-            Button("Tamam", role: .cancel) { }
-        } message: {
-            Text(narrationLimitMessage)
+        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        .onReceive(playback.$lastErrorCode) { code in
+            guard code == "INSUFFICIENT_CREDITS" else { return }
+            showPaywall = true
+            showLimitAlert = false
         }
-        .sheet(isPresented: $showPaywall) {
+        .onReceive(playback.$lastErrorMessage) { message in
+            guard let message, !message.isEmpty else { return }
+            if playback.lastErrorCode == "INSUFFICIENT_CREDITS" {
+                // yetersiz kredi için sheet açılacak; alert metni özel bırakılıyor
+            } else {
+                showLimitAlert = true
+            }
+        }
+        .alert("Kredi bilgisi", isPresented: $showLimitAlert) {
+            Button("Tamam", role: .cancel) {
+                playback.clearErrorState()
+            }
+        } message: {
+            Text(alertMessage)
+        }
+        .sheet(isPresented: $showPaywall, onDismiss: {
+            playback.clearErrorState()
+        }) {
             PaywallView(source: .insufficientCredits(required: CreditCost.narration))
         }
     }
 
+    private var alertMessage: String {
+        if playback.lastErrorCode == "INSUFFICIENT_CREDITS" {
+            return narrationLimitMessage
+        }
+        return playback.lastErrorMessage ?? narrationLimitMessage
+    }
+
     private var toolbarLabel: String {
         let same = playback.isSameSession(text: text, classicTaleCacheId: classicTaleCacheId, storyId: storyId)
-        if playback.isLoading && same { return "Hazırlanıyor" }
+        if playback.isLoading && same {
+            return storyId == nil ? "Hazırlanıyor" : "İşleniyor"
+        }
         if same && playback.isSessionActive && !playback.isLoading {
             return playback.transportShowsPause ? "Duraklat" : "Sürdür"
         }
@@ -97,6 +110,6 @@ struct StoryNarrationButton: View {
     }
 
     private var narrationLimitMessage: String {
-        "Seslendirme icin en az \(CreditCost.narration) kredi gerekiyor."
+        "Seslendirme için en az \(CreditCost.narration) kredi gerekiyor."
     }
 }

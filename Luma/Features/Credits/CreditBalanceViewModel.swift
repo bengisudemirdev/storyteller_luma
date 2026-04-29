@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import RevenueCat
 
 @MainActor
 final class CreditBalanceViewModel: ObservableObject {
@@ -8,6 +9,7 @@ final class CreditBalanceViewModel: ObservableObject {
     @Published private(set) var balance: Int = 0
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastUpdatedAt: Date?
+    @Published private(set) var history: [CreditHistoryItem] = []
     @Published var errorMessage: String?
 
     private init() {}
@@ -27,6 +29,23 @@ final class CreditBalanceViewModel: ObservableObject {
 
     func hasCredits(required: Int) -> Bool {
         balance >= required
+    }
+
+    func syncFromBackend() async {
+        do {
+            try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
+            await refreshBalance()
+        } catch {
+            errorMessage = error.userFacingTurkishMessage
+        }
+    }
+
+    func refreshHistory(limit: Int = 20) async {
+        do {
+            history = try await CreditAPIService.fetchHistory(limit: limit)
+        } catch {
+            errorMessage = error.userFacingTurkishMessage
+        }
     }
 
     private static func parseDate(_ value: String?) -> Date? {

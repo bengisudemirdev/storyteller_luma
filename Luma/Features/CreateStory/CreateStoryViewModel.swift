@@ -34,15 +34,6 @@ class CreateStoryViewModel: ObservableObject {
         ])
 
         Task {
-            await CreditBalanceViewModel.shared.refreshBalance()
-            guard CreditBalanceViewModel.shared.hasCredits(required: storyCreditCost) else {
-                errorMessage = "Bu islem icin en az \(storyCreditCost) kredi gerekiyor."
-                showCreditStore = true
-                showErrorAlert = true
-                isLoading = false
-                return
-            }
-
             var ephemeralChildId: UUID?
             do {
                 let childId: UUID
@@ -92,6 +83,13 @@ class CreateStoryViewModel: ObservableObject {
                 showReaderView = true
                 await CreditBalanceViewModel.shared.refreshBalance()
             } catch {
+                if let apiError = error as? APIClientError, apiError.isInsufficientCredits {
+                    errorMessage = "Bu işlem için en az \(storyCreditCost) kredi gerekiyor."
+                    showCreditStore = true
+                    showErrorAlert = false
+                    isLoading = false
+                    return
+                }
                 if let tempId = ephemeralChildId {
                     do {
                         try await ChildrenAPIService.deleteChild(id: tempId)

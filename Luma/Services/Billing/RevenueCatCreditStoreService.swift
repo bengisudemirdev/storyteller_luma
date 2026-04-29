@@ -30,9 +30,8 @@ enum RevenueCatCreditStoreService {
 
         return PurchaseResultData(
             productId: package.id,
-            transactionId: transactionId,
-            appUserId: Purchases.shared.appUserID,
-            purchasedAtMs: result.transaction.map { Int64($0.purchaseDate.timeIntervalSince1970 * 1000) }
+            storeTransactionId: transactionId,
+            appUserId: Purchases.shared.appUserID
         )
     }
 
@@ -43,8 +42,7 @@ enum RevenueCatCreditStoreService {
 
 struct PurchaseResultData {
     let productId: String
-    let transactionId: String
+    let storeTransactionId: String
     let appUserId: String
-    let purchasedAtMs: Int64?
 }
 

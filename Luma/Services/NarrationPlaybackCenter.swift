@@ -10,6 +10,8 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
     @Published var displayTitle: String = ""
     @Published var isLoading = false
     @Published var isPaused = false
+    @Published private(set) var lastErrorMessage: String?
+    @Published private(set) var lastErrorCode: String?
     /// ElevenLabs veya AVSpeech oturumu açık mı (panel göstermek için).
     @Published private(set) var isSessionActive = false
 
@@ -70,6 +72,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         }
 
         stopEverything()
+        clearErrorState()
         activeContentKey = key
         self.displayTitle = displayTitle
 
@@ -183,7 +186,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
             let deleteAfter: Bool
 
             if let storyId {
-                guard let remoteStoryAudio = await resolveStoryAudioURL(storyId: storyId, storyAudioURL: storyAudioURL) else {
+                guard let remoteStoryAudio = try await resolveStoryAudioURL(storyId: storyId, storyAudioURL: storyAudioURL) else {
                     AppLogger.error("narration.center.story_audio.required_but_missing", [
                         "storyId": storyId.uuidString
                     ])
@@ -234,6 +237,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
             handlePlaybackFullyEnded()
         } catch {
             AppLogger.error("narration.center.elevenlabs", ["error": String(describing: error)])
+            publishPlaybackError(error)
             handlePlaybackFullyEnded()
         }
     }
@@ -248,7 +252,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         }
     }
 
-    private func resolveStoryAudioURL(storyId: UUID?, storyAudioURL: String?) async -> URL? {
+    private func resolveStoryAudioURL(storyId: UUID?, storyAudioURL: String?) async throws -> URL? {
         guard let storyId else { return nil }
 
         if let cached = storyAudioURLCache[storyId] {
@@ -271,6 +275,7 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
                 "storyId": storyId.uuidString,
                 "error": String(describing: error)
             ])
+            throw error
         }
 
         return nil
@@ -321,6 +326,20 @@ final class NarrationPlaybackCenter: NSObject, ObservableObject {
         isLoading = false
         activeContentKey = ""
         elevenLabsTask = nil
+    }
+
+    func clearErrorState() {
+        lastErrorMessage = nil
+        lastErrorCode = nil
+    }
+
+    private func publishPlaybackError(_ error: Error) {
+        if let apiError = error as? APIClientError {
+            lastErrorCode = apiError.serverErrorCode
+        } else {
+            lastErrorCode = nil
+        }
+        lastErrorMessage = error.userFacingTurkishMessage
     }
 }
 

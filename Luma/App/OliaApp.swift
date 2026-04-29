@@ -73,7 +73,17 @@ struct OliaApp: App {
             .animation(.easeInOut(duration: 0.35), value: hasCompletedAppOnboarding)
             .animation(.easeInOut(duration: 0.35), value: hasSeenTitleSplash)
             .task {
-                await CreditBalanceViewModel.shared.refreshBalance()
+                if authManager.isAuthenticated {
+                    await CreditBalanceViewModel.shared.syncFromBackend()
+                } else {
+                    await CreditBalanceViewModel.shared.refreshBalance()
+                }
+            }
+            .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                guard isAuthenticated else { return }
+                Task {
+                    await CreditBalanceViewModel.shared.syncFromBackend()
+                }
             }
         }
     }

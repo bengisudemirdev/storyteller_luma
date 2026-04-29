@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import RevenueCat
 
 @MainActor
 final class PurchaseViewModel: ObservableObject {
@@ -27,14 +28,14 @@ final class PurchaseViewModel: ObservableObject {
         do {
             let result = try await RevenueCatCreditStoreService.purchase(package: package)
             state = .syncing
-            try await CreditAPIService.syncPurchase(
+            try await CreditAPIService.verifyIAP(
                 .init(
-                    productId: result.productId,
-                    transactionId: result.transactionId,
                     appUserId: result.appUserId,
-                    purchasedAtMs: result.purchasedAtMs
+                    productId: result.productId,
+                    storeTransactionId: result.storeTransactionId
                 )
             )
+            try await CreditAPIService.syncIAP(.init(appUserId: result.appUserId))
             await CreditBalanceViewModel.shared.refreshBalance()
             state = .success
         } catch {
@@ -46,6 +47,7 @@ final class PurchaseViewModel: ObservableObject {
         state = .syncing
         do {
             try await RevenueCatCreditStoreService.restorePurchases()
+            try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
             await CreditBalanceViewModel.shared.refreshBalance()
             state = .success
         } catch {

@@ -75,7 +75,7 @@ struct ProfileView: View {
             .task {
                 if hasLoadedScreenOnce { return }
                 hasLoadedScreenOnce = true
-                await creditBalance.refreshBalance()
+                await creditBalance.syncFromBackend()
                 await viewModel.fetchChildren()
             }
             .sheet(isPresented: $isShowingAddProfile) {

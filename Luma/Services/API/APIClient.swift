@@ -21,6 +21,17 @@ enum APIClientError: LocalizedError {
     /// Sunucuya ulaşılamıyor (ATS, yanlış URL, kapalı backend, DNS vb.).
     case networkFailure(String)
 
+    var serverErrorCode: String? {
+        if case .server(let code, _) = self {
+            return code.uppercased()
+        }
+        return nil
+    }
+
+    var isInsufficientCredits: Bool {
+        serverErrorCode == "INSUFFICIENT_CREDITS"
+    }
+
     var errorDescription: String? {
         switch self {
         case .invalidURL:
@@ -58,6 +69,8 @@ enum APIClientError: LocalizedError {
             return "Bugün için masal limitine ulaştın. Limit yenilendiğinde veya uygun aboneliğinle tekrar deneyebilirsin."
         case "SUBSCRIPTION_REQUIRED", "PAYMENT_REQUIRED", "PREMIUM_REQUIRED":
             return "Bu işlem için uygun bir abonelik gerekebilir. Abonelik ekranından seçeneklere bakabilirsin."
+        case "INSUFFICIENT_CREDITS":
+            return "Kredi bakiyen bu işlem için yetersiz."
         case "INTERNAL_SERVER_ERROR":
             return "Sunucuda beklenmeyen bir sorun oluştu. Kısa bir süre sonra tekrar dene."
         case "OPENAI_TIMEOUT":

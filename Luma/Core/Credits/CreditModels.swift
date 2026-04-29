@@ -20,8 +20,8 @@ struct CreditPackageConfig: Identifiable, Equatable {
         .init(
             id: "olia_credits_starter",
             title: "Starter",
-            subtitle: "Baslangic icin ideal",
-            badge: "Baslangic icin ideal",
+            subtitle: "Başlangıç için ideal",
+            badge: "Başlangıç için ideal",
             credits: 1000,
             displayPrice: "99,99 TL",
             valueHint: "2 masal",
@@ -30,8 +30,8 @@ struct CreditPackageConfig: Identifiable, Equatable {
         .init(
             id: "olia_credits_plus",
             title: "Plus",
-            subtitle: "Gunluk kullanim icin dengeli",
-            badge: "En populer",
+            subtitle: "Günlük kullanım için dengeli",
+            badge: "En Popüler",
             credits: 2500,
             displayPrice: "199,99 TL",
             valueHint: "5 masal",
@@ -40,8 +40,8 @@ struct CreditPackageConfig: Identifiable, Equatable {
         .init(
             id: "olia_credits_family",
             title: "Family",
-            subtitle: "Aile kullanimi icin guclu",
-            badge: "Aile favorisi",
+            subtitle: "Aile kullanımı için güçlü",
+            badge: "Avantajlı Paket",
             credits: 7500,
             displayPrice: "399,99 TL",
             valueHint: "2 seslendirme + 3 masal",
@@ -50,11 +50,11 @@ struct CreditPackageConfig: Identifiable, Equatable {
         .init(
             id: "olia_credits_mega",
             title: "Mega",
-            subtitle: "Yogun kullanimda en iyi deger",
-            badge: "En iyi deger",
+            subtitle: "Yoğun kullanımda en iyi değer",
+            badge: "En İyi Değer",
             credits: 20000,
             displayPrice: "799,99 TL",
-            valueHint: "5 tam sesli masal + 5 masal",
+            valueHint: "6 seslendirme + 4 masal",
             ctaTitle: "Mega Al"
         )
     ]
