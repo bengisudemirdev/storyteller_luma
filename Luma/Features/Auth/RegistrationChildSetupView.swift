@@ -301,6 +301,10 @@ struct RegistrationChildSetupView: View {
     }
 
     private func completeRegistration() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+
         guard !trimmedName.isEmpty else {
             errorMessage = "Lütfen çocuğunuzun adını girin."
             return
@@ -311,7 +315,6 @@ struct RegistrationChildSetupView: View {
             return
         }
 
-        isSaving = true
         errorMessage = nil
         do {
             _ = try await ChildrenAPIService.createChild(
@@ -331,7 +334,6 @@ struct RegistrationChildSetupView: View {
         } catch {
             errorMessage = error.userFacingTurkishMessage
         }
-        isSaving = false
     }
 }
 

@@ -8,6 +8,31 @@
 import Foundation
 
 enum AppConfig {
+    private static var shouldUseRevenueCatTestStore: Bool {
+        let raw = Secrets.revenueCatUseTestStore.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return raw == "1" || raw == "true" || raw == "yes"
+    }
+
+    static var revenueCatAPIKey: String {
+        #if DEBUG
+        if shouldUseRevenueCatTestStore {
+            let sandboxKey = Secrets.revenueCatSandboxAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !sandboxKey.isEmpty {
+                return sandboxKey
+            }
+        }
+        #endif
+        return Secrets.revenueCatAPIKey
+    }
+
+    static var revenueCatOfferingKey: String? {
+        let key = Secrets.revenueCatOfferingKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return key.isEmpty ? "olia_credits" : key
+    }
+
+    static var isRevenueCatTestStoreMode: Bool {
+        revenueCatAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("test_")
+    }
 
     static var supabaseURL: URL {
         let urlString = Secrets.supabaseURL

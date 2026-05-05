@@ -4,6 +4,7 @@ struct CreateStoryView: View {
     @StateObject private var viewModel: CreateStoryViewModel
     @FocusState private var focusedField: Field?
     @State private var hasLoadedScreenOnce = false
+    @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
 
     private enum Field: Hashable { case childName; case interest }
 
@@ -194,6 +195,11 @@ struct CreateStoryView: View {
                         }
                         .disabled(viewModel.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
                         .opacity((viewModel.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading) ? 0.55 : 1.0)
+
+                        Text("Bakiyen: \(creditBalance.balance) kredi • Yeni kullanıcıya 1000 başlangıç kredisi verilir (yaklaşık 2 masal).")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(22)
                     .background(
@@ -215,7 +221,12 @@ struct CreateStoryView: View {
             Text(viewModel.errorMessage ?? "Bilinmeyen bir hata oluştu.")
         }
         .sheet(isPresented: $viewModel.showCreditStore) {
-            PaywallView(source: .insufficientCredits(required: viewModel.storyCreditCost))
+            PaywallView(
+                source: .insufficientCredits(required: viewModel.storyCreditCost),
+                onPurchaseCompleted: {
+                    viewModel.handlePurchaseCompletion()
+                }
+            )
         }
         .onAppear {
             setupSegmentedControl()

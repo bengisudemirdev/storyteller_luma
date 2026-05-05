@@ -15,17 +15,20 @@ struct StoryNarrationButton: View {
     var compact: Bool = false
 
     @ObservedObject private var playback = NarrationPlaybackCenter.shared
+    @StateObject private var narrationViewModel = NarrationViewModel()
     @State private var showLimitAlert = false
-    @State private var showPaywall = false
 
     var body: some View {
         Button {
-            playback.toggleOrStart(
-                text: text,
-                displayTitle: displayTitle,
-                classicTaleCacheId: classicTaleCacheId,
-                storyId: storyId,
-                storyAudioURL: storyAudioURL
+            narrationViewModel.toggleOrStart(
+                with: .init(
+                    text: text,
+                    displayTitle: displayTitle,
+                    classicTaleCacheId: classicTaleCacheId,
+                    storyId: storyId,
+                    storyAudioURL: storyAudioURL
+                ),
+                playback: playback
             )
         } label: {
             HStack(spacing: compact ? 0 : 6) {
@@ -58,7 +61,13 @@ struct StoryNarrationButton: View {
         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         .onReceive(playback.$lastErrorCode) { code in
             guard code == "INSUFFICIENT_CREDITS" else { return }
-            showPaywall = true
+            if classicTaleCacheId != nil {
+                narrationViewModel.infoMessage = "Klasik masal seslendirmeleri kredi harcamaz."
+                showLimitAlert = true
+                return
+            }
+            narrationViewModel.infoMessage = narrationLimitMessage
+            narrationViewModel.showCreditStore = true
             showLimitAlert = false
         }
         .onReceive(playback.$lastErrorMessage) { message in
@@ -74,12 +83,17 @@ struct StoryNarrationButton: View {
                 playback.clearErrorState()
             }
         } message: {
-            Text(alertMessage)
+            Text(narrationViewModel.infoMessage ?? alertMessage)
         }
-        .sheet(isPresented: $showPaywall, onDismiss: {
+        .sheet(isPresented: $narrationViewModel.showCreditStore, onDismiss: {
             playback.clearErrorState()
         }) {
-            PaywallView(source: .insufficientCredits(required: CreditCost.narration))
+            PaywallView(
+                source: .insufficientCredits(required: CreditCost.narration),
+                onPurchaseCompleted: {
+                    narrationViewModel.handlePurchaseCompletion(playback: playback)
+                }
+            )
         }
     }
 

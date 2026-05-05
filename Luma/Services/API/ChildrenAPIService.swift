@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 /// POST /v1/children — snake_case body (CodingKeys)
 struct CreateChildRequestDTO: Encodable {
@@ -55,6 +56,17 @@ struct ChildrenDataDTO: Decodable {
 enum ChildrenAPIService {
     private static let client = APIClient.shared
 
+    private enum SessionGuardError: LocalizedError {
+        case missingSession
+
+        var errorDescription: String? {
+            switch self {
+            case .missingSession:
+                return "Oturum bulunamadı. Lütfen yeniden giriş yapın."
+            }
+        }
+    }
+
     static func fetchChildren() async throws -> [ChildModel] {
         let endpoint = APIEndpoint(path: "/v1/children", method: .get)
         let data: ChildrenDataDTO = try await client.request(endpoint)
@@ -69,6 +81,8 @@ enum ChildrenAPIService {
         interests: [String]?,
         fears: [String]?
     ) async throws -> ChildModel {
+        try await ensureValidSession()
+
         let endpoint = APIEndpoint(path: "/v1/children", method: .post)
         let body = CreateChildRequestDTO(
             name: name,
@@ -107,5 +121,18 @@ enum ChildrenAPIService {
     static func deleteChild(id: UUID) async throws {
         let endpoint = APIEndpoint(path: "/v1/children/\(id.uuidString)", method: .delete)
         let _: ChildDataDTO = try await client.request(endpoint)
+    }
+
+    private static func ensureValidSession() async throws {
+        let session: Session
+        do {
+            session = try await OliaApp.supabase.auth.session
+        } catch {
+            throw SessionGuardError.missingSession
+        }
+
+        if session.isExpired {
+            _ = try await OliaApp.supabase.auth.refreshSession()
+        }
     }
 }

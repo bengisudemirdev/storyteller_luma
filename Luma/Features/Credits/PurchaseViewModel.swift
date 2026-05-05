@@ -9,6 +9,8 @@ final class PurchaseViewModel: ObservableObject {
         case purchasing
         case syncing
         case success
+        case cancelled
+        case syncFailed(String)
         case failed(String)
     }
 
@@ -18,7 +20,7 @@ final class PurchaseViewModel: ObservableObject {
         switch state {
         case .purchasing, .syncing:
             return true
-        case .idle, .success, .failed:
+        case .idle, .success, .cancelled, .syncFailed, .failed:
             return false
         }
     }
@@ -28,6 +30,13 @@ final class PurchaseViewModel: ObservableObject {
         do {
             let result = try await RevenueCatCreditStoreService.purchase(package: package)
             state = .syncing
+            if AppConfig.isRevenueCatTestStoreMode {
+                // RevenueCat Test Store transaction'ları Apple verify hattına girmez.
+                // Bu modda satın alımı başarılı kabul edip bakiyeyi backend'den yeniden çekeriz.
+                await CreditBalanceViewModel.shared.refreshBalance()
+                state = .success
+                return
+            }
             try await CreditAPIService.verifyIAP(
                 .init(
                     appUserId: result.appUserId,
@@ -38,8 +47,29 @@ final class PurchaseViewModel: ObservableObject {
             try await CreditAPIService.syncIAP(.init(appUserId: result.appUserId))
             await CreditBalanceViewModel.shared.refreshBalance()
             state = .success
+        } catch let error as Error where error.isPurchaseCancelledError {
+            state = .cancelled
+        } catch let error as Error where error.isCancellationError {
+            state = .cancelled
         } catch {
+            if state == .syncing {
+                state = .syncFailed(error.userFacingTurkishMessage)
+                return
+            }
             state = .failed(error.userFacingTurkishMessage)
+        }
+    }
+
+    func syncPurchasedCredits() async {
+        state = .syncing
+        do {
+            if !AppConfig.isRevenueCatTestStoreMode {
+                try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
+            }
+            await CreditBalanceViewModel.shared.refreshBalance()
+            state = .success
+        } catch {
+            state = .syncFailed(error.userFacingTurkishMessage)
         }
     }
 
@@ -47,9 +77,7 @@ final class PurchaseViewModel: ObservableObject {
         state = .syncing
         do {
             try await RevenueCatCreditStoreService.restorePurchases()
-            try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
-            await CreditBalanceViewModel.shared.refreshBalance()
-            state = .success
+            await syncPurchasedCredits()
         } catch {
             state = .failed(error.userFacingTurkishMessage)
         }
@@ -57,6 +85,18 @@ final class PurchaseViewModel: ObservableObject {
 
     func resetState() {
         state = .idle
+    }
+}
+
+private extension Error {
+    var isPurchaseCancelledError: Bool {
+        let nsError = self as NSError
+        return nsError.domain == "RevenueCat.ErrorCode"
+            && nsError.code == ErrorCode.purchaseCancelledError.rawValue
+    }
+
+    var isCancellationError: Bool {
+        self is CancellationError
     }
 }
 

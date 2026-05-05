@@ -8,6 +8,7 @@ enum PaywallSource {
 
 struct PaywallView: View {
     let source: PaywallSource
+    var onPurchaseCompleted: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var storeViewModel = CreditStoreViewModel()
@@ -15,28 +16,47 @@ struct PaywallView: View {
     @ObservedObject private var balanceViewModel = CreditBalanceViewModel.shared
     @State private var selectedPackageId: String?
     @State private var hasAppeared = false
+    @State private var showAllPackages = false
 
     var body: some View {
-        ZStack {
-            LumaWarmScreenBackground()
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    topBar
-                    header
-                    balanceCard
-                    fixedCostInfo
-                    purchaseStatusBanner
-                    packageList
-                    footerActions
+        GeometryReader { geo in
+            ZStack {
+                LumaWarmScreenBackground()
+                if showAllPackages {
+                    ScrollView(showsIndicators: false) {
+                        contentStack
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 16)
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        contentStack
+                            .padding(.horizontal, 14)
+                            .padding(.top, 8)
+                            .padding(.bottom, 6)
+                        Spacer(minLength: max(0, geo.safeAreaInsets.bottom - 2))
+                    }
                 }
-                .padding(20)
-                .padding(.bottom, 24)
             }
         }
         .task {
             if hasAppeared { return }
             hasAppeared = true
             await loadInitialData()
+        }
+    }
+
+    private var contentStack: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            topBar
+            header
+            balanceCard
+            fixedCostInfo
+            freePlanInfo
+            purchaseStatusBanner
+            packageList
+            footerActions
         }
     }
 
@@ -57,30 +77,71 @@ struct PaywallView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(L10n.storeTitle)
-                .font(.system(size: 30, weight: .bold, design: .serif))
-                .foregroundStyle(HomeDashboardPalette.ink)
-            Text(headerDescription)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.muted)
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(showAllPackages ? L10n.selectPackageTitle : L10n.storeTitle)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+                Text(headerDescription)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.muted)
+            }
+            Spacer()
+            Text("🧸")
+                .font(.system(size: 30))
+                .padding(.top, 4)
         }
     }
 
     private var balanceCard: some View {
-        CreditBalanceCard(
-            balance: balanceViewModel.balance,
-            isRefreshing: balanceViewModel.isRefreshing || purchaseViewModel.isBusy,
-            onRefresh: {
-                Task {
-                    await balanceViewModel.refreshBalance()
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.currentBalance)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.muted)
+                Text("\(balanceViewModel.balance) \(L10n.creditUnit)")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+            }
+            Spacer()
+            Button {
+                Task { await balanceViewModel.refreshBalance() }
+            } label: {
+                if balanceViewModel.isRefreshing || purchaseViewModel.isBusy {
+                    ProgressView().tint(HomeDashboardPalette.accentOrange)
+                } else {
+                    Image(systemName: "wallet.pass.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
                 }
             }
+            .buttonStyle(.plain)
+            .disabled(balanceViewModel.isRefreshing || purchaseViewModel.isBusy)
+        }
+        .padding(11)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.9))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.black.opacity(0.04), lineWidth: 1)
+                )
         )
     }
 
     private var fixedCostInfo: some View {
-        CreditUsageInfoCard()
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.usageTitle)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.ink)
+            UsageRow(icon: "sparkles.rectangle.stack.fill", text: L10n.storyCost)
+            UsageRow(icon: "mic.fill", text: L10n.narrationCost)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.72))
+        )
     }
 
     @ViewBuilder
@@ -89,22 +150,32 @@ struct PaywallView: View {
         case .idle:
             EmptyView()
         case .purchasing:
-            PurchaseStatusBanner(
+            InlineBanner(
                 text: L10n.purchaseInProgress,
                 tint: HomeDashboardPalette.nightMid
             )
         case .syncing:
-            PurchaseStatusBanner(
+            InlineBanner(
                 text: L10n.purchaseSyncing,
                 tint: HomeDashboardPalette.accentOrange
             )
         case .success:
-            PurchaseStatusBanner(
+            InlineBanner(
                 text: L10n.purchaseSuccess,
                 tint: Color.green.opacity(0.82)
             )
+        case .cancelled:
+            InlineBanner(
+                text: L10n.purchaseCancelled,
+                tint: HomeDashboardPalette.muted
+            )
+        case .syncFailed(let message):
+            InlineBanner(
+                text: message,
+                tint: Color.red.opacity(0.8)
+            )
         case .failed(let message):
-            PurchaseStatusBanner(
+            InlineBanner(
                 text: message,
                 tint: Color.red.opacity(0.8)
             )
@@ -113,90 +184,132 @@ struct PaywallView: View {
 
     private var packageList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.packagesTitle)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.ink)
-
-            if storeIsUnavailable {
-                PurchaseStatusBanner(
-                    text: L10n.storeUnavailableBanner,
-                    tint: HomeDashboardPalette.muted
-                )
-            }
-
             if storeViewModel.isLoading && storeViewModel.packages.isEmpty {
                 CreditStoreLoadingView()
-            }
-
-            ForEach(displayPackages) { item in
-                CreditPackageCard(
-                    item: item,
-                    isSelected: item.id == selectedPackageId,
-                    isBusy: purchaseViewModel.isBusy,
-                    isStoreUnavailable: storeIsUnavailable,
-                    actionTitle: purchaseActionTitle(for: item),
-                    onSelect: {
-                        selectedPackageId = item.id
-                    },
-                    onPurchase: {
-                        guard let purchasable = item.purchasable else { return }
-                        Task { await purchase(purchasable) }
-                    }
+            } else if !storeViewModel.isLoading && displayPackages.isEmpty {
+                CreditStoreEmptyOrErrorView(
+                    message: L10n.packagesUnavailable,
+                    retryTitle: L10n.retry,
+                    onRetry: { Task { await storeViewModel.loadPackages() } }
                 )
+            } else {
+                if showAllPackages {
+                    ForEach(displayPackages) { item in
+                        PackageChoiceCard(
+                            item: item,
+                            isSelected: item.id == selectedPackageId,
+                            isUnavailable: item.purchasable == nil
+                        ) {
+                            selectedPackageId = item.id
+                        }
+                    }
+                } else if let selectedItem {
+                    PackageSummaryCard(item: selectedItem)
+                }
+
+                if !showAllPackages {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showAllPackages = true
+                        }
+                    } label: {
+                        HStack {
+                            Label(L10n.showAllPackages, systemImage: "square.grid.2x2")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.white.opacity(0.84))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    guard let purchasable = selectedItem?.purchasable else { return }
+                    Task { await purchase(purchasable) }
+                } label: {
+                    HStack(spacing: 8) {
+                        if purchaseViewModel.isBusy {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(primaryCTA)
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(
+                                selectedItem?.purchasable == nil
+                                    ? HomeDashboardPalette.muted.opacity(0.45)
+                                    : HomeDashboardPalette.accentOrange
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(purchaseViewModel.isBusy || selectedItem?.purchasable == nil)
+
+                Button {
+                    Task { await purchaseViewModel.syncPurchasedCredits() }
+                } label: {
+                    Text(L10n.syncPurchases)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+                .disabled(purchaseViewModel.isBusy)
             }
         }
     }
 
     private var footerActions: some View {
-        VStack(spacing: 12) {
-            Button {
-                Task { await purchaseViewModel.restore() }
-            } label: {
-                Text(L10n.restorePurchases)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+        VStack(spacing: 8) {
+            if storeIsUnavailable {
+                InlineBanner(
+                    text: L10n.storeUnavailableBanner,
+                    tint: HomeDashboardPalette.muted
+                )
             }
-            .buttonStyle(.plain)
-            .disabled(purchaseViewModel.isBusy)
-
-            Button {
-                Task { await balanceViewModel.refreshBalance() }
-            } label: {
-                Text(L10n.refreshBalance)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.muted)
+            if balanceViewModel.isBalanceStale {
+                InlineBanner(
+                    text: L10n.staleBalanceWarning,
+                    tint: Color.red.opacity(0.8)
+                )
             }
-            .buttonStyle(.plain)
-            .disabled(purchaseViewModel.isBusy)
-
             Text(L10n.footerInfo)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(HomeDashboardPalette.muted)
                 .multilineTextAlignment(.center)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.88))
+        )
         .frame(maxWidth: .infinity)
     }
 
     private var headerDescription: String {
         switch source {
         case .manual:
-            return L10n.manualSubtitle
+            return showAllPackages ? L10n.selectPackageSubtitle : L10n.manualSubtitle
         case .insufficientCredits(let required):
             return String(
                 localized: "paywall.subtitle.insufficient",
                 defaultValue: "Kredin yetersiz. Bu işlem için \(required) kredi gerekiyor. Paketini seçip devam edebilirsin."
             )
         }
-    }
-
-    private func purchaseActionTitle(for item: StorePackageItem) -> String {
-        guard item.purchasable != nil else {
-            return L10n.unavailableCta
-        }
-        if item.id == selectedPackageId {
-            return item.config.ctaTitle
-        }
-        return "\(item.config.title) \(L10n.buySuffix)"
     }
 
     private func loadInitialData() async {
@@ -212,9 +325,14 @@ struct PaywallView: View {
         selectedPackageId = package.id
         await purchaseViewModel.purchase(package)
         if case .success = purchaseViewModel.state {
+            onPurchaseCompleted?()
             if case .insufficientCredits = source {
                 dismiss()
             }
+            return
+        }
+        if case .syncFailed = purchaseViewModel.state {
+            await balanceViewModel.refreshBalance()
         }
     }
 
@@ -228,170 +346,254 @@ struct PaywallView: View {
     private var storeIsUnavailable: Bool {
         !storeViewModel.isLoading && displayPackages.allSatisfy { $0.purchasable == nil }
     }
+
+    private var selectedItem: StorePackageItem? {
+        if let selectedPackageId {
+            return displayPackages.first(where: { $0.id == selectedPackageId })
+        }
+        return displayPackages.first
+    }
+
+    private var primaryCTA: String {
+        guard let item = selectedItem else { return L10n.unavailableCta }
+        if showAllPackages {
+            return "\(item.config.title) \(L10n.continueWithPackage)"
+        }
+        return "\(item.config.title) \(L10n.buySuffix)"
+    }
+
+    @ViewBuilder
+    private var freePlanInfo: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("🎁")
+                .font(.system(size: 23))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.freePlanTitle)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                Text(L10n.freePlanBody)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.muted)
+                Text(L10n.freePlanNarrationRestriction)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(hex: "FFF7E7"))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.22), lineWidth: 1)
+                )
+        )
+    }
 }
 
 #Preview {
     PaywallView(source: .manual)
 }
 
-private struct CreditBalanceCard: View {
-    let balance: Int
-    let isRefreshing: Bool
-    let onRefresh: () -> Void
+private struct UsageRow: View {
+    let icon: String
+    let text: String
 
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L10n.currentBalance)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.muted)
-                Text("\(balance) \(L10n.creditUnit)")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.ink)
-            }
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(HomeDashboardPalette.accentOrange)
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.65)))
+            Text(text)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.ink)
             Spacer()
-            Button(action: onRefresh) {
-                if isRefreshing {
-                    ProgressView()
-                        .tint(HomeDashboardPalette.accentOrange)
-                } else {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.24)))
-                }
-            }
-            .buttonStyle(.plain)
-            .disabled(isRefreshing)
         }
-        .padding(14)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(HomeDashboardPalette.cardSurface)
-                .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.58))
         )
     }
 }
 
-private struct CreditUsageInfoCard: View {
+private struct PackageSummaryCard: View {
+    let item: StorePackageItem
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L10n.usageTitle)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.muted)
-            Text(L10n.storyCost)
-            Text(L10n.narrationCost)
-            Text(L10n.coverFree)
-        }
-        .font(.system(size: 14, weight: .semibold, design: .rounded))
-        .foregroundStyle(HomeDashboardPalette.accentOrange)
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.85))
-        )
-    }
-}
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: packageIcon(for: item.config.id))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(Color.white.opacity(0.7)))
 
-private struct CreditPackageCard: View {
-    let item: StorePackageItem
-    let isSelected: Bool
-    let isBusy: Bool
-    let isStoreUnavailable: Bool
-    let actionTitle: String
-    let onSelect: () -> Void
-    let onPurchase: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(item.config.title)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(HomeDashboardPalette.ink)
-                    Text(item.config.subtitle)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.muted)
-                    Text("\(item.config.credits) kredi")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                    Text(item.config.credits.formattedWithDot + " kredi")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(HomeDashboardPalette.accentOrange)
                     Text("\(L10n.approxPrefix) \(item.config.valueHint)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.muted)
+                        .lineLimit(1)
                 }
-                Spacer(minLength: 10)
-                VStack(alignment: .trailing, spacing: 8) {
+                Spacer()
+                VStack(alignment: .trailing, spacing: 6) {
                     if let badge = item.config.badge {
                         Text(badge)
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(item.config.title == "Mega" ? HomeDashboardPalette.nightMid : HomeDashboardPalette.accentOrange)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 4)
                             .background(
-                                Capsule().fill(
-                                    item.config.title == "Mega"
-                                        ? HomeDashboardPalette.nightMid.opacity(0.12)
-                                        : HomeDashboardPalette.accentOrange.opacity(0.14)
-                                )
+                                Capsule().fill(HomeDashboardPalette.accentOrange.opacity(0.12))
                             )
                     }
                     Text(item.purchasable?.package.storeProduct.localizedPriceString ?? item.config.displayPrice)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(HomeDashboardPalette.ink)
                 }
             }
-
-            if item.purchasable == nil {
-                Text(L10n.unavailableHint)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.muted)
-            }
-
-            Button(action: onPurchase) {
-                HStack(spacing: 8) {
-                    if isBusy && isSelected {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Text(actionTitle)
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                    }
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(item.purchasable == nil ? HomeDashboardPalette.muted.opacity(0.45) : HomeDashboardPalette.nightMid)
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(isBusy || item.purchasable == nil)
         }
-        .padding(14)
+        .padding(11)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    isSelected
-                        ? HomeDashboardPalette.accentOrangeSoft.opacity(0.28)
-                        : HomeDashboardPalette.cardSurface
-                )
-                .shadow(color: HomeDashboardPalette.cardShadow, radius: 12, x: 0, y: 4)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(
-                    isSelected
-                        ? HomeDashboardPalette.accentOrange.opacity(0.55)
-                        : (item.config.title == "Plus" ? HomeDashboardPalette.accentOrange.opacity(0.25) : Color.clear),
-                    lineWidth: 1.8
+                .fill(Color(hex: "FFF5EE"))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.45), lineWidth: 1.4)
                 )
         )
-        .scaleEffect(isSelected ? 1.01 : 1.0)
-        .onTapGesture(perform: onSelect)
-        .opacity((isStoreUnavailable && item.purchasable == nil) ? 0.95 : 1)
+    }
+
+    private func packageIcon(for id: String) -> String {
+        switch id {
+        case "olia_credits_starter": return "paperplane.fill"
+        case "olia_credits_plus": return "crown.fill"
+        case "olia_credits_family": return "person.2.fill"
+        case "olia_credits_mega": return "shippingbox.fill"
+        default: return "sparkles"
+        }
+    }
+}
+
+private struct PackageChoiceCard: View {
+    let item: StorePackageItem
+    let isSelected: Bool
+    let isUnavailable: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: packageIcon(for: item.config.id))
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .frame(width: 48, height: 48)
+                    .background(Circle().fill(Color.white.opacity(0.68)))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(item.config.title)
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.ink)
+                        if let badge = item.config.badge {
+                            Text(badge)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.accentOrange)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(HomeDashboardPalette.accentOrange.opacity(0.12)))
+                        }
+                }
+                    Text(item.config.credits.formattedWithDot + " kredi")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    Text("\(L10n.approxPrefix) \(item.config.valueHint)")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.muted)
+                    if isUnavailable {
+                        Text(L10n.unavailableHint)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.muted)
+                    }
+                }
+
+                Spacer()
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text(item.purchasable?.package.storeProduct.localizedPriceString ?? item.config.displayPrice)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(isSelected ? HomeDashboardPalette.accentOrange : HomeDashboardPalette.muted.opacity(0.6))
+                }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? Color(hex: "FFF5EE") : Color.white.opacity(0.84))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(
+                                isSelected ? HomeDashboardPalette.accentOrange.opacity(0.5) : Color.black.opacity(0.05),
+                                lineWidth: isSelected ? 1.4 : 1
+                            )
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func packageIcon(for id: String) -> String {
+        switch id {
+        case "olia_credits_starter": return "paperplane.fill"
+        case "olia_credits_plus": return "crown.fill"
+        case "olia_credits_family": return "person.2.fill"
+        case "olia_credits_mega": return "shippingbox.fill"
+        default: return "sparkles"
+        }
+    }
+}
+
+private struct InlineBanner: View {
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "info.circle.fill")
+            Text(text)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(tint.opacity(0.2))
+        )
+    }
+}
+
+private extension Int {
+    var formattedWithDot: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.groupingSeparator = "."
+        formatter.decimalSeparator = ","
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: self)) ?? "\(self)"
     }
 }
 
@@ -402,51 +604,45 @@ private struct StorePackageItem: Identifiable {
 }
 
 private enum L10n {
-    static let storeTitle = String(localized: "paywall.title", defaultValue: "Kredi Mağazası")
-    static let manualSubtitle = String(localized: "paywall.subtitle.manual", defaultValue: "İhtiyacın kadar kredi al, dilediğin zaman kullan.")
+    static let storeTitle = String(localized: "paywall.title", defaultValue: "Kredi Paketleri")
+    static let selectPackageTitle = String(localized: "paywall.selectPackageTitle", defaultValue: "Paket Seç")
+    static let manualSubtitle = String(localized: "paywall.subtitle.manual", defaultValue: "Abonelik yerine kredi al, dilediğin zaman kullan.")
+    static let selectPackageSubtitle = String(localized: "paywall.selectPackageSubtitle", defaultValue: "İhtiyacına uygun kredi paketini seç.")
     static let purchaseInProgress = String(localized: "paywall.purchase.inProgress", defaultValue: "Satın alma işlemi devam ediyor...")
     static let purchaseSyncing = String(localized: "paywall.purchase.syncing", defaultValue: "Satın alma tamamlandı. Kredi bakiyesi senkronize ediliyor...")
-    static let purchaseSuccess = String(localized: "paywall.purchase.success", defaultValue: "Kredin güncellendi. Keyifle devam edebilirsin.")
+    static var purchaseSuccess: String {
+        if AppConfig.isRevenueCatTestStoreMode {
+            return String(localized: "paywall.purchase.success.testStore", defaultValue: "Test satın alma başarılı. Gerçek kredi yansıması için App Store ortamında tekrar test edebilirsin.")
+        }
+        return String(localized: "paywall.purchase.success", defaultValue: "Kredin güncellendi. Keyifle devam edebilirsin.")
+    }
     static let packagesUnavailable = String(localized: "paywall.packages.unavailable", defaultValue: "Kredi paketleri şu an yüklenemedi.")
-    static let storeUnavailableBanner = String(localized: "paywall.packages.storeUnavailableBanner", defaultValue: "Canlı App Store fiyatları şu anda alınamıyor. Paketleri yine de görebilir ve kısa süre içinde tekrar deneyebilirsin.")
-    static let packagesTitle = String(localized: "paywall.packages.title", defaultValue: "Kredi Paketleri")
+    static let storeUnavailableBanner = String(localized: "paywall.packages.storeUnavailableBanner", defaultValue: "Canlı App Store fiyatları alınamıyor. Kısa süre sonra tekrar deneyebilirsin.")
     static let retry = String(localized: "common.retry", defaultValue: "Tekrar Dene")
     static let buySuffix = String(localized: "paywall.buySuffix", defaultValue: "Paketi Al")
+    static let continueWithPackage = String(localized: "paywall.continueWithPackage", defaultValue: "Paketi ile Devam Et")
     static let unavailableCta = String(localized: "paywall.unavailableCta", defaultValue: "Geçici olarak kullanılamıyor")
     static let unavailableHint = String(localized: "paywall.unavailableHint", defaultValue: "Bu paket şu anda App Store bağlantısında görünmüyor.")
-    static let restorePurchases = String(localized: "paywall.restore", defaultValue: "Satın alımları geri yükle")
-    static let refreshBalance = String(localized: "paywall.refreshBalance", defaultValue: "Bakiyeyi yenile")
-    static let footerInfo = String(localized: "paywall.footer.info", defaultValue: "Ödemeler App Store üzerinden güvenle alınır. Gerçek kredi bakiyen sunucu tarafında yönetilir.")
-    static let currentBalance = String(localized: "paywall.balance.title", defaultValue: "Mevcut Kredin")
-    static let creditUnit = String(localized: "paywall.balance.unit", defaultValue: "kredi")
-    static let usageTitle = String(localized: "paywall.usage.title", defaultValue: "Kredi kullanım bilgisi")
-    static let storyCost = String(localized: "paywall.usage.story", defaultValue: "1 masal = 500 kredi")
-    static let narrationCost = String(localized: "paywall.usage.narration", defaultValue: "1 seslendirme = 3000 kredi")
-    static let coverFree = String(localized: "paywall.usage.coverFree", defaultValue: "Kapak görselleri ücretsizdir")
-    static let approxPrefix = String(localized: "paywall.package.approxPrefix", defaultValue: "Yaklaşık")
-}
-
-private struct PurchaseStatusBanner: View {
-    let text: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "info.circle.fill")
-                .font(.system(size: 13, weight: .bold))
-            Text(text)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .foregroundStyle(tint)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(tint.opacity(0.12))
+    static let syncPurchases = String(localized: "paywall.syncPurchases", defaultValue: "Satın alımları geri yükle")
+    static let purchaseCancelled = String(localized: "paywall.purchase.cancelled", defaultValue: "Satın alma iptal edildi.")
+    static let staleBalanceWarning = String(localized: "paywall.balance.stale", defaultValue: "Bakiye güncel olmayabilir. Lütfen biraz sonra tekrar yenile.")
+    static var footerInfo: String {
+        String(
+            localized: "paywall.footer.info",
+            defaultValue: "Ödemeler RevenueCat üzerinden App Store ile güvenle alınır. Gerçek kredi bakiyen sunucu tarafında yönetilir."
         )
     }
+    static let currentBalance = String(localized: "paywall.balance.title", defaultValue: "Mevcut Kredin")
+    static let creditUnit = String(localized: "paywall.balance.unit", defaultValue: "kredi")
+    static let usageTitle = String(localized: "paywall.usage.title", defaultValue: "Kredini nasıl kullanırsın?")
+    static let storyCost = String(localized: "paywall.usage.story", defaultValue: "1 masal = 500 kredi")
+    static let narrationCost = String(localized: "paywall.usage.narration", defaultValue: "1 seslendirme = 3000 kredi")
+    static let coverFree = String(localized: "paywall.usage.coverFree", defaultValue: "Kapak görseli ücretsiz")
+    static let approxPrefix = String(localized: "paywall.package.approxPrefix", defaultValue: "Yaklaşık")
+    static let showAllPackages = String(localized: "paywall.showAllPackages", defaultValue: "Tüm paketleri gör")
+    static let freePlanTitle = String(localized: "paywall.free.title", defaultValue: "1000 başlangıç kredisi")
+    static let freePlanBody = String(localized: "paywall.free.body", defaultValue: "Hemen yaklaşık 2 ücretsiz masal oluşturabilirsin.")
+    static let freePlanNarrationRestriction = String(localized: "paywall.free.narrationRestriction", defaultValue: "Seslendirme ücretsiz planda dahil değildir.")
 }
 
 private struct CreditStoreLoadingView: View {
@@ -454,8 +650,8 @@ private struct CreditStoreLoadingView: View {
         VStack(spacing: 10) {
             ForEach(0..<3, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.5))
-                    .frame(height: 132)
+                    .fill(Color.white.opacity(0.55))
+                    .frame(height: 120)
                     .overlay {
                         ProgressView()
                             .tint(HomeDashboardPalette.accentOrange)

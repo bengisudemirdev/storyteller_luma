@@ -283,6 +283,9 @@ struct ProfileView: View {
                         Text("Masal: \(CreditCost.story) kredi • Seslendirme: \(CreditCost.narration) kredi")
                             .font(.caption2)
                             .foregroundStyle(HomeDashboardPalette.muted)
+                        Text("Free planda 1000 kredi ile yaklaşık 2 masal oluşturabilirsin.")
+                            .font(.caption2)
+                            .foregroundStyle(HomeDashboardPalette.muted)
                     }
                     Spacer()
                     Text("Kredi Al")

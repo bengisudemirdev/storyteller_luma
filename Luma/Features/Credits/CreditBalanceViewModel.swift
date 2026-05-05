@@ -31,6 +31,11 @@ final class CreditBalanceViewModel: ObservableObject {
         balance >= required
     }
 
+    var isBalanceStale: Bool {
+        guard let lastUpdatedAt else { return true }
+        return Date().timeIntervalSince(lastUpdatedAt) > 90
+    }
+
     func syncFromBackend() async {
         do {
             try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))

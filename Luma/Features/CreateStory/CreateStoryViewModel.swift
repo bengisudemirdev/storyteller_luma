@@ -3,6 +3,10 @@ import Combine
 
 @MainActor
 class CreateStoryViewModel: ObservableObject {
+    enum PendingAction {
+        case createStory
+    }
+
     @Published var childName: String = ""
     @Published var interest: String = ""
     @Published var selectedTheme: String = "Macera"
@@ -18,12 +22,19 @@ class CreateStoryViewModel: ObservableObject {
     @Published var isSaving = false
     @Published var saveSuccess = false
     @Published var generatedStoryModel: StoryModel? = nil
+    @Published var pendingAction: PendingAction?
     private var hasLoadedChildrenOnce = false
     let storyCreditCost: Int = CreditCost.story
 
     func createStory() {
         let trimmedName = childName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
+        if !CreditBalanceViewModel.shared.hasCredits(required: storyCreditCost) {
+            errorMessage = "Bu işlem için en az \(storyCreditCost) kredi gerekiyor."
+            showCreditStore = true
+            pendingAction = .createStory
+            return
+        }
         isLoading = true
 
         AppLogger.info("stories.create.tapped", [
@@ -86,6 +97,7 @@ class CreateStoryViewModel: ObservableObject {
                 if let apiError = error as? APIClientError, apiError.isInsufficientCredits {
                     errorMessage = "Bu işlem için en az \(storyCreditCost) kredi gerekiyor."
                     showCreditStore = true
+                    pendingAction = .createStory
                     showErrorAlert = false
                     isLoading = false
                     return
@@ -151,6 +163,15 @@ class CreateStoryViewModel: ObservableObject {
             return "adventure"
         default:
             return "hayvanlar"
+        }
+    }
+
+    func handlePurchaseCompletion() {
+        guard let pendingAction else { return }
+        self.pendingAction = nil
+        switch pendingAction {
+        case .createStory:
+            createStory()
         }
     }
 }

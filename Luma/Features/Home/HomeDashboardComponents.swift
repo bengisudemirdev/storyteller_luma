@@ -532,11 +532,12 @@ struct ClassicTalesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Klasik Masallar")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
-                    .tracking(-0.6)
-                    .foregroundStyle(HomeDashboardPalette.ink)
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Klasik Masallar")
+                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .tracking(-0.6)
+                        .foregroundStyle(HomeDashboardPalette.ink)
 
                     Text("Sevilen klasik masalları keşfet")
                         .font(.system(size: 14, weight: .regular, design: .rounded))
@@ -631,6 +632,7 @@ struct ClassicTalesSection: View {
 
         }
     }
+}
 
 
 /// Klasik masal kartına basınca açılan tam metin okuma ekranı.

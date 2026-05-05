@@ -23,7 +23,7 @@ struct CreditPackageConfig: Identifiable, Equatable {
             subtitle: "Başlangıç için ideal",
             badge: "Başlangıç için ideal",
             credits: 1000,
-            displayPrice: "99,99 TL",
+            displayPrice: "79,99 TL",
             valueHint: "2 masal",
             ctaTitle: "Starter Al"
         ),
@@ -33,7 +33,7 @@ struct CreditPackageConfig: Identifiable, Equatable {
             subtitle: "Günlük kullanım için dengeli",
             badge: "En Popüler",
             credits: 2500,
-            displayPrice: "199,99 TL",
+            displayPrice: "149,99 TL",
             valueHint: "5 masal",
             ctaTitle: "Plus Al"
         ),
@@ -43,7 +43,7 @@ struct CreditPackageConfig: Identifiable, Equatable {
             subtitle: "Aile kullanımı için güçlü",
             badge: "Avantajlı Paket",
             credits: 7500,
-            displayPrice: "399,99 TL",
+            displayPrice: "299,99 TL",
             valueHint: "2 seslendirme + 3 masal",
             ctaTitle: "Family Al"
         ),
@@ -53,7 +53,7 @@ struct CreditPackageConfig: Identifiable, Equatable {
             subtitle: "Yoğun kullanımda en iyi değer",
             badge: "En İyi Değer",
             credits: 20000,
-            displayPrice: "799,99 TL",
+            displayPrice: "599,99 TL",
             valueHint: "6 seslendirme + 4 masal",
             ctaTitle: "Mega Al"
         )

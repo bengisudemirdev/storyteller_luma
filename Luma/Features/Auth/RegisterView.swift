@@ -23,6 +23,20 @@ struct RegisterView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(HomeDashboardPalette.muted)
+                                .frame(width: 34, height: 34)
+                                .background(Circle().fill(Color.white.opacity(0.9)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     registrationStepChip(step: 1, title: "Ebeveyn bilgileri")
 
                     VStack(alignment: .leading, spacing: 8) {

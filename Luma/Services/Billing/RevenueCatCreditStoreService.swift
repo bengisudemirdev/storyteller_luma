@@ -10,7 +10,9 @@ struct RevenueCatCreditPackage: Identifiable {
 enum RevenueCatCreditStoreService {
     static func fetchPackages() async throws -> [RevenueCatCreditPackage] {
         let offerings = try await Purchases.shared.offerings()
-        guard let current = offerings.current else { return [] }
+        let offeringKey = AppConfig.revenueCatOfferingKey ?? "olia_credits"
+        let selectedOffering = offerings[offeringKey]
+        guard let current = selectedOffering else { return [] }
 
         let packageMap = Dictionary(uniqueKeysWithValues: current.availablePackages.map {
             ($0.storeProduct.productIdentifier, $0)
