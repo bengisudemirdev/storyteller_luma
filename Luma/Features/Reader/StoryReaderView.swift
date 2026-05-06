@@ -31,7 +31,10 @@ struct StoryReaderView: View {
     @State private var currentPage = 0
     @State private var isDeleting = false
     @State private var showDeleteAlert = false
-    @ObservedObject private var playback = NarrationPlaybackCenter.shared
+    @State private var storyAudioURLState: String?
+    @State private var narrationErrorMessage: String?
+    @State private var showCreditPaywall = false
+    @StateObject private var audioPlayer = AudioPlayerViewModel()
     @EnvironmentObject private var appUIState: AppUIState
     @Environment(\.dismiss) var dismiss
 
@@ -100,22 +103,27 @@ struct StoryReaderView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
-            }
+                if story != nil {
+                    storyAudioCard
+                        .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                        .padding(.top, 4)
+                        .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                        .frame(maxWidth: .infinity)
+                }
 
-            if playback.isLoading {
-                narrationLoadingOverlay
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
             }
         }
         .navigationBarHidden(true)
-        .animation(.easeInOut(duration: 0.2), value: playback.isLoading)
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
+            storyAudioURLState = story?.audio_url
         }
         .onDisappear {
             appUIState.isTabBarVisible = true
+            audioPlayer.stop()
+            audioPlayer.cleanup()
         }
         .onChange(of: storyPages.count) { _, newCount in
             currentPage = min(currentPage, max(newCount - 1, 0))
@@ -127,6 +135,12 @@ struct StoryReaderView: View {
             }
         } message: {
             Text("Bu işlem, bu masalı kayıtlı masallarından kalıcı olarak silecek.")
+        }
+        .sheet(isPresented: $showCreditPaywall) {
+            PaywallView(
+                source: .insufficientCredits(required: CreditCost.narration),
+                onPurchaseCompleted: {}
+            )
         }
     }
 
@@ -230,15 +244,6 @@ struct StoryReaderView: View {
     @ViewBuilder
     private func headerActions(compact: Bool) -> some View {
         HStack(alignment: .center, spacing: 8) {
-            StoryNarrationButton(
-                text: storyContent,
-                displayTitle: storyTitle,
-                storyId: story?.id,
-                storyAudioURL: story?.audio_url,
-                readerChrome: true,
-                compact: compact
-            )
-
             if let onSave = onSave {
                 Button {
                     Task { await onSave() }
@@ -301,37 +306,123 @@ struct StoryReaderView: View {
         isDeleting = false
     }
 
-    private var narrationLoadingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.18)
-                .ignoresSafeArea()
+    private var storyAudioCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Sesli Masal")
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.ink)
 
-            VStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(HomeDashboardPalette.accentOrange.opacity(0.16))
-                        .frame(width: 72, height: 72)
-                    ProgressView()
-                        .scaleEffect(1.35)
-                        .tint(HomeDashboardPalette.accentOrange)
-                }
+            Text("Bu masalı Burcu anlatıcı sesiyle dinleyebilirsin.")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                .fixedSize(horizontal: false, vertical: true)
 
-                Text("Seslendirme hazırlanıyor...")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.ink)
+            if let error = narrationErrorMessage {
+                Text(error)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.red.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-            .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(HomeDashboardPalette.cardSurface.opacity(0.97))
-                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 6)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(HomeDashboardPalette.accentOrange.opacity(0.18), lineWidth: 1)
-            )
+
+            if audioPlayer.isLoading {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .tint(HomeDashboardPalette.accentOrange)
+                    Text("Masal seslendiriliyor...")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                }
+            }
+
+            HStack(spacing: 10) {
+                if let audioURL = storyAudioURLState, !audioURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button {
+                        audioPlayer.togglePlayPause(urlString: audioURL)
+                        narrationErrorMessage = nil
+                    } label: {
+                        Text(audioPlayer.isPlaying ? "Duraklat" : "Dinle")
+                    }
+                    .buttonStyle(AudioActionButtonStyle())
+                } else {
+                    Button {
+                        Task { await narrateStoryAndPlay() }
+                    } label: {
+                        Text(audioPlayer.isLoading ? "Masal seslendiriliyor..." : "Masalı Seslendir")
+                    }
+                    .buttonStyle(AudioActionButtonStyle())
+                    .disabled(audioPlayer.isLoading)
+                }
+            }
+
+            if narrationErrorMessage == "Seslendirme için yeterli kredin yok." {
+                Button("Paketleri Gör") {
+                    showCreditPaywall = true
+                }
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.accentOrange)
+            }
         }
-        .allowsHitTesting(true)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(HomeDashboardPalette.cardSurface)
+                .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(HomeDashboardPalette.accentOrange.opacity(0.15), lineWidth: 1)
+        )
+    }
+
+    private func narrateStoryAndPlay() async {
+        guard let storyId = story?.id else { return }
+        if let existing = storyAudioURLState, !existing.isEmpty {
+            audioPlayer.play(urlString: existing)
+            return
+        }
+
+        await MainActor.run {
+            narrationErrorMessage = nil
+            audioPlayer.isLoading = true
+        }
+
+        do {
+            let response = try await StoryService.narrateStory(id: storyId)
+            await MainActor.run {
+                storyAudioURLState = response.audioUrl
+                audioPlayer.isLoading = false
+                audioPlayer.play(urlString: response.audioUrl)
+            }
+        } catch let error as StoryAudioServiceError {
+            await MainActor.run {
+                audioPlayer.isLoading = false
+                switch error {
+                case .insufficientCredits:
+                    narrationErrorMessage = "Seslendirme için yeterli kredin yok."
+                case .unauthorized, .storyNotFound, .failed:
+                    narrationErrorMessage = error.errorDescription
+                }
+            }
+        } catch {
+            await MainActor.run {
+                audioPlayer.isLoading = false
+                narrationErrorMessage = "Masal seslendirilirken bir hata oluştu."
+            }
+        }
+    }
+}
+
+private struct AudioActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(HomeDashboardPalette.accentOrange)
+            )
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
     }
 }

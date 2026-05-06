@@ -292,7 +292,7 @@ enum ClassicTalesAPIService {
         }
     }
 
-    /// Cihaz önbelleğindeki (ElevenLabs) MP3 parçalarını tek dosyada birleştirip sunucuya yükler. Çok parçalı önbellekte geçici birleşik dosya kullanılır.
+    /// Cihaz önbelleğindeki MP3 parçalarını tek dosyada birleştirip sunucuya yükler.
     static func uploadCachedNarrationAudio(taleId: String) async throws -> URL {
         let chunks = ClassicTaleNarrationCache.cachedChunkURLs(taleId: taleId) ?? []
         guard !chunks.isEmpty else { throw NarrationUploadError.noCachedAudio }

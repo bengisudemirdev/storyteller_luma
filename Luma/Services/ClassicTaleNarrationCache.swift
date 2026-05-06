@@ -1,18 +1,9 @@
 import Foundation
 
-/// Klasik masal ElevenLabs seslendirmelerini `Caches` altında saklar (ses veya agent değişince alt klasör ayrılır).
+/// Klasik masal ses dosyalarını `Caches` altında saklar.
 enum ClassicTaleNarrationCache {
     private static let rootFolderName = "luma-classic-narration"
     private static let cacheVersion = "v1"
-
-    /// Ses kimliği; `.env` içindeki tercih veya agent ile önbellek ayrımı.
-    static func voiceFingerprint() -> String {
-        if let v = AppConfig.elevenLabsPreferredVoiceId, !v.isEmpty {
-            return "voice_\(sanitizePathSegment(v))"
-        }
-        let agent = Secrets.elevenLabsAgentId.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "agent_\(sanitizePathSegment(agent))"
-    }
 
     private static func sanitizePathSegment(_ raw: String) -> String {
         raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -25,7 +16,7 @@ enum ClassicTaleNarrationCache {
         let url = base
             .appendingPathComponent(rootFolderName, isDirectory: true)
             .appendingPathComponent(cacheVersion, isDirectory: true)
-            .appendingPathComponent(voiceFingerprint(), isDirectory: true)
+            .appendingPathComponent("default", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -36,7 +27,7 @@ enum ClassicTaleNarrationCache {
 
     private static let audioFilenameSuffixes = ["mp3", "m4a", "aac", "mp4", "caf", "wav"]
 
-    /// Önbellekte sıralı ses parçaları varsa döner (ElevenLabs MP3 veya API’den indirilen `.m4a` vb.).
+    /// Önbellekte sıralı ses parçaları varsa döner.
     static func cachedChunkURLs(taleId: String) -> [URL]? {
         guard let dir = try? taleDirectory(taleId: taleId),
               FileManager.default.fileExists(atPath: dir.path) else { return nil }
@@ -74,7 +65,7 @@ enum ClassicTaleNarrationCache {
         return [dst]
     }
 
-    /// Geçici TTS çıktısını kalıcı önbelleğe kopyalar; dönen URL’ler oynatma için (oynatıcı bunları silmez).
+    /// Geçici çıktı dosyalarını kalıcı önbelleğe kopyalar.
     static func replaceCache(withTempChunks tempURLs: [URL], taleId: String) throws -> [URL] {
         let dir = try taleDirectory(taleId: taleId)
         if FileManager.default.fileExists(atPath: dir.path) {

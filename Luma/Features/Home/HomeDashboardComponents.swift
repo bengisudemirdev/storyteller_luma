@@ -777,16 +777,6 @@ struct ClassicTalePreviewView: View {
         .navigationTitle(tale.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardPalette.dashboardCanvas.opacity(0.94), for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                StoryNarrationButton(
-                    text: tale.narrationText,
-                    displayTitle: tale.title,
-                    classicTaleCacheId: tale.id,
-                    readerChrome: true
-                )
-            }
-        }
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))

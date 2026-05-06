@@ -61,28 +61,6 @@ enum AppConfig {
         return url
     }
 
-    /// ElevenLabs Convai agent + API key tanımlıysa masal seslendirmesi bu sesi kullanır.
-    static var isElevenLabsNarrationConfigured: Bool {
-        let apiKey = Secrets.elevenLabsAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        let agentId = Secrets.elevenLabsAgentId.trimmingCharacters(in: .whitespacesAndNewlines)
-        let voiceId = Secrets.elevenLabsVoiceId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !apiKey.isEmpty else { return false }
-        if apiKey.contains("YOUR_") { return false }
-        if !voiceId.isEmpty, !voiceId.contains("YOUR_") { return true }
-        guard !agentId.isEmpty else { return false }
-        if agentId.contains("YOUR_") { return false }
-        return true
-    }
-
-    /// Agent'tan bağımsız, doğrudan kullanılacak voice id (opsiyonel).
-    static var elevenLabsPreferredVoiceId: String? {
-        let value = Secrets.elevenLabsVoiceId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.isEmpty || value.contains("YOUR_") {
-            return nil
-        }
-        return value
-    }
-
     /// Profil → Geri bildirim `mailto:` hedefi. `Luma/Config/.env` içinde `FEEDBACK_EMAIL` ile ayarlayın.
     static var feedbackRecipientEmail: String {
         let trimmed = Secrets.feedbackEmail.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
