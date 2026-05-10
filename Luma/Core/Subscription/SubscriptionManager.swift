@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import RevenueCat
 
 @MainActor
 final class SubscriptionManager: ObservableObject {
@@ -19,42 +18,16 @@ final class SubscriptionManager: ObservableObject {
     private let freeNarrationTrialKey = "luma_free_narration_trial_used"
     private let userDefaults = UserDefaults.standard
 
-    /// RevenueCat'te tanımlı entitlement adı
-    private let premiumEntitlementId = "oliapremium"
-
     init() {
         loadLocalUsage()
     }
 
-    /// RevenueCat üzerinden planı yenile
+    /// `EntitlementStore` içindeki son backend snapshot’ına göre yerel plan özetini günceller (ekstra ağ çağrısı yapmaz).
     func refreshPlanFromServer() async {
-        do {
-            let subscription = try await SubscriptionAPIService.getStatus()
-            let normalizedStatus = subscription.status.lowercased()
-            status = normalizedStatus
-            currentPeriodEnd = Self.parseServerDate(subscription.currentPeriodEnd)
-            if subscription.plan.lowercased() == "premium" && normalizedStatus == "active" {
-                plan = .premium
-            } else {
-                plan = .free
-            }
-        } catch {
-            status = "unknown"
-            currentPeriodEnd = nil
-            // Fallback: RevenueCat (legacy safety net) + local usage cache
-            do {
-                let info = try await Purchases.shared.customerInfo()
-                if info.entitlements.active[premiumEntitlementId] != nil
-                    || info.entitlements.active["lumapremium"] != nil
-                    || info.entitlements.active["premium"] != nil {
-                    plan = .premium
-                } else {
-                    plan = .free
-                }
-            } catch {
-                plan = .free
-            }
-        }
+        let es = EntitlementStore.shared
+        status = es.subscriptionStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "inactive"
+        currentPeriodEnd = Self.parseServerDate(es.currentPeriodEnd)
+        plan = es.hasPremiumAccess ? .premium : .free
         resetWeeklyUsageIfNeeded()
     }
 

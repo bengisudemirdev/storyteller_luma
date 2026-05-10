@@ -49,4 +49,16 @@ enum StoryService {
     static func generateStoryAudioURL(id: UUID) async throws -> String {
         try await StoryAPIService.generateStoryAudioURL(id: id)
     }
+
+    /// Sunucu ile uyumlu uç: `POST /v1/stories/{id}/audio` (`StoryAPIService.generateStoryAudioURL`).
+    static func narrateStory(id: UUID) async throws -> NarrationResponse {
+        let urlString = try await StoryAPIService.generateStoryAudioURL(id: id)
+        return NarrationResponse(
+            audioUrl: urlString,
+            audioProvider: nil,
+            audioModel: nil,
+            audioVoiceId: nil,
+            charactersUsed: nil
+        )
+    }
 }

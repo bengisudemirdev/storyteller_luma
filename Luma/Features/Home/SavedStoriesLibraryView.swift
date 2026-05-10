@@ -53,6 +53,9 @@ struct SavedStoriesLibraryView: View {
         .refreshable {
             await loadStories()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .lumaSavedStoriesDidChange)) { _ in
+            Task { await loadStories() }
+        }
     }
 
     private var emptyState: some View {

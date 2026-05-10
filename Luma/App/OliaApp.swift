@@ -72,15 +72,22 @@ struct OliaApp: App {
             .animation(.easeInOut(duration: 0.35), value: hasSeenTitleSplash)
             .task {
                 if authManager.isAuthenticated {
+                    await EntitlementStore.shared.refreshFromBackend()
+                    await SubscriptionManager.shared.refreshPlanFromServer()
                     await CreditBalanceViewModel.shared.syncFromBackend()
                 } else {
                     await CreditBalanceViewModel.shared.refreshBalance()
                 }
             }
             .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
-                guard isAuthenticated else { return }
-                Task {
-                    await CreditBalanceViewModel.shared.syncFromBackend()
+                if isAuthenticated {
+                    Task {
+                        await EntitlementStore.shared.refreshFromBackend()
+                        await SubscriptionManager.shared.refreshPlanFromServer()
+                        await CreditBalanceViewModel.shared.syncFromBackend()
+                    }
+                } else {
+                    EntitlementStore.shared.clearForLogout()
                 }
             }
         }
@@ -98,6 +105,11 @@ struct OliaApp: App {
     @MainActor
     private func handlePostRegistrationPaywallRequest() async {
         guard !isPresentingPostRegistrationPaywall else { return }
+        await EntitlementStore.shared.refreshFromBackend()
+        await SubscriptionManager.shared.refreshPlanFromServer()
+        if EntitlementStore.shared.hasPremiumAccess {
+            return
+        }
         await CreditBalanceViewModel.shared.refreshBalance()
         try? await Task.sleep(nanoseconds: 350_000_000)
         guard !isPresentingPostRegistrationPaywall else { return }

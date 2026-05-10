@@ -41,6 +41,9 @@ struct HomeView: View {
         .task {
             await viewModel.loadDashboard()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .lumaSavedStoriesDidChange)) { _ in
+            Task { await viewModel.loadDashboard(forceRefresh: true) }
+        }
         .onAppear {
             if !viewModel.hasSeenPolicyOnboarding {
                 showFirstLaunchPolicy = true

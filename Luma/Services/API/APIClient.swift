@@ -11,6 +11,11 @@ private struct APIEnvelope<T: Decodable>: Decodable {
     let error: APIErrorPayload?
 }
 
+private struct APIEnvelopeSparse: Decodable {
+    let success: Bool?
+    let error: APIErrorPayload?
+}
+
 enum APIClientError: LocalizedError {
     case invalidURL
     case unauthorized
@@ -30,6 +35,26 @@ enum APIClientError: LocalizedError {
 
     var isInsufficientCredits: Bool {
         serverErrorCode == "INSUFFICIENT_CREDITS"
+    }
+
+    /// Yanıt düşmese de masal kaydedilmiş olabileceği için `GET /v1/stories` ile kurtarma denenebilir.
+    var allowsStoryGenerateListRecovery: Bool {
+        switch self {
+        case .decodingFailed, .invalidResponse, .emptyData:
+            return true
+        case .networkFailure(let msg):
+            let lower = msg.lowercased()
+            return lower.contains("timeout") || lower.contains("timed out") || lower.contains("zaman aşımı")
+        case .server(let code, _):
+            let c = code.uppercased()
+            return [
+                "STORY_GENERATE_FAILED", "REQUEST_TIMEOUT", "GATEWAY_TIMEOUT", "OPENAI_TIMEOUT",
+                "BAD_GATEWAY", "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR", "OPENAI_UPSTREAM_ERROR",
+                "OPENAI_REQUEST_FAILED"
+            ].contains(c)
+        default:
+            return false
+        }
     }
 
     var errorDescription: String? {
@@ -73,6 +98,10 @@ enum APIClientError: LocalizedError {
             return "Kredi bakiyen bu işlem için yetersiz."
         case "INTERNAL_SERVER_ERROR":
             return "Sunucuda beklenmeyen bir sorun oluştu. Kısa bir süre sonra tekrar dene."
+        case "CONTENT_UNSAFE", "UNSAFE_CONTENT", "CONTENT_POLICY_VIOLATION":
+            return "Üretilen masal metni güvenlik filtresine takıldı (ek açıklama yazmasanız da olabilir). Farklı bir tema deneyin veya bir süre sonra tekrar oluşturmayı deneyin."
+        case "STORY_GENERATE_FAILED", "GENERATION_FAILED", "OPENAI_GENERATION_FAILED":
+            return "Masal oluşturulurken bir sorun oluştu. Biraz sonra tekrar dene veya farklı bir tema seçerek yeniden dene."
         case "OPENAI_TIMEOUT":
             return "Masal üretimi bu denemede zaman aşımına uğradı. Lütfen tekrar deneyin."
         case "OPENAI_RATE_LIMITED":
@@ -137,6 +166,15 @@ enum APIClientError: LocalizedError {
 final class APIClient {
     static let shared = APIClient()
 
+    /// `POST /v1/stories/generate` — üretim sunucuda sürebilir; kurtarma için liste ile tamamlanır.
+    static let storyGenerateURLSession: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 90
+        cfg.timeoutIntervalForResource = 120
+        cfg.waitsForConnectivity = true
+        return URLSession(configuration: cfg)
+    }()
+
     private let baseURL: URL
     private let requestBuilder: AuthenticatedRequestBuilder
     private let decoder: JSONDecoder
@@ -160,7 +198,8 @@ final class APIClient {
 
     func request<T: Decodable>(
         _ endpoint: APIEndpoint,
-        body: Encodable? = nil
+        body: Encodable? = nil,
+        urlSession customSession: URLSession? = nil
     ) async throws -> T {
         let bodyData: Data?
         if let body {
@@ -170,11 +209,12 @@ final class APIClient {
         }
 
         let request = try await requestBuilder.build(baseURL: baseURL, endpoint: endpoint, jsonBody: bodyData)
+        let session = customSession ?? URLSession.shared
 
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch let error as URLError {
             throw APIClientError.networkFailure(Self.describeURLError(error))
         } catch {
@@ -190,6 +230,11 @@ final class APIClient {
         }
 
         guard (200...299).contains(http.statusCode) else {
+            if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
+               sparse.success == false,
+               let apiError = sparse.error {
+                throw APIClientError.server(code: apiError.code, message: apiError.message)
+            }
             if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
                let apiError = envelope.error {
                 throw APIClientError.server(code: apiError.code, message: apiError.message)
@@ -209,12 +254,79 @@ final class APIClient {
             if let value = envelope.data {
                 return value
             }
+            Self.logDecodingFailure(
+                endpointPath: endpoint.path,
+                statusCode: http.statusCode,
+                data: data,
+                underlying: NSError(domain: "LumaAPI", code: 0, userInfo: [NSLocalizedDescriptionKey: "API envelope decoded but data was nil"])
+            )
             throw APIClientError.decodingFailed
         } catch let err as APIClientError {
             throw err
         } catch {
+            Self.logDecodingFailure(endpointPath: endpoint.path, statusCode: http.statusCode, data: data, underlying: error)
             throw APIClientError.decodingFailed
         }
+    }
+
+    /// Başarılı HTTP gövdesini model çözümlemeden döndürür; gövdede `success: false` ise `APIClientError.server` fırlatır.
+    func requestRawSuccessData(
+        _ endpoint: APIEndpoint,
+        body: Encodable? = nil,
+        urlSession customSession: URLSession? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
+        let bodyData: Data?
+        if let body {
+            bodyData = try encode(body)
+        } else {
+            bodyData = nil
+        }
+
+        let request = try await requestBuilder.build(baseURL: baseURL, endpoint: endpoint, jsonBody: bodyData)
+        let session = customSession ?? URLSession.shared
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let error as URLError {
+            throw APIClientError.networkFailure(Self.describeURLError(error))
+        } catch {
+            throw APIClientError.networkFailure("Ağ bağlantısında bir sorun oluştu. Lütfen tekrar deneyin.")
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIClientError.invalidResponse
+        }
+
+        if http.statusCode == 401 {
+            throw APIClientError.unauthorized
+        }
+
+        guard (200...299).contains(http.statusCode) else {
+            if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
+               sparse.success == false,
+               let apiError = sparse.error {
+                throw APIClientError.server(code: apiError.code, message: apiError.message)
+            }
+            if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
+               let apiError = envelope.error {
+                throw APIClientError.server(code: apiError.code, message: apiError.message)
+            }
+            throw APIClientError.invalidResponse
+        }
+
+        guard !data.isEmpty else {
+            throw APIClientError.emptyData
+        }
+
+        if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
+           sparse.success == false,
+           let apiError = sparse.error {
+            throw APIClientError.server(code: apiError.code, message: apiError.message)
+        }
+
+        return (data, http)
     }
 
     /// Bearer token olmadan (giriş öncesi) JSON isteği — örn. `POST /v1/auth/forgot-password`.
@@ -269,6 +381,7 @@ final class APIClient {
         } catch let err as APIClientError {
             throw err
         } catch {
+            Self.logDecodingFailure(endpointPath: endpoint.path, statusCode: http.statusCode, data: data, underlying: error)
             throw APIClientError.decodingFailed
         }
     }
@@ -339,8 +452,19 @@ final class APIClient {
         } catch let err as APIClientError {
             throw err
         } catch {
+            Self.logDecodingFailure(endpointPath: endpoint.path, statusCode: http.statusCode, data: data, underlying: error)
             throw APIClientError.decodingFailed
         }
+    }
+
+    private static func logDecodingFailure(endpointPath: String, statusCode: Int, data: Data, underlying: Error) {
+        let preview = String(data: data.prefix(1000), encoding: .utf8) ?? "<binary>"
+        AppLogger.error("api.response.decode_failed", [
+            "path": endpointPath,
+            "statusCode": "\(statusCode)",
+            "responseBodyPreview": preview,
+            "decodingError": String(describing: underlying)
+        ])
     }
 
     private func encode(_ value: Encodable) throws -> Data {
@@ -354,7 +478,7 @@ final class APIClient {
         case .cannotFindHost, .dnsLookupFailed:
             return "Sunucu adresi çözülemedi. Lütfen daha sonra tekrar deneyin."
         case .timedOut:
-            return "İstek zaman aşımına uğradı. Lütfen tekrar deneyin."
+            return "İstek zaman aşımına uğradı. Masal üretimi uzun sürdüyse bir kez daha dene; internet bağlantını kontrol et."
         case .secureConnectionFailed, .serverCertificateUntrusted:
             return "Güvenli bağlantı kurulamadı (HTTPS/sertifika)."
         case .appTransportSecurityRequiresSecureConnection:

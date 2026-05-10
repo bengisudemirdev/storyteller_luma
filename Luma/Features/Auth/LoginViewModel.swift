@@ -19,6 +19,8 @@ class LoginViewModel: ObservableObject {
         do {
             try await OliaApp.supabase.auth.signIn(email: email, password: password)
             _ = try await AuthAPIService.syncCurrentUser(force: true)
+            await EntitlementStore.shared.refreshFromBackend()
+            await SubscriptionManager.shared.refreshPlanFromServer()
             isLoading = false
             return true
         } catch {

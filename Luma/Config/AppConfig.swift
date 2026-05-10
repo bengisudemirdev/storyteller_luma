@@ -25,13 +25,38 @@ enum AppConfig {
         return Secrets.revenueCatAPIKey
     }
 
+    /// RevenueCat Offering identifier; boşsa SDK `current` offering kullanılır.
     static var revenueCatOfferingKey: String? {
         let key = Secrets.revenueCatOfferingKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        return key.isEmpty ? "olia_credits" : key
+        return key.isEmpty ? nil : key
+    }
+
+    // TODO: `TERMS_OF_SERVICE_URL` ve `PRIVACY_POLICY_URL` anahtarlarını `Luma/Config/.env` içine ekleyin (scripts/generate_ios_secrets.py).
+
+    static var termsOfServiceURL: URL? {
+        let raw = Secrets.termsOfServiceURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty, let url = URL(string: raw) else { return nil }
+        return url
+    }
+
+    static var privacyPolicyURL: URL? {
+        let raw = Secrets.privacyPolicyURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty, let url = URL(string: raw) else { return nil }
+        return url
     }
 
     static var isRevenueCatTestStoreMode: Bool {
         revenueCatAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("test_")
+    }
+
+    /// Log / destek için; tam RevenueCat anahtarı asla yazdırılmamalı.
+    static var revenueCatAPIKeyRedactedPrefix: String {
+        let raw = revenueCatAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return "(empty)" }
+        if raw.hasPrefix("appl_") { return "appl_***" }
+        if raw.hasPrefix("test_") { return "test_***" }
+        let n = min(8, raw.count)
+        return String(raw.prefix(n)) + "***"
     }
 
     static var supabaseURL: URL {

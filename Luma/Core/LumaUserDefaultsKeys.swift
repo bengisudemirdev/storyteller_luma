@@ -8,4 +8,6 @@ enum LumaUserDefaultsKeys {
 extension Notification.Name {
     /// Çocuk profili kaydı tamamlandı; ana ekran hazır olduktan sonra paywall bottom sheet açılır.
     static let lumaPresentPostRegistrationPaywall = Notification.Name("lumaPresentPostRegistrationPaywall")
+    /// Kayıtlı masallar listesi güncellenmeli (örn. yeni masal oluşturuldu).
+    static let lumaSavedStoriesDidChange = Notification.Name("lumaSavedStoriesDidChange")
 }

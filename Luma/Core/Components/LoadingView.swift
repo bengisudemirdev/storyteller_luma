@@ -66,6 +66,14 @@ struct LoadingView: View {
                     .frame(minHeight: 52, alignment: .center)
 
                     StoryPrepProgressDots(reduceMotion: reduceMotion)
+
+                    Text("Masal üretimi bazen birkaç dakika sürebilir. Bu ekranda beklemeye devam et; uygulamayı veya sekmeyi kapatma.")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 8)
+                        .padding(.top, 6)
                 }
                 .padding(.vertical, 22)
                 .padding(.horizontal, 24)

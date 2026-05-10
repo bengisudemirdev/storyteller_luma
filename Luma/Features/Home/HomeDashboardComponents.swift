@@ -639,6 +639,11 @@ struct ClassicTalesSection: View {
 struct ClassicTalePreviewView: View {
     let tale: ClassicTaleItem
     @State private var currentPage = 0
+    @State private var activeAudioURLString: String?
+    @State private var isRequestingNarration = false
+    @State private var narrationErrorMessage: String?
+    @State private var hasStartedNarration = false
+    @StateObject private var audioPlayer = AudioPlayerViewModel()
     @EnvironmentObject private var appUIState: AppUIState
 
     private var storyPages: [String] {
@@ -741,6 +746,14 @@ struct ClassicTalePreviewView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                if hasStartedNarration {
+                    classicNarrationCard
+                        .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                        .padding(.top, 4)
+                        .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                        .frame(maxWidth: .infinity)
+                }
+
                 NavigationLink {
                     CreateStoryView()
                 } label: {
@@ -777,12 +790,125 @@ struct ClassicTalePreviewView: View {
         .navigationTitle(tale.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardPalette.dashboardCanvas.opacity(0.94), for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await startClassicTaleNarration() }
+                } label: {
+                    if isRequestingNarration {
+                        ProgressView()
+                            .tint(HomeDashboardPalette.accentOrange)
+                    } else {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
+            activeAudioURLString = tale.audioURL?.absoluteString
         }
         .onDisappear {
             appUIState.isTabBarVisible = true
+            audioPlayer.stop()
+            audioPlayer.cleanup()
+        }
+    }
+
+    private var classicNarrationCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Sesli Masal")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.ink)
+            Text("Bu klasik masalı API'den gelen ses bağlantısıyla dinleyebilirsin.")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let narrationErrorMessage, !narrationErrorMessage.isEmpty {
+                Text(narrationErrorMessage)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.red.opacity(0.9))
+            }
+
+            if isRequestingNarration || audioPlayer.isLoading {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .tint(HomeDashboardPalette.accentOrange)
+                    Text("Masal seslendirme hazırlanıyor...")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                }
+            }
+
+            if let activeAudioURLString, !activeAudioURLString.isEmpty {
+                Button {
+                    audioPlayer.toggle(urlString: activeAudioURLString)
+                    narrationErrorMessage = nil
+                } label: {
+                    Text(audioPlayer.isPlaying ? "Duraklat" : "Masalı Dinle")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [HomeDashboardPalette.accentOrange, HomeDashboardPalette.accentOrangeSoft],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(HomeDashboardPalette.cardSurface)
+                .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(HomeDashboardPalette.accentOrange.opacity(0.16), lineWidth: 1)
+        )
+    }
+
+    private func startClassicTaleNarration() async {
+        isRequestingNarration = true
+        defer { isRequestingNarration = false }
+
+        narrationErrorMessage = nil
+        hasStartedNarration = true
+
+        if let activeAudioURLString, !activeAudioURLString.isEmpty {
+            audioPlayer.play(urlString: activeAudioURLString)
+            return
+        }
+
+        if let existing = tale.audioURL?.absoluteString, !existing.isEmpty {
+            activeAudioURLString = existing
+            audioPlayer.play(urlString: existing)
+            return
+        }
+
+        do {
+            if let detail = try await ClassicTalesAPIService.fetchClassicTaleDetail(taleId: tale.id),
+               let remoteURL = detail.audioURL?.absoluteString,
+               !remoteURL.isEmpty {
+                activeAudioURLString = remoteURL
+                audioPlayer.play(urlString: remoteURL)
+            } else {
+                narrationErrorMessage = "Bu masal için ses kaydı henüz hazır değil."
+            }
+        } catch {
+            narrationErrorMessage = "Masal seslendirilirken bir hata oluştu."
         }
     }
 }

@@ -14,18 +14,27 @@ class AuthManager: ObservableObject {
     func checkSession() {
         Task { @MainActor in
             let session = try? await OliaApp.supabase.auth.session
-            self.isAuthenticated = (session != nil)
-            if session != nil {
+            self.isAuthenticated = Self.representsLoggedInUser(session)
+            if Self.representsLoggedInUser(session) {
                 await self.syncCurrentUserIfNeeded(force: true)
             }
             self.isSessionChecked = true
             for await (_, session) in OliaApp.supabase.auth.authStateChanges {
-                self.isAuthenticated = (session != nil)
-                if session != nil {
+                self.isAuthenticated = Self.representsLoggedInUser(session)
+                if Self.representsLoggedInUser(session) {
                     await self.syncCurrentUserIfNeeded()
                 }
             }
         }
+    }
+
+    /// `emitLocalSessionAsInitialSession` açıkken süresi dolmuş yerel JWT gelebilir; refresh token varsa oturumu koru (SDK yeniler).
+    private static func representsLoggedInUser(_ session: Session?) -> Bool {
+        guard let session else { return false }
+        if session.isExpired {
+            return !session.refreshToken.isEmpty
+        }
+        return true
     }
 
     @MainActor
@@ -38,6 +47,8 @@ class AuthManager: ObservableObject {
         do {
             _ = try await AuthAPIService.syncCurrentUser(force: force)
             lastAuthSyncAt = Date()
+            await EntitlementStore.shared.refreshFromBackend()
+            await SubscriptionManager.shared.refreshPlanFromServer()
         } catch {
             // Sessiz geç: auth state UI için kritik, profil sync kısa süre sonra tekrar denenir.
         }

@@ -42,6 +42,8 @@ class RegisterViewModel: ObservableObject {
         }
         do {
             _ = try await AuthAPIService.syncCurrentUser(force: true)
+            await EntitlementStore.shared.refreshFromBackend()
+            await SubscriptionManager.shared.refreshPlanFromServer()
         } catch {
             UserDefaults.standard.set(false, forKey: "luma_registration_requires_child_setup")
             try? await OliaApp.supabase.auth.signOut()

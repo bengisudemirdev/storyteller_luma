@@ -34,7 +34,9 @@ struct StoryReaderView: View {
     @State private var storyAudioURLState: String?
     @State private var narrationErrorMessage: String?
     @State private var showCreditPaywall = false
+    @State private var showAudioPanel = false
     @StateObject private var audioPlayer = AudioPlayerViewModel()
+    @ObservedObject private var entitlements = EntitlementStore.shared
     @EnvironmentObject private var appUIState: AppUIState
     @Environment(\.dismiss) var dismiss
 
@@ -103,22 +105,20 @@ struct StoryReaderView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if story != nil {
-                    storyAudioCard
-                        .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                        .padding(.top, 4)
-                        .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                        .frame(maxWidth: .infinity)
-                }
-
                 StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
             }
+
+            if showAudioPanel {
+                audioPanelOverlay
+                    .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .topTrailing)))
+            }
         }
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: showAudioPanel)
         .navigationBarHidden(true)
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
-            storyAudioURLState = story?.audio_url
+            storyAudioURLState = story?.audioUrl ?? story?.audio_url
         }
         .onDisappear {
             appUIState.isTabBarVisible = true
@@ -139,7 +139,12 @@ struct StoryReaderView: View {
         .sheet(isPresented: $showCreditPaywall) {
             PaywallView(
                 source: .insufficientCredits(required: CreditCost.narration),
-                onPurchaseCompleted: {}
+                onPurchaseCompleted: {
+                    Task {
+                        await EntitlementStore.shared.refreshFromBackend()
+                        await SubscriptionManager.shared.refreshPlanFromServer()
+                    }
+                }
             )
         }
     }
@@ -287,6 +292,25 @@ struct StoryReaderView: View {
                 }
                 .disabled(isDeleting)
                 .buttonStyle(.plain)
+
+                Button {
+                    showAudioPanel.toggle()
+                } label: {
+                    Image(systemName: audioPlayer.isPlaying ? "speaker.wave.3.fill" : "speaker.wave.2.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            Circle()
+                                .fill(HomeDashboardPalette.accentOrange.opacity(0.18))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(HomeDashboardPalette.accentOrange.opacity(0.42), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Sesli dinle"))
             }
         }
     }
@@ -306,21 +330,56 @@ struct StoryReaderView: View {
         isDeleting = false
     }
 
-    private var storyAudioCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Sesli Masal")
-                .font(.system(size: 17, weight: .bold, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.ink)
+    private var audioPanelOverlay: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topTrailing) {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        showAudioPanel = false
+                    }
 
-            Text("Bu masalı Burcu anlatıcı sesiyle dinleyebilirsin.")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                .fixedSize(horizontal: false, vertical: true)
+                audioFloatingPanel
+                    .frame(width: min(geo.size.width - 24, 300), alignment: .leading)
+                    .padding(.top, geo.safeAreaInsets.top + 46)
+                    .padding(.trailing, 12)
+            }
+        }
+    }
+
+    private var audioFloatingPanel: some View {
+        let trimmedAudioURL = storyAudioURLState?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let hasAudioURL = !trimmedAudioURL.isEmpty
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                Text("Sesli dinle")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+                Spacer(minLength: 8)
+                Button {
+                    showAudioPanel = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 22))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Kapat"))
+            }
 
             if let error = narrationErrorMessage {
                 Text(error)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.red.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let playErr = audioPlayer.errorMessage {
+                Text(playErr)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.red.opacity(0.88))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -334,43 +393,73 @@ struct StoryReaderView: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                if let audioURL = storyAudioURLState, !audioURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if hasAudioURL {
+                HStack(spacing: 8) {
                     Button {
-                        audioPlayer.togglePlayPause(urlString: audioURL)
+                        audioPlayer.skipBackward(seconds: 10)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "gobackward.10")
+                                .font(.system(size: 22, weight: .semibold))
+                            Text("10 sn")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "On saniye geri"))
+
+                    Button {
                         narrationErrorMessage = nil
+                        if audioPlayer.isPlaying {
+                            audioPlayer.pause()
+                        } else {
+                            audioPlayer.resume(urlString: trimmedAudioURL)
+                        }
                     } label: {
-                        Text(audioPlayer.isPlaying ? "Duraklat" : "Dinle")
+                        Image(systemName: audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 54))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                            .symbolRenderingMode(.hierarchical)
                     }
-                    .buttonStyle(AudioActionButtonStyle())
-                } else {
-                    Button {
-                        Task { await narrateStoryAndPlay() }
-                    } label: {
-                        Text(audioPlayer.isLoading ? "Masal seslendiriliyor..." : "Masalı Seslendir")
-                    }
-                    .buttonStyle(AudioActionButtonStyle())
-                    .disabled(audioPlayer.isLoading)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(audioPlayer.isPlaying ? String(localized: "Duraklat") : String(localized: "Oynat"))
+
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
                 }
+                .padding(.vertical, 4)
+            } else if !audioPlayer.isLoading {
+                Button {
+                    Task { await narrateStoryAndPlay() }
+                } label: {
+                    Text("Masalı seslendir")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(AudioActionButtonStyle())
+                .disabled(audioPlayer.isLoading)
             }
 
-            if narrationErrorMessage == "Seslendirme için yeterli kredin yok." {
-                Button("Paketleri Gör") {
+            if narrationErrorMessage != nil && !entitlements.hasPremiumAccess {
+                Button("Planları gör") {
                     showCreditPaywall = true
                 }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(HomeDashboardPalette.accentOrange)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(HomeDashboardPalette.cardSurface)
-                .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 4)
+                .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 8)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(HomeDashboardPalette.accentOrange.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(HomeDashboardPalette.accentOrange.opacity(0.2), lineWidth: 1)
         )
     }
 
@@ -381,32 +470,56 @@ struct StoryReaderView: View {
             return
         }
 
+        await EntitlementStore.shared.refreshFromBackend()
+        await SubscriptionManager.shared.refreshPlanFromServer()
+        guard EntitlementStore.shared.canNarrateStory else {
+            await MainActor.run {
+                narrationErrorMessage = EntitlementStore.shared.hasPremiumAccess
+                    ? "Bu ay için sesli masal hakkın doldu."
+                    : "Seslendirme için uygun bir plan veya hak gerekiyor."
+                audioPlayer.isLoading = false
+                if !EntitlementStore.shared.hasPremiumAccess {
+                    showCreditPaywall = true
+                }
+            }
+            return
+        }
+
         await MainActor.run {
             narrationErrorMessage = nil
+            audioPlayer.errorMessage = nil
             audioPlayer.isLoading = true
         }
 
         do {
             let response = try await StoryService.narrateStory(id: storyId)
+            await EntitlementStore.shared.refreshFromBackend()
+            await SubscriptionManager.shared.refreshPlanFromServer()
             await MainActor.run {
                 storyAudioURLState = response.audioUrl
                 audioPlayer.isLoading = false
                 audioPlayer.play(urlString: response.audioUrl)
             }
-        } catch let error as StoryAudioServiceError {
+        } catch let error as APIClientError {
             await MainActor.run {
                 audioPlayer.isLoading = false
-                switch error {
-                case .insufficientCredits:
-                    narrationErrorMessage = "Seslendirme için yeterli kredin yok."
-                case .unauthorized, .storyNotFound, .failed:
-                    narrationErrorMessage = error.errorDescription
+                if error.isInsufficientCredits {
+                    narrationErrorMessage = EntitlementStore.shared.hasPremiumAccess
+                        ? "Seslendirme şu an başlatılamadı. Biraz sonra tekrar dene."
+                        : "Seslendirme için uygun bir plan veya hak gerekiyor."
+                    if !EntitlementStore.shared.hasPremiumAccess {
+                        showCreditPaywall = true
+                    }
+                } else if case .unauthorized = error {
+                    narrationErrorMessage = "Oturum süren dolmuş olabilir. Lütfen tekrar giriş yap."
+                } else {
+                    narrationErrorMessage = "Masal seslendirilirken bir sorun oluştu. Lütfen tekrar dene."
                 }
             }
         } catch {
             await MainActor.run {
                 audioPlayer.isLoading = false
-                narrationErrorMessage = "Masal seslendirilirken bir hata oluştu."
+                narrationErrorMessage = "Masal seslendirilirken bir sorun oluştu. Lütfen tekrar dene."
             }
         }
     }

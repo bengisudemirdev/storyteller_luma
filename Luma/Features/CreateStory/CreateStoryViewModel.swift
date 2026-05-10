@@ -29,12 +29,6 @@ class CreateStoryViewModel: ObservableObject {
     func createStory() {
         let trimmedName = childName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
-        if !CreditBalanceViewModel.shared.hasCredits(required: storyCreditCost) {
-            errorMessage = "Bu işlem için en az \(storyCreditCost) kredi gerekiyor."
-            showCreditStore = true
-            pendingAction = .createStory
-            return
-        }
         isLoading = true
 
         AppLogger.info("stories.create.tapped", [
@@ -45,6 +39,20 @@ class CreateStoryViewModel: ObservableObject {
         ])
 
         Task {
+            await EntitlementStore.shared.refreshFromBackend()
+            await SubscriptionManager.shared.refreshPlanFromServer()
+            guard EntitlementStore.shared.canCreateStory else {
+                if EntitlementStore.shared.hasPremiumAccess {
+                    errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
+                    showErrorAlert = true
+                } else {
+                    showCreditStore = true
+                    pendingAction = .createStory
+                }
+                isLoading = false
+                return
+            }
+
             var ephemeralChildId: UUID?
             do {
                 let childId: UUID
@@ -92,13 +100,20 @@ class CreateStoryViewModel: ObservableObject {
                 generatedStoryModel = story
                 generatedStory = story.content
                 showReaderView = true
+                await EntitlementStore.shared.refreshFromBackend()
+                await SubscriptionManager.shared.refreshPlanFromServer()
                 await CreditBalanceViewModel.shared.refreshBalance()
+                NotificationCenter.default.post(name: .lumaSavedStoriesDidChange, object: nil)
             } catch {
                 if let apiError = error as? APIClientError, apiError.isInsufficientCredits {
-                    errorMessage = "Bu işlem için en az \(storyCreditCost) kredi gerekiyor."
-                    showCreditStore = true
-                    pendingAction = .createStory
-                    showErrorAlert = false
+                    if EntitlementStore.shared.hasPremiumAccess {
+                        errorMessage = "Masal oluşturma şu an tamamlanamadı. Lütfen biraz sonra tekrar dene."
+                        showErrorAlert = true
+                    } else {
+                        showCreditStore = true
+                        pendingAction = .createStory
+                        showErrorAlert = false
+                    }
                     isLoading = false
                     return
                 }
@@ -112,7 +127,7 @@ class CreateStoryViewModel: ObservableObject {
                         ])
                     }
                 }
-                errorMessage = error.userFacingTurkishMessage
+                errorMessage = Self.userFacingStoryCreationFailureMessage(for: error)
                 showErrorAlert = true
                 AppLogger.error("stories.create.failed", [
                     "childId": selectedChild?.id.uuidString ?? ephemeralChildId?.uuidString ?? "none",
@@ -151,6 +166,20 @@ class CreateStoryViewModel: ObservableObject {
         return true
     }
 
+    /// Kurtarma sonrası bile hata varsa teknik ayrıntı göstermeden sabit mesaj; iş kuralı hatalarında sunucunun Türkçe eşlemesi.
+    private static func userFacingStoryCreationFailureMessage(for error: Error) -> String {
+        let generic = "Masal oluşturulurken bir sorun oluştu. Lütfen tekrar deneyin."
+        guard let api = error as? APIClientError else { return generic }
+        switch api {
+        case .server:
+            return api.errorDescription ?? generic
+        case .unauthorized:
+            return generic
+        case .decodingFailed, .networkFailure, .invalidResponse, .emptyData, .invalidURL:
+            return generic
+        }
+    }
+
     private func mapThemeToBackend(_ theme: String) -> String {
         switch theme.lowercased() {
         case "uyku":
@@ -167,11 +196,15 @@ class CreateStoryViewModel: ObservableObject {
     }
 
     func handlePurchaseCompletion() {
-        guard let pendingAction else { return }
-        self.pendingAction = nil
-        switch pendingAction {
-        case .createStory:
-            createStory()
+        Task { @MainActor in
+            await EntitlementStore.shared.refreshFromBackend()
+            await SubscriptionManager.shared.refreshPlanFromServer()
+            guard let action = pendingAction else { return }
+            pendingAction = nil
+            switch action {
+            case .createStory:
+                createStory()
+            }
         }
     }
 }

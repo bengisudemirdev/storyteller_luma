@@ -13,6 +13,7 @@ struct ProfileView: View {
     @State private var accountSecurityDetent: PresentationDetent = .large
     @State private var hasLoadedScreenOnce = false
     @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
+    @ObservedObject private var entitlements = EntitlementStore.shared
 
     private enum ProfileCardMetrics {
         static let horizontalPadding: CGFloat = 14
@@ -75,6 +76,8 @@ struct ProfileView: View {
             .task {
                 if hasLoadedScreenOnce { return }
                 hasLoadedScreenOnce = true
+                await EntitlementStore.shared.refreshFromBackend()
+                await SubscriptionManager.shared.refreshPlanFromServer()
                 await creditBalance.syncFromBackend()
                 await viewModel.fetchChildren()
             }
@@ -257,15 +260,13 @@ struct ProfileView: View {
 
     private var creditSection: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Krediler")
+            Text("Planın")
                 .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
 
-            Button {
-                isShowingPaywall = true
-            } label: {
+            if entitlements.hasPremiumAccess {
                 HStack(spacing: 14) {
-                    Image(systemName: "star.circle.fill")
+                    Image(systemName: entitlements.hasFamilyAccess ? "figure.2.and.child.holdinghands" : "star.circle.fill")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.accentOrange)
                         .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
@@ -273,27 +274,25 @@ struct ProfileView: View {
                             Circle()
                                 .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
                         )
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Kredi Bakiyesi")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(entitlements.hasFamilyAccess ? "Family üyeliğin aktif" : "Premium üyeliğin aktif")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(HomeDashboardPalette.ink)
-                        Text("\(creditBalance.balance) kredi")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        Text("Masal: \(CreditCost.story) kredi • Seslendirme: \(CreditCost.narration) kredi")
-                            .font(.caption2)
-                            .foregroundStyle(HomeDashboardPalette.muted)
-                        Text("Free planda 1000 kredi ile yaklaşık 2 masal oluşturabilirsin.")
+                        Text(
+                            "Kalan masal hakkı: \(entitlements.storyRemainingThisMonth ?? 0) • Sesli masal hakkı: \(entitlements.voiceRemainingThisMonth ?? 0)"
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(HomeDashboardPalette.muted)
+                        if (entitlements.extraVoiceCredits ?? 0) > 0 {
+                            Text("Ek ses hakları: \(entitlements.extraVoiceCredits ?? 0)")
+                                .font(.caption2)
+                                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        }
+                        Text("Kredi bakiyesi (kampanya / hediye): \(creditBalance.balance)")
                             .font(.caption2)
                             .foregroundStyle(HomeDashboardPalette.muted)
                     }
-                    Spacer()
-                    Text("Kredi Al")
-                        .font(.caption.bold())
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
+                    Spacer(minLength: 0)
                 }
                 .padding(ProfileCardMetrics.horizontalPadding)
                 .frame(minHeight: ProfileCardMetrics.minHeight)
@@ -302,8 +301,53 @@ struct ProfileView: View {
                         .fill(HomeDashboardPalette.cardSurface)
                         .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
                 )
+            } else {
+                Button {
+                    Task {
+                        await EntitlementStore.shared.refreshFromBackend()
+                        await SubscriptionManager.shared.refreshPlanFromServer()
+                        if !EntitlementStore.shared.hasPremiumAccess {
+                            isShowingPaywall = true
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                            .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
+                            .background(
+                                Circle()
+                                    .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
+                            )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Premium’a geç")
+                                .foregroundStyle(HomeDashboardPalette.ink)
+                                .font(.subheadline.weight(.semibold))
+                            Text(
+                                "Kalan masal hakkı: \(entitlements.storyRemainingThisMonth ?? 0) • Sesli masal hakkı: \(entitlements.voiceRemainingThisMonth ?? 0)"
+                            )
+                            .font(.caption2)
+                            .foregroundStyle(HomeDashboardPalette.muted)
+                            Text("Kişiselleştirilmiş masallar ve doğal anlatıcı sesi için plan seç.")
+                                .font(.caption2)
+                                .foregroundStyle(HomeDashboardPalette.muted)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
+                    }
+                    .padding(ProfileCardMetrics.horizontalPadding)
+                    .frame(minHeight: ProfileCardMetrics.minHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                            .fill(HomeDashboardPalette.cardSurface)
+                            .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -444,6 +488,7 @@ private struct AccountSecuritySheet: View {
     @State private var confirmPassword: String = ""
     @State private var statusMessage: String?
     @State private var isErrorStatus = false
+    @State private var showDeleteAccountConfirm = false
 
     var body: some View {
         NavigationView {
@@ -535,6 +580,40 @@ private struct AccountSecuritySheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
 
+                        Divider()
+                            .padding(.vertical, 4)
+
+                        Group {
+                            Text("Hesabı Sil")
+                                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.ink)
+
+                            Text("Bu işlem geri alınamaz. Tüm profil verilerin kalıcı olarak silinir.")
+                                .font(.footnote)
+                                .foregroundStyle(HomeDashboardPalette.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            Button {
+                                showDeleteAccountConfirm = true
+                            } label: {
+                                if viewModel.isLoading {
+                                    ProgressView()
+                                        .tint(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                } else {
+                                    Text("Hesabımı Sil")
+                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                }
+                            }
+                            .disabled(viewModel.isLoading)
+                            .background(Color.red.opacity(0.9))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+
                         if let statusMessage, !statusMessage.isEmpty {
                             Text(statusMessage)
                                 .font(.footnote.weight(.medium))
@@ -561,6 +640,16 @@ private struct AccountSecuritySheet: View {
             .onAppear {
                 email = viewModel.parentEmail
             }
+            .alert("Hesabını silmek istediğine emin misin?", isPresented: $showDeleteAccountConfirm) {
+                Button("Vazgeç", role: .cancel) { }
+                Button("Hesabımı Sil", role: .destructive) {
+                    Task {
+                        await deleteAccount()
+                    }
+                }
+            } message: {
+                Text("Bu işlem geri alınamaz. Hesabın ve ilişkili verilerin silinecektir.")
+            }
         }
     }
 
@@ -582,6 +671,18 @@ private struct AccountSecuritySheet: View {
             statusMessage = "Şifre başarıyla güncellendi."
             newPassword = ""
             confirmPassword = ""
+        } catch {
+            isErrorStatus = true
+            statusMessage = (error as? LocalizedError)?.errorDescription ?? error.userFacingTurkishMessage
+        }
+    }
+
+    private func deleteAccount() async {
+        do {
+            let message = try await viewModel.deleteAccount()
+            isErrorStatus = false
+            statusMessage = message
+            dismiss()
         } catch {
             isErrorStatus = true
             statusMessage = (error as? LocalizedError)?.errorDescription ?? error.userFacingTurkishMessage

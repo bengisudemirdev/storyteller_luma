@@ -303,6 +303,25 @@ class ProfileViewModel: ObservableObject {
         }
     }
 
+    func deleteAccount() async throws -> String {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let message = try await AuthAPIService.deleteCurrentUserAccount()
+            // Lokal oturumu da kapat: UI login ekranina dusmeli.
+            try? await OliaApp.supabase.auth.signOut()
+            AppLogger.info("profile.account.deleted", [:])
+            return message
+        } catch {
+            AppLogger.error("profile.account.delete_failed", [
+                "errorType": String(describing: type(of: error)),
+                "error": String(describing: error)
+            ])
+            throw error
+        }
+    }
+
     // MARK: - Age helpers
 
     private func suggestedAge(for group: LumaAgeGroup) -> Int {
