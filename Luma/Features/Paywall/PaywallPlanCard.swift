@@ -3,6 +3,8 @@ import SwiftUI
 struct PaywallPlanCard: View {
     let plan: PaywallPlanViewData
     let isSelected: Bool
+    /// Backend / App Store’daki mevcut abonelik bu paket ise işaretlenir.
+    var isOwned: Bool = false
     /// Premium kartı biraz daha sıcak / öne çıkan görünüm.
     let style: PaywallPlanCardStyle
     let onSelect: () -> Void
@@ -25,6 +27,17 @@ struct PaywallPlanCard: View {
                             .background(
                                 Capsule(style: .continuous)
                                     .fill(badgeBackground)
+                            )
+                    }
+                    if isOwned {
+                        Text("Sahip olduğun plan")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color.green.opacity(0.92))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.green.opacity(0.16))
                             )
                     }
                     Spacer(minLength: 0)

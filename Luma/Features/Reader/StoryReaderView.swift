@@ -34,7 +34,10 @@ struct StoryReaderView: View {
     @State private var storyAudioURLState: String?
     @State private var narrationErrorMessage: String?
     @State private var showCreditPaywall = false
-    @State private var showAudioPanel = false
+    @State private var showFloatingAudioPanel = false
+    @AppStorage("story_reader_audio_panel_dx") private var audioPanelStoredDX: Double = 0
+    @AppStorage("story_reader_audio_panel_dy") private var audioPanelStoredDY: Double = 0
+    @GestureState private var audioPanelDragTranslation: CGSize = .zero
     @StateObject private var audioPlayer = AudioPlayerViewModel()
     @ObservedObject private var entitlements = EntitlementStore.shared
     @EnvironmentObject private var appUIState: AppUIState
@@ -52,68 +55,79 @@ struct StoryReaderView: View {
         max(storyPages.count, 1)
     }
 
+    private var hasPlayableStoryAudioURL: Bool {
+        guard let s = storyAudioURLState?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return false }
+        return true
+    }
+
     var body: some View {
-        ZStack {
-            StoryReadingWarmBackground()
+        ZStack(alignment: .bottom) {
+            ZStack {
+                StoryReadingWarmBackground()
 
-            VStack(spacing: 0) {
-                storyReaderHeader
+                VStack(spacing: 0) {
+                    storyReaderHeader
 
-                TabView(selection: $currentPage) {
-                    ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
-                        ScrollView(showsIndicators: false) {
-                            StoryReadingTextCard {
-                                VStack(alignment: .leading, spacing: 16) {
-                                    if index == 0 {
-                                        VStack(alignment: .leading, spacing: 10) {
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
-                                                            HomeDashboardPalette.accentOrange,
-                                                            HomeDashboardPalette.accentOrangeSoft
-                                                        ],
-                                                        startPoint: .leading,
-                                                        endPoint: .trailing
+                    TabView(selection: $currentPage) {
+                        ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
+                            ScrollView(showsIndicators: false) {
+                                StoryReadingTextCard {
+                                    VStack(alignment: .leading, spacing: 16) {
+                                        if index == 0 {
+                                            VStack(alignment: .leading, spacing: 10) {
+                                                Capsule()
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                HomeDashboardPalette.accentOrange,
+                                                                HomeDashboardPalette.accentOrangeSoft
+                                                            ],
+                                                            startPoint: .leading,
+                                                            endPoint: .trailing
+                                                        )
                                                     )
-                                                )
-                                                .frame(width: 44, height: 5)
+                                                    .frame(width: 44, height: 5)
 
-                                            Text(storyTitle)
-                                                .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
-                                                .foregroundStyle(HomeDashboardPalette.ink)
-                                                .fixedSize(horizontal: false, vertical: true)
+                                                Text(storyTitle)
+                                                    .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
+                                                    .foregroundStyle(HomeDashboardPalette.ink)
+                                                    .fixedSize(horizontal: false, vertical: true)
+                                            }
                                         }
+
+                                        Text(pageText)
+                                            .storyReadingBodyStyle()
+                                            .fixedSize(horizontal: false, vertical: true)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
                                     }
-
-                                    Text(pageText)
-                                        .storyReadingBodyStyle()
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
+                                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                                .padding(.top, 10)
+                                .padding(.bottom, 32)
                             }
-                            .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                            .padding(.top, 10)
-                            .padding(.bottom, 32)
+                            .scrollClipDisabled()
+                            .tag(index)
                         }
-                        .scrollClipDisabled()
-                        .tag(index)
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
+                    StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
+                }
             }
 
-            if showAudioPanel {
-                audioPanelOverlay
-                    .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .topTrailing)))
+            if showFloatingAudioPanel {
+                savedStoryFloatingAudioPanel
+                    .padding(.horizontal, HomeDashboardMetrics.mainFloatingChromeHorizontalInset)
+                    .padding(.bottom, 10)
+                    .offset(audioPanelDisplayedOffset)
+                    .gesture(audioPanelDragGesture)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(response: 0.35, dampingFraction: 0.82), value: showFloatingAudioPanel)
             }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: showAudioPanel)
         .navigationBarHidden(true)
         .onAppear {
             appUIState.isTabBarVisible = false
@@ -124,6 +138,7 @@ struct StoryReaderView: View {
             appUIState.isTabBarVisible = true
             audioPlayer.stop()
             audioPlayer.cleanup()
+            showFloatingAudioPanel = false
         }
         .onChange(of: storyPages.count) { _, newCount in
             currentPage = min(currentPage, max(newCount - 1, 0))
@@ -294,7 +309,8 @@ struct StoryReaderView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    showAudioPanel.toggle()
+                    showFloatingAudioPanel = true
+                    Task { await narrateStoryAndPlay() }
                 } label: {
                     Image(systemName: audioPlayer.isPlaying ? "speaker.wave.3.fill" : "speaker.wave.2.fill")
                         .font(.system(size: 15, weight: .semibold))
@@ -330,117 +346,133 @@ struct StoryReaderView: View {
         isDeleting = false
     }
 
-    private var audioPanelOverlay: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topTrailing) {
-                Color.black.opacity(0.28)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        showAudioPanel = false
-                    }
-
-                audioFloatingPanel
-                    .frame(width: min(geo.size.width - 24, 300), alignment: .leading)
-                    .padding(.top, geo.safeAreaInsets.top + 46)
-                    .padding(.trailing, 12)
-            }
-        }
+    private var audioPanelDisplayedOffset: CGSize {
+        let raw = CGSize(
+            width: CGFloat(audioPanelStoredDX) + audioPanelDragTranslation.width,
+            height: CGFloat(audioPanelStoredDY) + audioPanelDragTranslation.height
+        )
+        let clamped = Self.clampStoryReaderAudioPanelOffset(dx: Double(raw.width), dy: Double(raw.height))
+        return CGSize(width: clamped.0, height: clamped.1)
     }
 
-    private var audioFloatingPanel: some View {
-        let trimmedAudioURL = storyAudioURLState?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let hasAudioURL = !trimmedAudioURL.isEmpty
+    private var audioPanelDragGesture: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .local)
+            .updating($audioPanelDragTranslation) { value, state, _ in
+                state = value.translation
+            }
+            .onEnded { value in
+                var nextX = audioPanelStoredDX + Double(value.translation.width)
+                var nextY = audioPanelStoredDY + Double(value.translation.height)
+                let clamped = Self.clampStoryReaderAudioPanelOffset(dx: nextX, dy: nextY)
+                audioPanelStoredDX = clamped.0
+                audioPanelStoredDY = clamped.1
+            }
+    }
 
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center) {
-                Text("Sesli dinle")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.ink)
-                Spacer(minLength: 8)
+    private static func clampStoryReaderAudioPanelOffset(dx: Double, dy: Double) -> (Double, Double) {
+        let maxAbsX: Double = 150
+        let minY: Double = -420
+        let maxY: Double = 80
+        let x = min(max(dx, -maxAbsX), maxAbsX)
+        let y = min(max(dy, minY), maxY)
+        return (x, y)
+    }
+
+    private var savedStoryFloatingAudioPanel: some View {
+        VStack(spacing: 8) {
+            Capsule()
+                .fill(HomeDashboardPalette.muted.opacity(0.35))
+                .frame(width: 36, height: 5)
+                .padding(.top, 2)
+                .accessibilityLabel(String(localized: "Paneli sürükleyerek taşı"))
+
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(HomeDashboardPalette.accentOrange.opacity(0.15)))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(storyTitle)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                        .lineLimit(1)
+                    if audioPlayer.isLoading {
+                        Text("Hazırlanıyor…")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    } else if let err = audioPlayer.errorMessage, !err.isEmpty {
+                        Text(err)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.red.opacity(0.88))
+                            .lineLimit(2)
+                    } else if let narrationErrorMessage, !narrationErrorMessage.isEmpty {
+                        Text(narrationErrorMessage)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.red.opacity(0.88))
+                            .lineLimit(2)
+                    } else if hasPlayableStoryAudioURL {
+                        Text(audioPlayer.isPlaying ? "Çalıyor" : "Duraklatıldı")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    } else {
+                        Text("Ses kaydı bekleniyor")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
                 Button {
-                    showAudioPanel = false
+                    showFloatingAudioPanel = false
+                    narrationErrorMessage = nil
+                    audioPlayer.stop()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 22))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.muted.opacity(0.75))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Kapat"))
             }
 
-            if let error = narrationErrorMessage {
-                Text(error)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.red.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let playErr = audioPlayer.errorMessage {
-                Text(playErr)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.red.opacity(0.88))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if audioPlayer.isLoading {
-                HStack(spacing: 10) {
-                    ProgressView()
-                        .tint(HomeDashboardPalette.accentOrange)
-                    Text("Masal seslendiriliyor...")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.ink)
-                }
-            }
-
-            if hasAudioURL {
-                HStack(spacing: 8) {
-                    Button {
-                        audioPlayer.skipBackward(seconds: 10)
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: "gobackward.10")
-                                .font(.system(size: 22, weight: .semibold))
-                            Text("10 sn")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        }
-                        .foregroundStyle(HomeDashboardPalette.ink)
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "On saniye geri"))
-
-                    Button {
-                        narrationErrorMessage = nil
-                        if audioPlayer.isPlaying {
-                            audioPlayer.pause()
-                        } else {
-                            audioPlayer.resume(urlString: trimmedAudioURL)
-                        }
-                    } label: {
-                        Image(systemName: audioPlayer.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 54))
-                            .foregroundStyle(HomeDashboardPalette.accentOrange)
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(audioPlayer.isPlaying ? String(localized: "Duraklat") : String(localized: "Oynat"))
-
-                    Color.clear
-                        .frame(maxWidth: .infinity)
-                        .accessibilityHidden(true)
-                }
-                .padding(.vertical, 4)
-            } else if !audioPlayer.isLoading {
+            HStack(spacing: 18) {
                 Button {
-                    Task { await narrateStoryAndPlay() }
+                    audioPlayer.skipBackward(seconds: 15)
                 } label: {
-                    Text("Masalı seslendir")
-                        .frame(maxWidth: .infinity)
+                    Image(systemName: "gobackward.15")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.ink)
                 }
-                .buttonStyle(AudioActionButtonStyle())
+                .buttonStyle(.plain)
+                .disabled(audioPlayer.isLoading || !hasPlayableStoryAudioURL)
+
+                Button {
+                    if let url = storyAudioURLState?.trimmingCharacters(in: .whitespacesAndNewlines), !url.isEmpty {
+                        audioPlayer.toggle(urlString: url)
+                        narrationErrorMessage = nil
+                    }
+                } label: {
+                    Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .disabled(audioPlayer.isLoading || !hasPlayableStoryAudioURL)
+
+                Button {
+                    audioPlayer.stop()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.muted)
+                }
+                .buttonStyle(.plain)
                 .disabled(audioPlayer.isLoading)
             }
+            .frame(maxWidth: .infinity)
 
             if narrationErrorMessage != nil && !entitlements.hasPremiumAccess {
                 Button("Planları gör") {
@@ -451,34 +483,56 @@ struct StoryReaderView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(HomeDashboardPalette.cardSurface)
-                .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 8)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(HomeDashboardPalette.dashboardCanvas)
+                .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(HomeDashboardPalette.accentOrange.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(HomeDashboardPalette.cardEdgeStroke, lineWidth: 1)
         )
     }
 
     private func narrateStoryAndPlay() async {
-        guard let storyId = story?.id else { return }
+        AppLogger.info("narration.saved_story.flow_started", [
+            "hasPersistedStoryId": story?.id != nil ? "true" : "false",
+            "hasCachedAudioUrl": (storyAudioURLState?.isEmpty == false) ? "true" : "false"
+        ])
+        guard let storyId = story?.id else {
+            AppLogger.warning("narration.saved_story.skipped_no_story_id", [
+                "reason": "Masal henüz kaydedilmemiş veya id yok; seslendirme API çağrısı yapılamaz."
+            ])
+            return
+        }
         if let existing = storyAudioURLState, !existing.isEmpty {
-            audioPlayer.play(urlString: existing)
+            AppLogger.info("narration.saved_story.play_existing_url", [
+                "storyId": storyId.uuidString
+            ].merging(AppLogger.narrationURLSummaryFields(existing)) { _, new in new })
+            await MainActor.run {
+                audioPlayer.play(urlString: existing)
+            }
             return
         }
 
         await EntitlementStore.shared.refreshFromBackend()
         await SubscriptionManager.shared.refreshPlanFromServer()
-        guard EntitlementStore.shared.canNarrateStory else {
+        let ent = EntitlementStore.shared
+        guard ent.canNarrateStory else {
+            AppLogger.warning("narration.saved_story.blocked_entitlements", [
+                "storyId": storyId.uuidString,
+                "voiceRemainingThisMonth": "\(ent.voiceRemainingThisMonth ?? 0)",
+                "extraVoiceCredits": "\(ent.extraVoiceCredits ?? 0)",
+                "hasPremiumAccess": ent.hasPremiumAccess ? "true" : "false"
+            ])
             await MainActor.run {
-                narrationErrorMessage = EntitlementStore.shared.hasPremiumAccess
+                narrationErrorMessage = ent.hasPremiumAccess
                     ? "Bu ay için sesli masal hakkın doldu."
                     : "Seslendirme için uygun bir plan veya hak gerekiyor."
                 audioPlayer.isLoading = false
-                if !EntitlementStore.shared.hasPremiumAccess {
+                if !ent.hasPremiumAccess {
                     showCreditPaywall = true
                 }
             }
@@ -491,16 +545,33 @@ struct StoryReaderView: View {
             audioPlayer.isLoading = true
         }
 
+        AppLogger.info("narration.saved_story.api_call_pending", ["storyId": storyId.uuidString])
+
         do {
             let response = try await StoryService.narrateStory(id: storyId)
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
+            AppLogger.info("narration.saved_story.api_success_playing", [
+                "storyId": storyId.uuidString
+            ].merging(AppLogger.narrationURLSummaryFields(response.audioUrl)) { _, new in new })
             await MainActor.run {
                 storyAudioURLState = response.audioUrl
                 audioPlayer.isLoading = false
                 audioPlayer.play(urlString: response.audioUrl)
             }
         } catch let error as APIClientError {
+            var fields: [String: String] = [
+                "storyId": storyId.uuidString,
+                "errorType": "APIClientError",
+                "insufficientCredits": error.isInsufficientCredits ? "true" : "false"
+            ]
+            if case .server(let code, let message) = error {
+                fields["serverCode"] = code
+                fields["serverMessageSnippet"] = String(message.prefix(120))
+            } else if case .networkFailure(let message) = error {
+                fields["networkMessageSnippet"] = String(message.prefix(120))
+            }
+            AppLogger.error("narration.saved_story.api_failed", fields)
             await MainActor.run {
                 audioPlayer.isLoading = false
                 if error.isInsufficientCredits {
@@ -517,25 +588,14 @@ struct StoryReaderView: View {
                 }
             }
         } catch {
+            AppLogger.error("narration.saved_story.unexpected_error", [
+                "storyId": storyId.uuidString,
+                "errorType": String(describing: type(of: error))
+            ])
             await MainActor.run {
                 audioPlayer.isLoading = false
                 narrationErrorMessage = "Masal seslendirilirken bir sorun oluştu. Lütfen tekrar dene."
             }
         }
-    }
-}
-
-private struct AudioActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(HomeDashboardPalette.accentOrange)
-            )
-            .opacity(configuration.isPressed ? 0.85 : 1.0)
     }
 }

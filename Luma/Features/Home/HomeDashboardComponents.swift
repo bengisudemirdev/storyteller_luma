@@ -642,7 +642,14 @@ struct ClassicTalePreviewView: View {
     @State private var activeAudioURLString: String?
     @State private var isRequestingNarration = false
     @State private var narrationErrorMessage: String?
-    @State private var hasStartedNarration = false
+    @State private var showFloatingAudioPanel = false
+    @State private var classicDetailDiscoveryDone = false
+    @State private var isLoadingClassicDetail = false
+    @State private var showClassicPaywall = false
+    @State private var classicNarratePaymentBlocked = false
+    @AppStorage("classic_tale_audio_panel_dx") private var audioPanelStoredDX: Double = 0
+    @AppStorage("classic_tale_audio_panel_dy") private var audioPanelStoredDY: Double = 0
+    @GestureState private var audioPanelDragTranslation: CGSize = .zero
     @StateObject private var audioPlayer = AudioPlayerViewModel()
     @EnvironmentObject private var appUIState: AppUIState
 
@@ -662,129 +669,115 @@ struct ClassicTalePreviewView: View {
         min(UIScreen.main.bounds.width - 48, 148)
     }
 
+    private var hasPlayableClassicAudioURL: Bool {
+        guard let s = activeAudioURLString?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return false }
+        return true
+    }
+
+    private var needsMasalSeslendirButton: Bool {
+        classicDetailDiscoveryDone
+            && !hasPlayableClassicAudioURL
+            && !isLoadingClassicDetail
+            && !isRequestingNarration
+    }
+
     var body: some View {
-        ZStack {
-            StoryReadingWarmBackground()
+        ZStack(alignment: .bottom) {
+            ZStack {
+                StoryReadingWarmBackground()
 
-            VStack(spacing: 0) {
-                TabView(selection: $currentPage) {
-                    ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 14) {
-                                if index == 0 {
-                                    StoryPhotoCoverView(
-                                        imageURL: tale.resolvedCoverImageURL,
-                                        fallbackTemplate: tale.coverTemplate,
-                                        title: tale.title,
-                                        subtitle: nil,
-                                        tag: tale.tag,
-                                        showsTextOverlay: false,
-                                        cornerRadius: StoryCoverMetrics.cornerRadius,
-                                        width: coverWidth
-                                    )
-                                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 6)
-                                    .frame(maxWidth: .infinity)
-                                }
+                VStack(spacing: 0) {
+                    TabView(selection: $currentPage) {
+                        ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
+                            ScrollView(showsIndicators: false) {
+                                VStack(spacing: 14) {
+                                    if index == 0 {
+                                        StoryPhotoCoverView(
+                                            imageURL: tale.resolvedCoverImageURL,
+                                            fallbackTemplate: tale.coverTemplate,
+                                            title: tale.title,
+                                            subtitle: nil,
+                                            tag: tale.tag,
+                                            showsTextOverlay: false,
+                                            cornerRadius: StoryCoverMetrics.cornerRadius,
+                                            width: coverWidth
+                                        )
+                                        .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 6)
+                                        .frame(maxWidth: .infinity)
+                                    }
 
-                                StoryReadingTextCard {
-                                    VStack(alignment: .leading, spacing: 14) {
-                                        if index == 0 {
-                                            VStack(alignment: .leading, spacing: 10) {
-                                                Capsule()
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                HomeDashboardPalette.accentOrange,
-                                                                HomeDashboardPalette.accentOrangeSoft
-                                                            ],
-                                                            startPoint: .leading,
-                                                            endPoint: .trailing
+                                    StoryReadingTextCard {
+                                        VStack(alignment: .leading, spacing: 14) {
+                                            if index == 0 {
+                                                VStack(alignment: .leading, spacing: 10) {
+                                                    Capsule()
+                                                        .fill(
+                                                            LinearGradient(
+                                                                colors: [
+                                                                    HomeDashboardPalette.accentOrange,
+                                                                    HomeDashboardPalette.accentOrangeSoft
+                                                                ],
+                                                                startPoint: .leading,
+                                                                endPoint: .trailing
+                                                            )
                                                         )
-                                                    )
-                                                    .frame(width: 44, height: 5)
+                                                        .frame(width: 44, height: 5)
 
-                                                Text(tale.title)
-                                                    .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
-                                                    .foregroundStyle(HomeDashboardPalette.ink)
-                                                    .fixedSize(horizontal: false, vertical: true)
+                                                    Text(tale.title)
+                                                        .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
+                                                        .foregroundStyle(HomeDashboardPalette.ink)
+                                                        .fixedSize(horizontal: false, vertical: true)
 
-                                                Text(tale.tag)
-                                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                                    .foregroundStyle(HomeDashboardPalette.accentOrange)
-                                                    .padding(.horizontal, 10)
-                                                    .padding(.vertical, 5)
-                                                    .background(
-                                                        Capsule(style: .continuous)
-                                                            .fill(HomeDashboardPalette.accentOrange.opacity(0.15))
-                                                    )
+                                                    Text(tale.tag)
+                                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                                                        .padding(.horizontal, 10)
+                                                        .padding(.vertical, 5)
+                                                        .background(
+                                                            Capsule(style: .continuous)
+                                                                .fill(HomeDashboardPalette.accentOrange.opacity(0.15))
+                                                        )
+                                                }
+                                            }
+
+                                            Text(pageText)
+                                                .storyReadingBodyStyle()
+                                                .fixedSize(horizontal: false, vertical: true)
+
+                                            if index == storyPages.count - 1 {
+                                                Text(tale.attribution)
+                                                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                                                    .foregroundStyle(HomeDashboardPalette.muted)
+                                                    .italic()
+                                                    .padding(.top, 8)
                                             }
                                         }
-
-                                        Text(pageText)
-                                            .storyReadingBodyStyle()
-                                            .fixedSize(horizontal: false, vertical: true)
-
-                                        if index == storyPages.count - 1 {
-                                            Text(tale.attribution)
-                                                .font(.system(size: 12, weight: .regular, design: .rounded))
-                                                .foregroundStyle(HomeDashboardPalette.muted)
-                                                .italic()
-                                                .padding(.top, 8)
-                                        }
                                     }
+                                    .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                                    .frame(maxWidth: .infinity)
                                 }
-                                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                                .padding(.top, 8)
+                                .padding(.bottom, 12)
                             }
-                            .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                            .padding(.top, 8)
-                            .padding(.bottom, 12)
+                            .tag(index)
                         }
-                        .tag(index)
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if hasStartedNarration {
-                    classicNarrationCard
-                        .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                        .padding(.top, 4)
-                        .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                        .frame(maxWidth: .infinity)
+                    StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
                 }
+            }
 
-                NavigationLink {
-                    CreateStoryView()
-                } label: {
-                    Text("Kendi masalını oluştur")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            HomeDashboardPalette.accentOrange,
-                                            HomeDashboardPalette.accentOrangeSoft
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                        )
-                        .shadow(color: HomeDashboardPalette.accentOrange.opacity(0.22), radius: 6, x: 0, y: 3)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                .padding(.top, 4)
-                .padding(.bottom, 6)
-                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                .frame(maxWidth: .infinity)
-
-                StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
+            if showFloatingAudioPanel {
+                classicFloatingAudioPanel
+                    .padding(.horizontal, HomeDashboardMetrics.mainFloatingChromeHorizontalInset)
+                    .padding(.bottom, 10)
+                    .offset(audioPanelDisplayedOffset)
+                    .gesture(audioPanelDragGesture)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(response: 0.35, dampingFraction: 0.82), value: showFloatingAudioPanel)
             }
         }
         .navigationTitle(tale.title)
@@ -793,9 +786,10 @@ struct ClassicTalePreviewView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    Task { await startClassicTaleNarration() }
+                    showFloatingAudioPanel = true
+                    Task { await prepareClassicAudioPanel() }
                 } label: {
-                    if isRequestingNarration {
+                    if isRequestingNarration || isLoadingClassicDetail {
                         ProgressView()
                             .tint(HomeDashboardPalette.accentOrange)
                     } else {
@@ -809,106 +803,290 @@ struct ClassicTalePreviewView: View {
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
-            activeAudioURLString = tale.audioURL?.absoluteString
+            classicDetailDiscoveryDone = false
+            classicNarratePaymentBlocked = false
+            narrationErrorMessage = nil
+            if let u = tale.audioURL?.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines), !u.isEmpty {
+                activeAudioURLString = u
+            }
         }
         .onDisappear {
             appUIState.isTabBarVisible = true
             audioPlayer.stop()
             audioPlayer.cleanup()
+            showFloatingAudioPanel = false
+            classicDetailDiscoveryDone = false
+            classicNarratePaymentBlocked = false
+        }
+        .sheet(isPresented: $showClassicPaywall) {
+            PaywallView(
+                source: .insufficientCredits(required: CreditCost.narration),
+                onPurchaseCompleted: {
+                    Task {
+                        await EntitlementStore.shared.refreshFromBackend()
+                        await SubscriptionManager.shared.refreshPlanFromServer()
+                    }
+                }
+            )
         }
     }
 
-    private var classicNarrationCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Sesli Masal")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.ink)
-            Text("Bu klasik masalı API'den gelen ses bağlantısıyla dinleyebilirsin.")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                .fixedSize(horizontal: false, vertical: true)
+    private var audioPanelDisplayedOffset: CGSize {
+        let raw = CGSize(
+            width: CGFloat(audioPanelStoredDX) + audioPanelDragTranslation.width,
+            height: CGFloat(audioPanelStoredDY) + audioPanelDragTranslation.height
+        )
+        let clamped = Self.clampClassicAudioPanelOffset(dx: Double(raw.width), dy: Double(raw.height))
+        return CGSize(width: clamped.0, height: clamped.1)
+    }
 
-            if let narrationErrorMessage, !narrationErrorMessage.isEmpty {
-                Text(narrationErrorMessage)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.red.opacity(0.9))
+    private var audioPanelDragGesture: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .local)
+            .updating($audioPanelDragTranslation) { value, state, _ in
+                state = value.translation
+            }
+            .onEnded { value in
+                var nextX = audioPanelStoredDX + Double(value.translation.width)
+                var nextY = audioPanelStoredDY + Double(value.translation.height)
+                let clamped = Self.clampClassicAudioPanelOffset(dx: nextX, dy: nextY)
+                audioPanelStoredDX = clamped.0
+                audioPanelStoredDY = clamped.1
+            }
+    }
+
+    private static func clampClassicAudioPanelOffset(dx: Double, dy: Double) -> (Double, Double) {
+        let maxAbsX: Double = 150
+        let minY: Double = -420
+        let maxY: Double = 80
+        let x = min(max(dx, -maxAbsX), maxAbsX)
+        let y = min(max(dy, minY), maxY)
+        return (x, y)
+    }
+
+    private var classicFloatingAudioPanel: some View {
+        VStack(spacing: 8) {
+            Capsule()
+                .fill(HomeDashboardPalette.muted.opacity(0.35))
+                .frame(width: 36, height: 5)
+                .padding(.top, 2)
+                .accessibilityLabel(String(localized: "Paneli sürükleyerek taşı"))
+
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(HomeDashboardPalette.accentOrange.opacity(0.15)))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tale.title)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.ink)
+                        .lineLimit(1)
+                    if isLoadingClassicDetail {
+                        Text("Masal yükleniyor…")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    } else if isRequestingNarration {
+                        Text("Hazırlanıyor…")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    } else if let err = audioPlayer.errorMessage, !err.isEmpty {
+                        Text(err)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.red.opacity(0.88))
+                            .lineLimit(2)
+                    } else if let narrationErrorMessage, !narrationErrorMessage.isEmpty {
+                        Text(narrationErrorMessage)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.red.opacity(0.88))
+                            .lineLimit(2)
+                    } else if hasPlayableClassicAudioURL {
+                        Text(audioPlayer.isPlaying ? "Duraklat" : "Dinle")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    } else if needsMasalSeslendirButton {
+                        Text("Ses için masalı seslendirebilirsin.")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    } else {
+                        Text("Ses hazırlanıyor…")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button {
+                    showFloatingAudioPanel = false
+                    narrationErrorMessage = nil
+                    classicNarratePaymentBlocked = false
+                    audioPlayer.stop()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.muted.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Kapat"))
             }
 
-            if isRequestingNarration || audioPlayer.isLoading {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .tint(HomeDashboardPalette.accentOrange)
-                    Text("Masal seslendirme hazırlanıyor...")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+            HStack(spacing: 18) {
+                Button {
+                    audioPlayer.skipBackward(seconds: 15)
+                } label: {
+                    Image(systemName: "gobackward.15")
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(HomeDashboardPalette.ink)
                 }
-            }
+                .buttonStyle(.plain)
+                .disabled(isRequestingNarration || !hasPlayableClassicAudioURL)
 
-            if let activeAudioURLString, !activeAudioURLString.isEmpty {
                 Button {
-                    audioPlayer.toggle(urlString: activeAudioURLString)
-                    narrationErrorMessage = nil
+                    if let url = activeAudioURLString, !url.isEmpty {
+                        audioPlayer.toggle(urlString: url)
+                        narrationErrorMessage = nil
+                    }
                 } label: {
-                    Text(audioPlayer.isPlaying ? "Duraklat" : "Masalı Dinle")
+                    VStack(spacing: 2) {
+                        Image(systemName: audioPlayer.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                        if hasPlayableClassicAudioURL {
+                            Text(audioPlayer.isPlaying ? "Duraklat" : "Dinle")
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        }
+                    }
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+                    .frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .disabled(isRequestingNarration || !hasPlayableClassicAudioURL)
+
+                Button {
+                    audioPlayer.stop()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.muted)
+                }
+                .buttonStyle(.plain)
+                .disabled(isRequestingNarration)
+            }
+            .frame(maxWidth: .infinity)
+
+            if needsMasalSeslendirButton {
+                Button {
+                    Task { await narrateClassicTaleFromButton() }
+                } label: {
+                    Text("Masalı Seslendir")
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
                         .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [HomeDashboardPalette.accentOrange, HomeDashboardPalette.accentOrangeSoft],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(HomeDashboardPalette.accentOrange)
                         )
                 }
                 .buttonStyle(.plain)
+                .disabled(isRequestingNarration)
+                .padding(.top, 4)
+            }
+
+            if classicNarratePaymentBlocked {
+                Button {
+                    showClassicPaywall = true
+                } label: {
+                    Text("Paketleri Gör")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
         }
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(HomeDashboardPalette.cardSurface)
-                .shadow(color: HomeDashboardPalette.cardShadow, radius: 8, x: 0, y: 4)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(HomeDashboardPalette.dashboardCanvas)
+                .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(HomeDashboardPalette.accentOrange.opacity(0.16), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(HomeDashboardPalette.cardEdgeStroke, lineWidth: 1)
         )
     }
 
-    private func startClassicTaleNarration() async {
-        isRequestingNarration = true
-        defer { isRequestingNarration = false }
-
+    /// Hoparlör: önce mevcut URL veya `GET` detay; yoksa panelde «Masalı Seslendir» gösterilir (`POST …/narrate` ayrı).
+    private func prepareClassicAudioPanel() async {
+        AppLogger.info("narration.classic.flow_started", ["taleId": tale.id, "titleSnippet": String(tale.title.prefix(40))])
         narrationErrorMessage = nil
-        hasStartedNarration = true
+        classicNarratePaymentBlocked = false
 
-        if let activeAudioURLString, !activeAudioURLString.isEmpty {
-            audioPlayer.play(urlString: activeAudioURLString)
+        if let u = activeAudioURLString?.trimmingCharacters(in: .whitespacesAndNewlines), !u.isEmpty {
+            AppLogger.info("narration.classic.play_state_url", ["taleId": tale.id].merging(AppLogger.narrationURLSummaryFields(u)) { _, new in new })
+            audioPlayer.play(urlString: u)
+            classicDetailDiscoveryDone = true
             return
         }
 
-        if let existing = tale.audioURL?.absoluteString, !existing.isEmpty {
+        if let existing = tale.audioURL?.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines), !existing.isEmpty {
+            AppLogger.info("narration.classic.play_list_item_url", ["taleId": tale.id].merging(AppLogger.narrationURLSummaryFields(existing)) { _, new in new })
             activeAudioURLString = existing
             audioPlayer.play(urlString: existing)
+            classicDetailDiscoveryDone = true
             return
         }
+
+        isLoadingClassicDetail = true
+        defer { isLoadingClassicDetail = false }
 
         do {
             if let detail = try await ClassicTalesAPIService.fetchClassicTaleDetail(taleId: tale.id),
-               let remoteURL = detail.audioURL?.absoluteString,
+               let remoteURL = detail.audioURL?.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines),
                !remoteURL.isEmpty {
+                AppLogger.info("narration.classic.play_detail_url", ["taleId": tale.id].merging(AppLogger.narrationURLSummaryFields(remoteURL)) { _, new in new })
                 activeAudioURLString = remoteURL
                 audioPlayer.play(urlString: remoteURL)
             } else {
-                narrationErrorMessage = "Bu masal için ses kaydı henüz hazır değil."
+                AppLogger.info("narration.classic.detail_no_audio_url", ["taleId": tale.id])
             }
         } catch {
-            narrationErrorMessage = "Masal seslendirilirken bir hata oluştu."
+            AppLogger.error("narration.classic.detail_fetch_failed", [
+                "taleId": tale.id,
+                "errorType": String(describing: type(of: error))
+            ])
+            narrationErrorMessage = "Sesli masal hazırlanamadı. Lütfen tekrar deneyin."
+        }
+        classicDetailDiscoveryDone = true
+    }
+
+    private func narrateClassicTaleFromButton() async {
+        narrationErrorMessage = nil
+        classicNarratePaymentBlocked = false
+        isRequestingNarration = true
+        defer { isRequestingNarration = false }
+
+        do {
+            let url = try await ClassicTalesAPIService.narrateClassicTale(taleId: tale.id)
+            activeAudioURLString = url
+            audioPlayer.play(urlString: url)
+        } catch let error as APIClientError {
+            if case .paymentRequired = error {
+                classicNarratePaymentBlocked = true
+                narrationErrorMessage = "Sesli masal hakkın bitti."
+                return
+            }
+            if case .unauthorized = error {
+                narrationErrorMessage = "Oturum süren dolmuş olabilir. Lütfen tekrar giriş yap."
+                return
+            }
+            narrationErrorMessage = "Sesli masal hazırlanamadı. Lütfen tekrar deneyin."
+        } catch {
+            narrationErrorMessage = "Sesli masal hazırlanamadı. Lütfen tekrar deneyin."
         }
     }
 }

@@ -324,18 +324,86 @@ enum StoryAPIService {
             method: .post,
             timeoutInterval: 120
         )
-        let data: StoryNarrateDataDTO = try await client.request(endpoint, body: nil)
-        if let direct = data.audioUrl?.trimmingCharacters(in: .whitespacesAndNewlines), !direct.isEmpty {
-            return direct
+        AppLogger.info("stories.narrate.request_sent", [
+            "storyId": id.uuidString,
+            "path": endpoint.path
+        ])
+        do {
+            let data: StoryNarrateDataDTO = try await client.request(endpoint, body: nil)
+            if let direct = data.audioUrl?.trimmingCharacters(in: .whitespacesAndNewlines), !direct.isEmpty {
+                AppLogger.info("stories.narrate.response_ok", [
+                    "storyId": id.uuidString,
+                    "field": "audioUrl"
+                ].merging(AppLogger.narrationURLSummaryFields(direct)) { _, new in new })
+                return direct
+            }
+            if let snake = data.audio_url?.trimmingCharacters(in: .whitespacesAndNewlines), !snake.isEmpty {
+                AppLogger.info("stories.narrate.response_ok", [
+                    "storyId": id.uuidString,
+                    "field": "audio_url"
+                ].merging(AppLogger.narrationURLSummaryFields(snake)) { _, new in new })
+                return snake
+            }
+            let storyCamel = data.story?.audioUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let storySnake = data.story?.audio_url?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let s = storyCamel, !s.isEmpty {
+                AppLogger.info("stories.narrate.response_ok", [
+                    "storyId": id.uuidString,
+                    "field": "story.audioUrl"
+                ].merging(AppLogger.narrationURLSummaryFields(s)) { _, new in new })
+                return s
+            }
+            if let s = storySnake, !s.isEmpty {
+                AppLogger.info("stories.narrate.response_ok", [
+                    "storyId": id.uuidString,
+                    "field": "story.audio_url"
+                ].merging(AppLogger.narrationURLSummaryFields(s)) { _, new in new })
+                return s
+            }
+            AppLogger.error("stories.narrate.no_audio_url_in_payload", [
+                "storyId": id.uuidString,
+                "hasStoryNested": data.story != nil ? "true" : "false"
+            ])
+            throw APIClientError.decodingFailed
+        } catch let error as APIClientError {
+            logStoryNarrateAPIClientError(error, storyId: id)
+            throw error
+        } catch {
+            AppLogger.error("stories.narrate.unexpected_error", [
+                "storyId": id.uuidString,
+                "errorType": String(describing: type(of: error))
+            ])
+            throw error
         }
-        if let snake = data.audio_url?.trimmingCharacters(in: .whitespacesAndNewlines), !snake.isEmpty {
-            return snake
+    }
+
+    private static func logStoryNarrateAPIClientError(_ error: APIClientError, storyId: UUID) {
+        let sid = ["storyId": storyId.uuidString]
+        switch error {
+        case .paymentRequired(let apiCode, _):
+            AppLogger.error("stories.narrate.api_payment_required", sid.merging([
+                "apiCode": apiCode ?? ""
+            ]) { _, new in new })
+        case .unauthorized:
+            AppLogger.error("stories.narrate.api_unauthorized", sid)
+        case .invalidURL:
+            AppLogger.error("stories.narrate.api_invalid_url", sid)
+        case .decodingFailed:
+            AppLogger.error("stories.narrate.api_decoding_failed", sid)
+        case .invalidResponse:
+            AppLogger.error("stories.narrate.api_invalid_response", sid)
+        case .emptyData:
+            AppLogger.error("stories.narrate.api_empty_data", sid)
+        case .networkFailure(let message):
+            AppLogger.error("stories.narrate.api_network", sid.merging([
+                "messageSnippet": String(message.prefix(160))
+            ]) { _, new in new })
+        case .server(let code, let message):
+            AppLogger.error("stories.narrate.api_server", sid.merging([
+                "code": code,
+                "messageSnippet": String(message.prefix(160))
+            ]) { _, new in new })
         }
-        let storyCamel = data.story?.audioUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let storySnake = data.story?.audio_url?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let s = storyCamel, !s.isEmpty { return s }
-        if let s = storySnake, !s.isEmpty { return s }
-        throw APIClientError.decodingFailed
     }
 
     private static func shouldRetryGenerate(_ error: APIClientError) -> Bool {

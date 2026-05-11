@@ -26,11 +26,50 @@ final class PaywallViewModel: ObservableObject {
     }
 
     var primaryCTATitle: String {
+        if isCurrentSelectionOwned {
+            return "Bu plan zaten aktif"
+        }
+        if EntitlementStore.shared.hasFamilyAccess, selectedPackageType == .premium {
+            return "Family planın aktif"
+        }
         switch selectedPackageType {
         case .premium:
             return "Premium’a Geç"
         case .family:
             return "Family’ye Geç"
+        }
+    }
+
+    /// Bu paket kullanıcının App Store / backend’deki mevcut aboneliği mi?
+    func isPlanOwned(_ type: PaywallPlanType) -> Bool {
+        let es = EntitlementStore.shared
+        if es.hasFamilyAccess { return type == .family }
+        if es.hasPremiumAccess { return type == .premium }
+        return false
+    }
+
+    var isCurrentSelectionOwned: Bool {
+        isPlanOwned(selectedPackageType)
+    }
+
+    /// Seçili paket RevenueCat’ten satın alınabilir mi (sahip olunan veya alt seviye seçimde hayır).
+    var canPurchaseSelectedPlan: Bool {
+        if isCurrentSelectionOwned { return false }
+        if EntitlementStore.shared.hasFamilyAccess, selectedPackageType == .premium { return false }
+        return package(for: selectedPackageType) != nil
+    }
+
+    var isSelectedPackageInStore: Bool {
+        package(for: selectedPackageType) != nil
+    }
+
+    /// Paywall açılınca mevcut aboneliğe göre seçimi hizala (işaret görünsün).
+    func syncSelectionWithEntitlements() {
+        let es = EntitlementStore.shared
+        if es.hasFamilyAccess {
+            selectedPackageType = .family
+        } else if es.hasPremiumAccess {
+            selectedPackageType = .premium
         }
     }
 
@@ -67,6 +106,7 @@ final class PaywallViewModel: ObservableObject {
     }
 
     func purchaseSelectedPackage() async -> Bool {
+        guard canPurchaseSelectedPlan else { return false }
         guard let package = package(for: selectedPackageType) else {
             errorMessage = "Seçtiğin paket şu an kullanılamıyor. Biraz sonra tekrar dene."
             return false

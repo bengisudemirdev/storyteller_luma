@@ -19,8 +19,11 @@ final class AudioPlayerViewModel: ObservableObject {
 
         guard let url = Self.resolvedAudioURL(from: urlString) else {
             errorMessage = "Geçersiz ses bağlantısı."
+            AppLogger.error("audio.play.resolve_failed", AppLogger.narrationURLSummaryFields(urlString))
             return
         }
+
+        AppLogger.info("audio.play.started", AppLogger.narrationURLSummaryFields(urlString))
 
         isLoading = true
 
@@ -57,6 +60,7 @@ final class AudioPlayerViewModel: ObservableObject {
 
         guard Self.resolvedAudioURL(from: urlString) != nil else {
             errorMessage = "Geçersiz ses bağlantısı."
+            AppLogger.error("audio.resume.resolve_failed", AppLogger.narrationURLSummaryFields(urlString))
             return
         }
 
@@ -89,6 +93,7 @@ final class AudioPlayerViewModel: ObservableObject {
     }
 
     func cleanup() {
+        AppLogger.debug("audio.cleanup", [:])
         detachPlaybackFailureObserver()
         player?.pause()
         player = nil
@@ -118,6 +123,7 @@ final class AudioPlayerViewModel: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.errorMessage = "Ses dosyası çalınamadı. Bağlantını kontrol et."
+                AppLogger.error("audio.playback.item_failed", AppLogger.narrationURLSummaryFields(self.currentURLString))
                 self.isPlaying = false
                 self.isLoading = false
             }

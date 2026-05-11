@@ -3,14 +3,11 @@ import Supabase
 import Combine
 
 enum ProfileAccountUpdateError: LocalizedError {
-    case invalidEmail
     case passwordTooShort
     case passwordMismatch
 
     var errorDescription: String? {
         switch self {
-        case .invalidEmail:
-            return "Geçerli bir e-posta adresi girin."
         case .passwordTooShort:
             return "Şifre en az 6 karakter olmalı."
         case .passwordMismatch:
@@ -42,7 +39,16 @@ class ProfileViewModel: ObservableObject {
     private var isFetchingChildren = false
     private var hasLoadedChildrenOnce = false
 
+    /// Oturumdaki e-postayı ağ beklemeden gösterir (profil ekranı ilk çizimde boş kalmasın).
+    func applySessionEmailIfAvailable() {
+        if let user = OliaApp.supabase.auth.currentUser {
+            parentEmail = user.email ?? parentEmail
+        }
+    }
+
     func fetchChildren(forceRefresh: Bool = false) async {
+        applySessionEmailIfAvailable()
+
         if hasLoadedChildrenOnce && !forceRefresh {
             return
         }
@@ -74,25 +80,31 @@ class ProfileViewModel: ObservableObject {
             }
         }
 
-        if let user = OliaApp.supabase.auth.currentUser {
-            parentEmail = user.email ?? "Ebeveyn"
-            AppLogger.info("children.fetch.started", ["context": "ProfileViewModel"])
-            do {
-                let response = try await ChildrenAPIService.fetchChildren()
-                children = response
-                lastChildrenFetchAt = Date()
-                hasLoadedChildrenOnce = true
-                AppLogger.info("children.fetch.completed", [
-                    "context": "ProfileViewModel",
-                    "count": "\(response.count)"
-                ])
-            } catch {
-                AppLogger.error("children.fetch.failed", [
-                    "context": "ProfileViewModel",
-                    "error": String(describing: type(of: error))
-                ])
-                errorMessage = "Veriler alınırken bir hata oluştu: \(error.userFacingTurkishMessage)"
-            }
+        guard OliaApp.supabase.auth.currentUser != nil else {
+            AppLogger.warning("children.fetch.skipped_no_session", ["context": "ProfileViewModel"])
+            return
+        }
+
+        if parentEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parentEmail = "Ebeveyn"
+        }
+
+        AppLogger.info("children.fetch.started", ["context": "ProfileViewModel"])
+        do {
+            let response = try await ChildrenAPIService.fetchChildren()
+            children = response
+            lastChildrenFetchAt = Date()
+            hasLoadedChildrenOnce = true
+            AppLogger.info("children.fetch.completed", [
+                "context": "ProfileViewModel",
+                "count": "\(response.count)"
+            ])
+        } catch {
+            AppLogger.error("children.fetch.failed", [
+                "context": "ProfileViewModel",
+                "error": String(describing: type(of: error))
+            ])
+            errorMessage = "Veriler alınırken bir hata oluştu: \(error.userFacingTurkishMessage)"
         }
     }
 
@@ -228,6 +240,10 @@ class ProfileViewModel: ObservableObject {
             case .server(let code, let message):
                 f["apiErrorCode"] = code
                 f["apiErrorMessage"] = message
+            case .paymentRequired(let code, let message):
+                f["clientError"] = "paymentRequired"
+                f["apiErrorCode"] = code ?? ""
+                f["apiErrorMessage"] = message ?? ""
             case .networkFailure(let message):
                 f["networkFailure"] = message
             case .unauthorized: f["clientError"] = "unauthorized"
@@ -256,28 +272,6 @@ class ProfileViewModel: ObservableObject {
             .filter { !$0.isEmpty }
             .prefix(25)
             .map { String($0.prefix(200)) }
-    }
-
-    func updateAccountEmail(_ rawEmail: String) async throws {
-        let trimmed = rawEmail.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard trimmed.contains("@"), trimmed.contains(".") else {
-            throw ProfileAccountUpdateError.invalidEmail
-        }
-
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            try await OliaApp.supabase.auth.update(user: UserAttributes(email: trimmed))
-            parentEmail = trimmed
-            AppLogger.info("profile.account.email.updated", [:])
-        } catch {
-            AppLogger.error("profile.account.email.update_failed", [
-                "errorType": String(describing: type(of: error)),
-                "error": String(describing: error)
-            ])
-            throw error
-        }
     }
 
     func updateAccountPassword(newPassword: String, confirmPassword: String) async throws {

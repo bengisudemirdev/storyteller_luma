@@ -11,6 +11,7 @@ struct PaywallView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @ObservedObject private var entitlements = EntitlementStore.shared
     @StateObject private var viewModel = PaywallViewModel()
     @State private var hasAppeared = false
 
@@ -48,10 +49,7 @@ struct PaywallView: View {
             hasAppeared = true
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
-            if EntitlementStore.shared.hasPremiumAccess {
-                dismiss()
-                return
-            }
+            viewModel.syncSelectionWithEntitlements()
             await viewModel.loadOfferings()
         }
     }
@@ -134,6 +132,7 @@ struct PaywallView: View {
             PaywallPlanCard(
                 plan: viewModel.premiumPlanCardData,
                 isSelected: viewModel.selectedPackageType == .premium,
+                isOwned: entitlements.hasPremiumAccess && !entitlements.hasFamilyAccess,
                 style: .premiumPopular
             ) {
                 viewModel.selectedPackageType = .premium
@@ -143,6 +142,7 @@ struct PaywallView: View {
             PaywallPlanCard(
                 plan: viewModel.familyPlanCardData,
                 isSelected: viewModel.selectedPackageType == .family,
+                isOwned: entitlements.hasFamilyAccess,
                 style: .family
             ) {
                 viewModel.selectedPackageType = .family
@@ -163,7 +163,7 @@ struct PaywallView: View {
                 .frame(maxWidth: .infinity)
             }
 
-            if !selectedPlanAvailable && viewModel.didAttemptOfferingsLoad && !viewModel.isLoadingOfferings {
+            if !viewModel.isSelectedPackageInStore && viewModel.didAttemptOfferingsLoad && !viewModel.isLoadingOfferings {
                 InlineBanner(
                     text: "Seçtiğin plan şu an App Store’dan yüklenemedi. Tekrar dene veya daha sonra kontrol et.",
                     tint: HomeDashboardPalette.muted
@@ -242,16 +242,7 @@ struct PaywallView: View {
     }
 
     private var purchaseEnabled: Bool {
-        !viewModel.isPurchasing && !viewModel.isRestoring && selectedPlanAvailable
-    }
-
-    private var selectedPlanAvailable: Bool {
-        switch viewModel.selectedPackageType {
-        case .premium:
-            return viewModel.premiumPackage != nil
-        case .family:
-            return viewModel.familyPackage != nil
-        }
+        !viewModel.isPurchasing && !viewModel.isRestoring && viewModel.canPurchaseSelectedPlan
     }
 
     private var footerLinksRow: some View {

@@ -30,4 +30,23 @@ enum AppLogger {
     static func error(_ event: String, _ fields: [String: String] = [:]) {
         line(level: .error, event: event, fields: fields)
     }
+
+    /// Tam ses URL’si yazılmaz; Console / OSLog ile teşhis için özet alanlar.
+    static func narrationURLSummaryFields(_ urlString: String?) -> [String: String] {
+        guard let raw = urlString?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return ["audioUrlPresent": "false"]
+        }
+        var fields: [String: String] = [
+            "audioUrlPresent": "true",
+            "audioUrlCharCount": "\(raw.count)"
+        ]
+        if let u = URL(string: raw) {
+            fields["audioUrlScheme"] = u.scheme ?? ""
+            if let host = u.host, !host.isEmpty { fields["audioUrlHost"] = host }
+            fields["audioUrlPathCharCount"] = "\(u.path.count)"
+        } else {
+            fields["audioUrlParseableAsURL"] = "false"
+        }
+        return fields
+    }
 }

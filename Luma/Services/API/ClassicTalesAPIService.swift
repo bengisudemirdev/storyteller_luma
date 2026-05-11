@@ -187,8 +187,100 @@ private struct ClassicTaleAudioUploadDataDTO: Decodable {
     }
 }
 
+/// `POST /v1/classic-tales/{taleId}/narrate` → `data` gövdesi (`audioUrl` / `audio_url` ve isteğe bağlı meta).
+private struct ClassicTaleNarrateDataDTO: Decodable {
+    let audioUrl: String?
+    let audio_url: String?
+
+    enum CK: String, CodingKey {
+        case audioUrl
+        case audio_url
+        case audioProvider
+        case audio_provider
+        case audioModel
+        case audio_model
+        case audioVoiceId
+        case audio_voice_id
+        case taleId
+        case tale_id
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CK.self)
+        audioUrl = try c.decodeIfPresent(String.self, forKey: .audioUrl)
+        audio_url = try c.decodeIfPresent(String.self, forKey: .audio_url)
+        _ = try c.decodeIfPresent(String.self, forKey: .audioProvider)
+            ?? c.decodeIfPresent(String.self, forKey: .audio_provider)
+        _ = try c.decodeIfPresent(String.self, forKey: .audioModel)
+            ?? c.decodeIfPresent(String.self, forKey: .audio_model)
+        _ = try c.decodeIfPresent(String.self, forKey: .audioVoiceId)
+            ?? c.decodeIfPresent(String.self, forKey: .audio_voice_id)
+        _ = try c.decodeIfPresent(String.self, forKey: .taleId)
+            ?? c.decodeIfPresent(String.self, forKey: .tale_id)
+    }
+
+    func resolvedAudioURLString() -> String? {
+        [audioUrl, audio_url]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
+}
+
 enum ClassicTalesAPIService {
     private static let client = APIClient.shared
+
+    /// `POST /v1/classic-tales/{taleId}/narrate` — ses üretir; kişisel masal `POST /v1/stories/{id}/narrate` ile karıştırılmamalıdır.
+    static func narrateClassicTale(taleId: String) async throws -> String {
+        AppLogger.info("classic_tales.narrate.started", ["taleId": taleId])
+        let pathSegment = taleId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? taleId
+        let endpoint = APIEndpoint(
+            path: "/v1/classic-tales/\(pathSegment)/narrate",
+            method: .post,
+            timeoutInterval: 120
+        )
+        do {
+            let dto: ClassicTaleNarrateDataDTO = try await client.request(endpoint, body: nil)
+            guard let url = dto.resolvedAudioURLString(), !url.isEmpty else {
+                AppLogger.info("classic_tales.narrate.completed", ["taleId": taleId, "hasAudioUrl": "false"])
+                throw APIClientError.decodingFailed
+            }
+            AppLogger.info("classic_tales.narrate.completed", ["taleId": taleId, "hasAudioUrl": "true"])
+            return url
+        } catch let error as APIClientError {
+            AppLogger.error("classic_tales.narrate.failed", [
+                "taleId": taleId,
+                "errorCode": classicNarrateErrorCode(error)
+            ])
+            throw error
+        } catch {
+            AppLogger.error("classic_tales.narrate.failed", [
+                "taleId": taleId,
+                "errorCode": String(describing: type(of: error))
+            ])
+            throw error
+        }
+    }
+
+    private static func classicNarrateErrorCode(_ error: APIClientError) -> String {
+        switch error {
+        case .paymentRequired(let code, _):
+            return "402_" + (code?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? "UNKNOWN")
+        case .unauthorized:
+            return "401"
+        case .server(let code, _):
+            return "server_" + code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        case .decodingFailed:
+            return "decodingFailed"
+        case .invalidResponse:
+            return "invalidResponse"
+        case .emptyData:
+            return "emptyData"
+        case .invalidURL:
+            return "invalidURL"
+        case .networkFailure:
+            return "networkFailure"
+        }
+    }
 
     /// OpenAPI: parametre yok; yanıt `{ success, data: { tales } } }` (`APIClient` `data` içeriğini döner).
     static func fetchClassicTales() async throws -> [ClassicTaleItem] {
@@ -216,12 +308,68 @@ enum ClassicTalesAPIService {
 
     /// `GET /v1/classic-tales/{taleId}` → `data.tale` (ör. `audioUrl` için).
     static func fetchClassicTaleDetail(taleId: String) async throws -> ClassicTaleItem? {
+        AppLogger.info("classic_tales.detail.request", ["taleId": taleId])
         let pathSegment = taleId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? taleId
         let endpoint = APIEndpoint(path: "/v1/classic-tales/\(pathSegment)", method: .get)
-        let data: ClassicTaleDetailDataDTO = try await client.request(endpoint)
-        guard let model = data.tale else { return nil }
-        guard let item = model.toDomainModel(fallbackTemplate: .forest) else { return nil }
-        return normalizeWithBundledFallback([item]).first
+        do {
+            let data: ClassicTaleDetailDataDTO = try await client.request(endpoint)
+            guard let model = data.tale else {
+                AppLogger.warning("classic_tales.detail.missing_tale", ["taleId": taleId])
+                return nil
+            }
+            guard let item = model.toDomainModel(fallbackTemplate: .forest) else {
+                AppLogger.warning("classic_tales.detail.domain_map_failed", ["taleId": taleId])
+                return nil
+            }
+            guard let first = normalizeWithBundledFallback([item]).first else {
+                AppLogger.warning("classic_tales.detail.normalize_empty", ["taleId": taleId])
+                return nil
+            }
+            let remote = first.audioURL?.absoluteString.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if remote.isEmpty {
+                AppLogger.info("classic_tales.detail.no_audio_url", ["taleId": taleId])
+            } else {
+                AppLogger.info("classic_tales.detail.ok", ["taleId": taleId].merging(AppLogger.narrationURLSummaryFields(remote)) { _, new in new })
+            }
+            return first
+        } catch let error as APIClientError {
+            AppLogger.error("classic_tales.detail.api_error", [
+                "taleId": taleId,
+                "errorType": "APIClientError"
+            ].merging(classicTaleDetailAPIErrorFields(error)) { _, new in new })
+            throw error
+        } catch {
+            AppLogger.error("classic_tales.detail.unexpected_error", [
+                "taleId": taleId,
+                "errorType": String(describing: type(of: error))
+            ])
+            throw error
+        }
+    }
+
+    private static func classicTaleDetailAPIErrorFields(_ error: APIClientError) -> [String: String] {
+        switch error {
+        case .paymentRequired(let apiCode, let message):
+            return [
+                "kind": "paymentRequired",
+                "apiCode": apiCode ?? "",
+                "messageSnippet": String((message ?? "").prefix(120))
+            ]
+        case .unauthorized:
+            return ["kind": "unauthorized"]
+        case .invalidURL:
+            return ["kind": "invalidURL"]
+        case .decodingFailed:
+            return ["kind": "decodingFailed"]
+        case .invalidResponse:
+            return ["kind": "invalidResponse"]
+        case .emptyData:
+            return ["kind": "emptyData"]
+        case .networkFailure(let message):
+            return ["kind": "networkFailure", "messageSnippet": String(message.prefix(120))]
+        case .server(let code, let message):
+            return ["kind": "server", "code": code, "messageSnippet": String(message.prefix(120))]
+        }
     }
 
     private static func requestClassicList(

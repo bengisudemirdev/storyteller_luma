@@ -11,7 +11,7 @@ struct ProfileView: View {
     @State private var isShowingFeedbackSheet = false
     @State private var isShowingAccountSecuritySheet = false
     @State private var accountSecurityDetent: PresentationDetent = .large
-    @State private var hasLoadedScreenOnce = false
+    @State private var isProfileScreenLoading = false
     @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
     @ObservedObject private var entitlements = EntitlementStore.shared
 
@@ -43,7 +43,7 @@ struct ProfileView: View {
                         .padding(.horizontal, 2)
 
                         VStack(spacing: 16) {
-                            if viewModel.isLoading && viewModel.children.isEmpty {
+                            if isProfileScreenLoading || (viewModel.isLoading && viewModel.children.isEmpty) {
                                 ProgressView()
                                     .tint(HomeDashboardPalette.accentOrange)
                                     .frame(maxWidth: .infinity)
@@ -73,13 +73,17 @@ struct ProfileView: View {
                 }
             }
             .navigationBarHidden(true)
+            .onAppear {
+                viewModel.applySessionEmailIfAvailable()
+            }
             .task {
-                if hasLoadedScreenOnce { return }
-                hasLoadedScreenOnce = true
-                await EntitlementStore.shared.refreshFromBackend()
-                await SubscriptionManager.shared.refreshPlanFromServer()
-                await creditBalance.syncFromBackend()
-                await viewModel.fetchChildren()
+                isProfileScreenLoading = true
+                defer { isProfileScreenLoading = false }
+                async let entitlements: Void = EntitlementStore.shared.refreshFromBackend()
+                async let plan: Void = SubscriptionManager.shared.refreshPlanFromServer()
+                async let credits: Void = creditBalance.syncFromBackend()
+                async let children: Void = viewModel.fetchChildren()
+                _ = await (entitlements, plan, credits, children)
             }
             .sheet(isPresented: $isShowingAddProfile) {
                 AddChildView(viewModel: viewModel, isShowing: $isShowingAddProfile)
@@ -265,42 +269,50 @@ struct ProfileView: View {
                 .foregroundStyle(HomeDashboardPalette.ink)
 
             if entitlements.hasPremiumAccess {
-                HStack(spacing: 14) {
-                    Image(systemName: entitlements.hasFamilyAccess ? "figure.2.and.child.holdinghands" : "star.circle.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                        .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
-                        .background(
-                            Circle()
-                                .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
-                        )
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(entitlements.hasFamilyAccess ? "Family üyeliğin aktif" : "Premium üyeliğin aktif")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(HomeDashboardPalette.ink)
-                        Text(
-                            "Kalan masal hakkı: \(entitlements.storyRemainingThisMonth ?? 0) • Sesli masal hakkı: \(entitlements.voiceRemainingThisMonth ?? 0)"
-                        )
-                        .font(.caption2)
-                        .foregroundStyle(HomeDashboardPalette.muted)
-                        if (entitlements.extraVoiceCredits ?? 0) > 0 {
-                            Text("Ek ses hakları: \(entitlements.extraVoiceCredits ?? 0)")
-                                .font(.caption2)
-                                .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                        }
-                        Text("Kredi bakiyesi (kampanya / hediye): \(creditBalance.balance)")
+                Button {
+                    isShowingPaywall = true
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: entitlements.hasFamilyAccess ? "figure.2.and.child.holdinghands" : "star.circle.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                            .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
+                            .background(
+                                Circle()
+                                    .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
+                            )
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(entitlements.hasFamilyAccess ? "Family üyeliğin aktif" : "Premium üyeliğin aktif")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(HomeDashboardPalette.ink)
+                            Text(
+                                "Kalan masal hakkı: \(entitlements.storyRemainingThisMonth ?? 0) • Sesli masal hakkı: \(entitlements.voiceRemainingThisMonth ?? 0)"
+                            )
                             .font(.caption2)
                             .foregroundStyle(HomeDashboardPalette.muted)
+                            if (entitlements.extraVoiceCredits ?? 0) > 0 {
+                                Text("Ek ses hakları: \(entitlements.extraVoiceCredits ?? 0)")
+                                    .font(.caption2)
+                                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                            }
+                            Text("Kredi bakiyesi (kampanya / hediye): \(creditBalance.balance)")
+                                .font(.caption2)
+                                .foregroundStyle(HomeDashboardPalette.muted)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
                     }
-                    Spacer(minLength: 0)
+                    .padding(ProfileCardMetrics.horizontalPadding)
+                    .frame(minHeight: ProfileCardMetrics.minHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                            .fill(HomeDashboardPalette.cardSurface)
+                            .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
+                    )
                 }
-                .padding(ProfileCardMetrics.horizontalPadding)
-                .frame(minHeight: ProfileCardMetrics.minHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
-                        .fill(HomeDashboardPalette.cardSurface)
-                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
-                )
+                .buttonStyle(.plain)
             } else {
                 Button {
                     Task {
@@ -483,7 +495,6 @@ private struct AccountSecuritySheet: View {
     @ObservedObject var viewModel: ProfileViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var email: String = ""
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
     @State private var statusMessage: String?
@@ -502,37 +513,15 @@ private struct AccountSecuritySheet: View {
                                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                                 .foregroundStyle(HomeDashboardPalette.ink)
 
-                            TextField("ornek@eposta.com", text: $email)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled(true)
-                                .keyboardType(.emailAddress)
+                            Text(viewModel.parentEmail.isEmpty ? "—" : viewModel.parentEmail)
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.ink)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(12)
                                 .background(
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                                         .fill(Color.white.opacity(0.9))
                                 )
-
-                            Button {
-                                Task {
-                                    await updateEmail()
-                                }
-                            } label: {
-                                if viewModel.isLoading {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                } else {
-                                    Text("E-postayı Güncelle")
-                                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                }
-                            }
-                            .disabled(viewModel.isLoading)
-                            .background(HomeDashboardPalette.accentOrange)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
 
                         Divider()
@@ -637,9 +626,6 @@ private struct AccountSecuritySheet: View {
                     Button("Kapat") { dismiss() }
                 }
             }
-            .onAppear {
-                email = viewModel.parentEmail
-            }
             .alert("Hesabını silmek istediğine emin misin?", isPresented: $showDeleteAccountConfirm) {
                 Button("Vazgeç", role: .cancel) { }
                 Button("Hesabımı Sil", role: .destructive) {
@@ -650,17 +636,6 @@ private struct AccountSecuritySheet: View {
             } message: {
                 Text("Bu işlem geri alınamaz. Hesabın ve ilişkili verilerin silinecektir.")
             }
-        }
-    }
-
-    private func updateEmail() async {
-        do {
-            try await viewModel.updateAccountEmail(email)
-            isErrorStatus = false
-            statusMessage = "E-posta güncelleme isteği gönderildi. Gerekirse yeni adresini doğrula."
-        } catch {
-            isErrorStatus = true
-            statusMessage = (error as? LocalizedError)?.errorDescription ?? error.userFacingTurkishMessage
         }
     }
 

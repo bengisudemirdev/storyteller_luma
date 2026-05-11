@@ -19,6 +19,8 @@ private struct APIEnvelopeSparse: Decodable {
 enum APIClientError: LocalizedError {
     case invalidURL
     case unauthorized
+    /// HTTP 402 — ödeme / hak; gövdedeki API `code` (varsa) ayrı taşınır.
+    case paymentRequired(apiCode: String?, message: String?)
     case server(code: String, message: String)
     case decodingFailed
     case invalidResponse
@@ -27,10 +29,14 @@ enum APIClientError: LocalizedError {
     case networkFailure(String)
 
     var serverErrorCode: String? {
-        if case .server(let code, _) = self {
+        switch self {
+        case .server(let code, _):
             return code.uppercased()
+        case .paymentRequired(let apiCode, _):
+            return apiCode?.uppercased()
+        default:
+            return nil
         }
-        return nil
     }
 
     var isInsufficientCredits: Bool {
@@ -52,6 +58,8 @@ enum APIClientError: LocalizedError {
                 "BAD_GATEWAY", "SERVICE_UNAVAILABLE", "INTERNAL_SERVER_ERROR", "OPENAI_UPSTREAM_ERROR",
                 "OPENAI_REQUEST_FAILED"
             ].contains(c)
+        case .paymentRequired:
+            return false
         default:
             return false
         }
@@ -63,6 +71,8 @@ enum APIClientError: LocalizedError {
             return "Geçersiz API URL."
         case .unauthorized:
             return "Yetkilendirme başarısız. Lütfen tekrar giriş yapın."
+        case .paymentRequired:
+            return "Bu işlem için uygun bir abonelik veya hak gerekiyor."
         case .server(let code, let message):
             if let mapped = Self.turkishMessageForServerError(code: code, message: message) {
                 return mapped
@@ -230,6 +240,18 @@ final class APIClient {
         }
 
         guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 402 {
+                if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
+                   sparse.success == false,
+                   let apiError = sparse.error {
+                    throw APIClientError.paymentRequired(apiCode: apiError.code, message: apiError.message)
+                }
+                if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
+                   let apiError = envelope.error {
+                    throw APIClientError.paymentRequired(apiCode: apiError.code, message: apiError.message)
+                }
+                throw APIClientError.paymentRequired(apiCode: nil, message: nil)
+            }
             if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
                sparse.success == false,
                let apiError = sparse.error {
@@ -304,6 +326,18 @@ final class APIClient {
         }
 
         guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 402 {
+                if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
+                   sparse.success == false,
+                   let apiError = sparse.error {
+                    throw APIClientError.paymentRequired(apiCode: apiError.code, message: apiError.message)
+                }
+                if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
+                   let apiError = envelope.error {
+                    throw APIClientError.paymentRequired(apiCode: apiError.code, message: apiError.message)
+                }
+                throw APIClientError.paymentRequired(apiCode: nil, message: nil)
+            }
             if let sparse = try? decoder.decode(APIEnvelopeSparse.self, from: data),
                sparse.success == false,
                let apiError = sparse.error {
@@ -358,6 +392,13 @@ final class APIClient {
         }
 
         guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 402 {
+                if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
+                   let apiError = envelope.error {
+                    throw APIClientError.paymentRequired(apiCode: apiError.code, message: apiError.message)
+                }
+                throw APIClientError.paymentRequired(apiCode: nil, message: nil)
+            }
             if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
                let apiError = envelope.error {
                 throw APIClientError.server(code: apiError.code, message: apiError.message)
@@ -429,6 +470,13 @@ final class APIClient {
         }
 
         guard (200...299).contains(http.statusCode) else {
+            if http.statusCode == 402 {
+                if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
+                   let apiError = envelope.error {
+                    throw APIClientError.paymentRequired(apiCode: apiError.code, message: apiError.message)
+                }
+                throw APIClientError.paymentRequired(apiCode: nil, message: nil)
+            }
             if let envelope = try? decoder.decode(APIEnvelope<EmptyData>.self, from: data),
                let apiError = envelope.error {
                 throw APIClientError.server(code: apiError.code, message: apiError.message)

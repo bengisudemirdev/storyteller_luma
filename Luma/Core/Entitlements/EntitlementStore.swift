@@ -73,7 +73,9 @@ final class EntitlementStore: ObservableObject {
                     "isPremiumField": isPremiumFlag.map { $0 ? "true" : "false" } ?? "",
                     "hasPremiumAccess": hasPremiumAccess ? "true" : "false",
                     "storyRemainingThisMonth": "\(storyRemainingThisMonth ?? 0)",
-                    "voiceRemainingThisMonth": "\(voiceRemainingThisMonth ?? 0)"
+                    "voiceRemainingThisMonth": "\(voiceRemainingThisMonth ?? 0)",
+                    "extraVoiceCredits": "\(extraVoiceCredits ?? 0)",
+                    "canNarrateStory": canNarrateStory ? "true" : "false"
                 ])
         } catch {
             lastFetchErrorDescription = error.localizedDescription

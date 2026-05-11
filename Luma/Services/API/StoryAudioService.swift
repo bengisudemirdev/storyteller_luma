@@ -29,7 +29,7 @@ enum StoryAudioServiceError: LocalizedError {
 }
 
 enum StoryAudioService {
-    /// Gerçek uç nokta `StoryService.narrateStory` → `POST /v1/stories/{id}/audio`.
+    /// Gerçek uç nokta `StoryService.narrateStory` → `POST /v1/stories/{id}/narrate` (kişisel masal; klasik masal ayrıdır).
     static func narrateStory(storyId: String) async throws -> NarrationResponse {
         guard let id = UUID(uuidString: storyId) else {
             throw StoryAudioServiceError.failed

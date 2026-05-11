@@ -175,6 +175,8 @@ class CreateStoryViewModel: ObservableObject {
             return api.errorDescription ?? generic
         case .unauthorized:
             return generic
+        case .paymentRequired:
+            return api.errorDescription ?? generic
         case .decodingFailed, .networkFailure, .invalidResponse, .emptyData, .invalidURL:
             return generic
         }
