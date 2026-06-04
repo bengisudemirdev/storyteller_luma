@@ -19,19 +19,14 @@ enum RevenueCatOfferingResolver {
 // MARK: - Abonelik paywall (Premium / Family aylık)
 
 enum RevenueCatSubscriptionPaywallService {
-    static let premiumProductIdentifier = "oliapremium"
-    static let familyProductIdentifier = "olia_family_monthly"
-
-    private static let premiumPackageIdentifier = "premium_monthly"
-    private static let familyPackageIdentifier = "family_monthly"
-
     struct ResolvedPackages {
         var premium: Package?
         var family: Package?
     }
 
-    /// Offering içinden ürünleri çöz; önce `productIdentifier`, sonra RevenueCat package identifier ile eşleştir.
+    /// Offering içinden ürünleri çöz; product, package ve entitlement adlarındaki küçük farklara toleranslıdır.
     static func fetchSubscriptionPackages() async throws -> ResolvedPackages {
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let offerings = try await Purchases.shared.offerings()
         guard let offering = RevenueCatOfferingResolver.resolve(from: offerings) else {
             return ResolvedPackages(premium: nil, family: nil)
@@ -41,16 +36,13 @@ enum RevenueCatSubscriptionPaywallService {
         var family: Package?
 
         for pkg in offering.availablePackages {
-            let pid = pkg.storeProduct.productIdentifier.lowercased()
-            let rcId = pkg.identifier.lowercased()
-
-            if pid == premiumProductIdentifier.lowercased()
-                || rcId == premiumPackageIdentifier.lowercased() {
+            switch RevenueCatCatalog.subscriptionTier(for: pkg) {
+            case .premium:
                 premium = pkg
-            }
-            if pid == familyProductIdentifier.lowercased()
-                || rcId == familyPackageIdentifier.lowercased() {
+            case .family:
                 family = pkg
+            case nil:
+                continue
             }
         }
 
@@ -58,12 +50,14 @@ enum RevenueCatSubscriptionPaywallService {
     }
 
     static func purchase(package: Package) async throws -> CustomerInfo {
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let result = try await Purchases.shared.purchase(package: package)
         return result.customerInfo
     }
 
     static func restorePurchases() async throws -> CustomerInfo {
-        try await Purchases.shared.restorePurchases()
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
+        return try await Purchases.shared.restorePurchases()
     }
 
     static func refreshCustomerInfo() async throws -> CustomerInfo {
@@ -71,15 +65,7 @@ enum RevenueCatSubscriptionPaywallService {
     }
 
     static func hasActiveSubscription(_ info: CustomerInfo) -> Bool {
-        let activeIds = Set(info.activeSubscriptions.map { $0.lowercased() })
-        if activeIds.contains(premiumProductIdentifier.lowercased())
-            || activeIds.contains(familyProductIdentifier.lowercased()) {
-            return true
-        }
-        if info.entitlements.active["oliapremium"] != nil { return true }
-        if info.entitlements.active["premium"] != nil { return true }
-        if info.entitlements.active["lumapremium"] != nil { return true }
-        return false
+        RevenueCatCatalog.activeSubscriptionTier(from: info) != nil
     }
 }
 
@@ -91,30 +77,23 @@ struct RevenueCatCreditPackage: Identifiable {
 
 enum RevenueCatCreditStoreService {
     static func fetchPackages() async throws -> [RevenueCatCreditPackage] {
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let offerings = try await Purchases.shared.offerings()
         guard let selectedOffering = RevenueCatOfferingResolver.resolve(from: offerings) else { return [] }
 
-        let packagesByProductId = Dictionary(
-            uniqueKeysWithValues: selectedOffering.availablePackages.map {
-                ($0.storeProduct.productIdentifier, $0)
-            }
-        )
-        let packagesByIdentifier = Dictionary(
-            uniqueKeysWithValues: selectedOffering.availablePackages.map {
-                ($0.identifier.lowercased(), $0)
-            }
-        )
+        let lookup = RevenueCatCatalog.packageLookup(from: selectedOffering.availablePackages)
 
         // UI plani config sirasini korur; RevenueCat tarafinda productId veya package identifier ile eslesir.
         return CreditPackageConfig.all.compactMap { config in
-            let byProductId = packagesByProductId[config.id]
-            let byPackageIdentifier = packagesByIdentifier[config.revenueCatPackageIdentifier.lowercased()]
+            let byProductId = lookup.byProductId[RevenueCatCatalog.normalize(config.id)]
+            let byPackageIdentifier = lookup.byPackageId[RevenueCatCatalog.normalize(config.revenueCatPackageIdentifier)]
             guard let package = byProductId ?? byPackageIdentifier else { return nil }
             return RevenueCatCreditPackage(id: config.id, config: config, package: package)
         }
     }
 
     static func purchase(package: RevenueCatCreditPackage) async throws -> PurchaseResultData {
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let result = try await Purchases.shared.purchase(package: package.package)
         let transactionId = result.transaction?.transactionIdentifier
             ?? result.customerInfo.latestExpirationDate?.description
@@ -123,11 +102,12 @@ enum RevenueCatCreditStoreService {
         return PurchaseResultData(
             productId: package.id,
             storeTransactionId: transactionId,
-            appUserId: Purchases.shared.appUserID
+            appUserId: RevenueCatIdentityService.currentAppUserID
         )
     }
 
     static func restorePurchases() async throws {
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         _ = try await Purchases.shared.restorePurchases()
     }
 }
@@ -137,4 +117,3 @@ struct PurchaseResultData {
     let storeTransactionId: String
     let appUserId: String
 }
-

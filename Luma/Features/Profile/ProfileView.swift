@@ -96,7 +96,9 @@ struct ProfileView: View {
                 PoliciesDetailView()
             }
             .sheet(isPresented: $isShowingPaywall) {
-                PaywallView(source: .manual)
+                if !PortfolioAccessMode.isEnabled {
+                    PaywallView(source: .manual)
+                }
             }
             .sheet(isPresented: $isShowingFeedbackSheet) {
                 ProfileFeedbackSheet(
@@ -264,11 +266,38 @@ struct ProfileView: View {
 
     private var creditSection: some View {
         VStack(alignment: .leading, spacing: 15) {
-            Text("Planın")
+            Text(PortfolioAccessMode.isEnabled ? "Demo erişimi" : "Planın")
                 .font(.system(size: 22, weight: .bold, design: .serif))
                 .foregroundStyle(HomeDashboardPalette.ink)
 
-            if entitlements.hasPremiumAccess {
+            if PortfolioAccessMode.isEnabled {
+                HStack(spacing: 14) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(width: ProfileCardMetrics.iconSize, height: ProfileCardMetrics.iconSize)
+                        .background(
+                            Circle()
+                                .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
+                        )
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Portföy modu aktif")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(HomeDashboardPalette.ink)
+                        Text("Tüm özellikler test için açık. Abonelik seçenekleri yakında.")
+                            .font(.caption2)
+                            .foregroundStyle(HomeDashboardPalette.muted)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(ProfileCardMetrics.horizontalPadding)
+                .frame(minHeight: ProfileCardMetrics.minHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius, style: .continuous)
+                        .fill(HomeDashboardPalette.cardSurface)
+                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 10, x: 0, y: 4)
+                )
+            } else if entitlements.hasPremiumAccess {
                 Button {
                     isShowingPaywall = true
                 } label: {

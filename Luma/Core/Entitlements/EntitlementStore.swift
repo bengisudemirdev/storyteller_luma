@@ -36,6 +36,7 @@ final class EntitlementStore: ObservableObject {
 
     /// Aktif abonelik + premium veya family planı (backend `subscriptionPlan` / `subscriptionStatus`).
     var hasPremiumAccess: Bool {
+        if PortfolioAccessMode.isEnabled { return true }
         let status = subscriptionStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         guard status == "active" else { return false }
         let plan = subscriptionPlan?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
@@ -43,6 +44,7 @@ final class EntitlementStore: ObservableObject {
     }
 
     var hasFamilyAccess: Bool {
+        if PortfolioAccessMode.isEnabled { return false }
         let status = subscriptionStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         guard status == "active" else { return false }
         let plan = subscriptionPlan?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
@@ -50,16 +52,24 @@ final class EntitlementStore: ObservableObject {
     }
 
     var canCreateStory: Bool {
-        (storyRemainingThisMonth ?? 0) > 0
+        if PortfolioAccessMode.isEnabled { return true }
+        return (storyRemainingThisMonth ?? 0) > 0
     }
 
     var canNarrateStory: Bool {
+        if PortfolioAccessMode.isEnabled { return true }
         let voice = voiceRemainingThisMonth ?? 0
         let extra = extraVoiceCredits ?? 0
         return voice > 0 || extra > 0
     }
 
     func refreshFromBackend() async {
+        if PortfolioAccessMode.isEnabled {
+            applyPortfolioSnapshot()
+            lastSuccessfulFetchAt = Date()
+            lastFetchErrorDescription = nil
+            return
+        }
         AppLogger.info("entitlement.fetch.started", [:])
         do {
             let snapshot = try await EntitlementAPIService.fetchEntitlements()
@@ -128,5 +138,23 @@ final class EntitlementStore: ObservableObject {
                 UserDefaults.standard.set(data, forKey: Self.persistenceKey)
             }
         }
+    }
+
+    private func applyPortfolioSnapshot() {
+        subscriptionPlan = "portfolio"
+        subscriptionStatus = "active"
+        productId = nil
+        currentPeriodStart = nil
+        currentPeriodEnd = nil
+        storyLimitMonthly = PortfolioAccessMode.demoMonthlyStoryLimit
+        storyUsedThisMonth = 0
+        storyRemainingThisMonth = PortfolioAccessMode.demoMonthlyStoryLimit
+        voiceLimitMonthly = PortfolioAccessMode.demoMonthlyVoiceLimit
+        voiceUsedThisMonth = 0
+        voiceRemainingThisMonth = PortfolioAccessMode.demoMonthlyVoiceLimit
+        extraVoiceCredits = PortfolioAccessMode.demoExtraVoiceCredits
+        childProfileLimit = 99
+        isPremiumFlag = true
+        isFamilyFlag = false
     }
 }

@@ -63,8 +63,9 @@ final class PurchaseViewModel: ObservableObject {
     func syncPurchasedCredits() async {
         state = .syncing
         do {
+            await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
             if !AppConfig.isRevenueCatTestStoreMode {
-                try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
+                try await CreditAPIService.syncIAP(.init(appUserId: RevenueCatIdentityService.currentAppUserID))
             }
             await CreditBalanceViewModel.shared.refreshBalance()
             state = .success
@@ -99,4 +100,3 @@ private extension Error {
         self is CancellationError
     }
 }
-

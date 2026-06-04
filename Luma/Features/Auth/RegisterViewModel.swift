@@ -42,6 +42,10 @@ class RegisterViewModel: ObservableObject {
         }
         do {
             _ = try await AuthAPIService.syncCurrentUser(force: true)
+            await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
+            if !PortfolioAccessMode.isEnabled && !AppConfig.isRevenueCatTestStoreMode {
+                try? await CreditAPIService.syncIAP(.init(appUserId: RevenueCatIdentityService.currentAppUserID))
+            }
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
         } catch {

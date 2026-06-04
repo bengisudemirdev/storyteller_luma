@@ -819,15 +819,20 @@ struct ClassicTalePreviewView: View {
             classicNarratePaymentBlocked = false
         }
         .sheet(isPresented: $showClassicPaywall) {
-            PaywallView(
-                source: .insufficientCredits(required: CreditCost.narration),
-                onPurchaseCompleted: {
-                    Task {
-                        await EntitlementStore.shared.refreshFromBackend()
-                        await SubscriptionManager.shared.refreshPlanFromServer()
+            if !PortfolioAccessMode.isEnabled {
+                PaywallView(
+                    source: .insufficientCredits(required: CreditCost.narration),
+                    onPurchaseCompleted: {
+                        Task {
+                            await EntitlementStore.shared.refreshFromBackend()
+                            await SubscriptionManager.shared.refreshPlanFromServer()
+                            if !hasPlayableClassicAudioURL {
+                                await narrateClassicTaleFromButton()
+                            }
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 
@@ -994,7 +999,7 @@ struct ClassicTalePreviewView: View {
                 .padding(.top, 4)
             }
 
-            if classicNarratePaymentBlocked {
+            if classicNarratePaymentBlocked && !PortfolioAccessMode.isEnabled {
                 Button {
                     showClassicPaywall = true
                 } label: {
@@ -1076,8 +1081,10 @@ struct ClassicTalePreviewView: View {
             audioPlayer.play(urlString: url)
         } catch let error as APIClientError {
             if case .paymentRequired = error {
-                classicNarratePaymentBlocked = true
-                narrationErrorMessage = "Sesli masal hakkın bitti."
+                classicNarratePaymentBlocked = !PortfolioAccessMode.isEnabled
+                narrationErrorMessage = PortfolioAccessMode.isEnabled
+                    ? "Sesli masal şu an hazırlanamadı. Lütfen biraz sonra tekrar deneyin."
+                    : "Sesli masal hakkın bitti."
                 return
             }
             if case .unauthorized = error {

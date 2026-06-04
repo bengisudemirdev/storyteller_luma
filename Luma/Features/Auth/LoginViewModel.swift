@@ -19,6 +19,10 @@ class LoginViewModel: ObservableObject {
         do {
             try await OliaApp.supabase.auth.signIn(email: email, password: password)
             _ = try await AuthAPIService.syncCurrentUser(force: true)
+            await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
+            if !PortfolioAccessMode.isEnabled && !AppConfig.isRevenueCatTestStoreMode {
+                try? await CreditAPIService.syncIAP(.init(appUserId: RevenueCatIdentityService.currentAppUserID))
+            }
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
             isLoading = false

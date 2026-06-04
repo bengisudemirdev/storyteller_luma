@@ -152,15 +152,20 @@ struct StoryReaderView: View {
             Text("Bu işlem, bu masalı kayıtlı masallarından kalıcı olarak silecek.")
         }
         .sheet(isPresented: $showCreditPaywall) {
-            PaywallView(
-                source: .insufficientCredits(required: CreditCost.narration),
-                onPurchaseCompleted: {
-                    Task {
-                        await EntitlementStore.shared.refreshFromBackend()
-                        await SubscriptionManager.shared.refreshPlanFromServer()
+            if !PortfolioAccessMode.isEnabled {
+                PaywallView(
+                    source: .insufficientCredits(required: CreditCost.narration),
+                    onPurchaseCompleted: {
+                        Task {
+                            await EntitlementStore.shared.refreshFromBackend()
+                            await SubscriptionManager.shared.refreshPlanFromServer()
+                            if !hasPlayableStoryAudioURL {
+                                await narrateStoryAndPlay()
+                            }
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 
@@ -474,7 +479,7 @@ struct StoryReaderView: View {
             }
             .frame(maxWidth: .infinity)
 
-            if narrationErrorMessage != nil && !entitlements.hasPremiumAccess {
+            if narrationErrorMessage != nil && !entitlements.hasPremiumAccess && !PortfolioAccessMode.isEnabled {
                 Button("Planları gör") {
                     showCreditPaywall = true
                 }
@@ -532,7 +537,7 @@ struct StoryReaderView: View {
                     ? "Bu ay için sesli masal hakkın doldu."
                     : "Seslendirme için uygun bir plan veya hak gerekiyor."
                 audioPlayer.isLoading = false
-                if !ent.hasPremiumAccess {
+                if !ent.hasPremiumAccess && !PortfolioAccessMode.isEnabled {
                     showCreditPaywall = true
                 }
             }
@@ -575,10 +580,12 @@ struct StoryReaderView: View {
             await MainActor.run {
                 audioPlayer.isLoading = false
                 if error.isInsufficientCredits {
-                    narrationErrorMessage = EntitlementStore.shared.hasPremiumAccess
+                    narrationErrorMessage = PortfolioAccessMode.isEnabled
+                        ? "Seslendirme şu an başlatılamadı. Lütfen biraz sonra tekrar dene."
+                        : EntitlementStore.shared.hasPremiumAccess
                         ? "Seslendirme şu an başlatılamadı. Biraz sonra tekrar dene."
                         : "Seslendirme için uygun bir plan veya hak gerekiyor."
-                    if !EntitlementStore.shared.hasPremiumAccess {
+                    if !EntitlementStore.shared.hasPremiumAccess && !PortfolioAccessMode.isEnabled {
                         showCreditPaywall = true
                     }
                 } else if case .unauthorized = error {

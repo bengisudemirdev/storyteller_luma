@@ -23,6 +23,8 @@ class AuthManager: ObservableObject {
                 self.isAuthenticated = Self.representsLoggedInUser(session)
                 if Self.representsLoggedInUser(session) {
                     await self.syncCurrentUserIfNeeded()
+                } else {
+                    await RevenueCatIdentityService.resetToAnonymousIfNeeded()
                 }
             }
         }
@@ -46,6 +48,10 @@ class AuthManager: ObservableObject {
         }
         do {
             _ = try await AuthAPIService.syncCurrentUser(force: force)
+            await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
+            if !PortfolioAccessMode.isEnabled && !AppConfig.isRevenueCatTestStoreMode {
+                try? await CreditAPIService.syncIAP(.init(appUserId: RevenueCatIdentityService.currentAppUserID))
+            }
             lastAuthSyncAt = Date()
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()

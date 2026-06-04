@@ -17,8 +17,10 @@ struct OliaApp: App {
     )
 
     init() {
-        Purchases.logLevel = .info
-        Purchases.configure(withAPIKey: AppConfig.revenueCatAPIKey)
+        if !PortfolioAccessMode.isEnabled {
+            Purchases.logLevel = .info
+            Purchases.configure(withAPIKey: AppConfig.revenueCatAPIKey)
+        }
     }
 
     var body: some Scene {
@@ -51,10 +53,12 @@ struct OliaApp: App {
                     .sheet(isPresented: $isPresentingPostRegistrationPaywall, onDismiss: {
                         UserDefaults.standard.set(false, forKey: LumaUserDefaultsKeys.showPostRegistrationPaywallOnce)
                     }) {
-                        PaywallView(source: .manual)
-                            .presentationDetents([.large])
-                            .presentationDragIndicator(.visible)
-                            .presentationCornerRadius(28)
+                        if !PortfolioAccessMode.isEnabled {
+                            PaywallView(source: .manual)
+                                .presentationDetents([.large])
+                                .presentationDragIndicator(.visible)
+                                .presentationCornerRadius(28)
+                        }
                     }
                 } else {
                     LoginView()
@@ -104,6 +108,7 @@ struct OliaApp: App {
 
     @MainActor
     private func handlePostRegistrationPaywallRequest() async {
+        guard !PortfolioAccessMode.isEnabled else { return }
         guard !isPresentingPostRegistrationPaywall else { return }
         await EntitlementStore.shared.refreshFromBackend()
         await SubscriptionManager.shared.refreshPlanFromServer()

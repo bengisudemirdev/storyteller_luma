@@ -203,8 +203,9 @@ final class PaywallViewModel: ObservableObject {
     }
 
     private func refreshBackendEntitlements(customerInfo: CustomerInfo) async {
+        await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         if !AppConfig.isRevenueCatTestStoreMode {
-            try? await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
+            try? await CreditAPIService.syncIAP(.init(appUserId: RevenueCatIdentityService.currentAppUserID))
         }
         await EntitlementStore.shared.refreshFromBackend()
         await SubscriptionManager.shared.refreshPlanFromServer()

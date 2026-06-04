@@ -106,6 +106,13 @@ class CreateStoryViewModel: ObservableObject {
                 NotificationCenter.default.post(name: .lumaSavedStoriesDidChange, object: nil)
             } catch {
                 if let apiError = error as? APIClientError, apiError.isInsufficientCredits {
+                    if PortfolioAccessMode.isEnabled {
+                        errorMessage = "Masal oluşturma şu an tamamlanamadı. Lütfen biraz sonra tekrar dene."
+                        showErrorAlert = true
+                        showCreditStore = false
+                        isLoading = false
+                        return
+                    }
                     if EntitlementStore.shared.hasPremiumAccess {
                         errorMessage = "Masal oluşturma şu an tamamlanamadı. Lütfen biraz sonra tekrar dene."
                         showErrorAlert = true

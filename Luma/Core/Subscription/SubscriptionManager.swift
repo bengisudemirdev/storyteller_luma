@@ -24,6 +24,13 @@ final class SubscriptionManager: ObservableObject {
 
     /// `EntitlementStore` içindeki son backend snapshot’ına göre yerel plan özetini günceller (ekstra ağ çağrısı yapmaz).
     func refreshPlanFromServer() async {
+        if PortfolioAccessMode.isEnabled {
+            status = "active"
+            currentPeriodEnd = nil
+            plan = .premium
+            resetWeeklyUsageIfNeeded()
+            return
+        }
         let es = EntitlementStore.shared
         status = es.subscriptionStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "inactive"
         currentPeriodEnd = Self.parseServerDate(es.currentPeriodEnd)
@@ -34,6 +41,7 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Story limits (weekly)
 
     func canGenerateStory() -> Bool {
+        if PortfolioAccessMode.isEnabled { return true }
         resetWeeklyUsageIfNeeded()
         guard let max = plan.limits.maxWeeklyStories else { return true }
         return weeklyStoriesUsed < max
@@ -48,6 +56,7 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Narration limits (weekly premium, free one-time trial)
 
     func canStartNarration() -> Bool {
+        if PortfolioAccessMode.isEnabled { return true }
         resetWeeklyUsageIfNeeded()
         switch plan {
         case .premium:
@@ -112,4 +121,3 @@ final class SubscriptionManager: ObservableObject {
         return formatterWithFraction.date(from: value)
     }
 }
-

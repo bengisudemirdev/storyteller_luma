@@ -15,6 +15,12 @@ final class CreditBalanceViewModel: ObservableObject {
     private init() {}
 
     func refreshBalance() async {
+        if PortfolioAccessMode.isEnabled {
+            balance = PortfolioAccessMode.demoCreditBalance
+            lastUpdatedAt = Date()
+            errorMessage = nil
+            return
+        }
         isRefreshing = true
         defer { isRefreshing = false }
         do {
@@ -37,8 +43,13 @@ final class CreditBalanceViewModel: ObservableObject {
     }
 
     func syncFromBackend() async {
+        if PortfolioAccessMode.isEnabled {
+            await refreshBalance()
+            return
+        }
         do {
-            try await CreditAPIService.syncIAP(.init(appUserId: Purchases.shared.appUserID))
+            await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
+            try await CreditAPIService.syncIAP(.init(appUserId: RevenueCatIdentityService.currentAppUserID))
             await refreshBalance()
         } catch {
             errorMessage = error.userFacingTurkishMessage
@@ -61,4 +72,3 @@ final class CreditBalanceViewModel: ObservableObject {
         return formatter.date(from: value)
     }
 }
-
