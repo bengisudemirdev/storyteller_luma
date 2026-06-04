@@ -151,24 +151,7 @@ xcodebuild -project Luma.xcodeproj \
   build CODE_SIGNING_ALLOWED=NO
 ```
 
-## Kalite ve Doğrulama
 
-Bu projede doğrulanan temel teknik kontroller:
-
-- Xcode Debug build başarılı.
-- RevenueCat ürün eşleştirme ve entitlement katmanı merkezi hale getirildi.
-- Kontrollü erişim modu ile payment UI devre dışı bırakıldı.
-- Masal oluşturma ve seslendirme akışları payment UI'a düşmeyecek şekilde düzenlendi.
-
-Önerilen manuel smoke test:
-
-- Yeni kullanıcı ile kayıt/giriş.
-- Çocuk profili oluşturma.
-- Bir masal üretme.
-- Üretilen masalı okuma ekranında açma.
-- Masalı seslendirme.
-- Klasik masal detayını açma ve seslendirme.
-- Profil ekranında ödeme CTA'larının görünmediğini doğrulama.
 
 ## Proje Yapısı
 
