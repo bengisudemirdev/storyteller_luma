@@ -85,7 +85,11 @@ Bu mod şu dosyadan yönetilir:
 
 ```swift
 // Luma/Config/PortfolioAccessMode.swift
+#if DEBUG
 static let isEnabled = true
+#else
+static let isEnabled = false
+#endif
 ```
 
 Erişim modu açıkken:
@@ -96,13 +100,13 @@ Erişim modu açıkken:
 - Paywall ve satın alma CTA'ları görünmez.
 - Profilde abonelik yerine test erişimi mesajı gösterilir.
 
-Gerçek ödeme akışını geri açmak için:
+Gerçek ödeme akışını Debug ortamında da test etmek için:
 
 ```swift
 static let isEnabled = false
 ```
 
-> Not: Bu mod istemci tarafındaki ödeme duvarını kaldırır. Backend de aynı kurguya alınmalıdır; aksi halde backend kota/ödeme nedeniyle bazı üretim veya seslendirme isteklerini reddedebilir.
+> Not: Bu mod istemci tarafındaki ödeme duvarını kaldırır. Release build’lerde otomatik olarak kapalıdır; yine de backend de aynı kurguya alınmalıdır, aksi halde backend kota/ödeme nedeniyle bazı üretim veya seslendirme isteklerini reddedebilir.
 
 ## Kurulum
 
@@ -124,7 +128,7 @@ open Luma.xcodeproj
 ### 2. iOS environment dosyasını hazırla
 
 ```bash
-touch Luma/Config/.env
+cp Luma/Config/.env.example Luma/Config/.env
 ```
 
 Ardından `Luma/Config/.env` içindeki değerleri doldur. Bu dosya gizli anahtar içerdiği için commit edilmemelidir:
@@ -135,8 +139,17 @@ SUPABASE_ANON_KEY=
 BACKEND_BASE_URL=
 REVENUECAT_API_KEY=
 REVENUECAT_SANDBOX_API_KEY=
+REVENUECAT_USE_TEST_STORE=false
 REVENUECAT_OFFERING_KEY=
+REVENUECAT_SUBSCRIPTION_OFFERING_KEY=
+REVENUECAT_CREDITS_OFFERING_KEY=
+TERMS_OF_SERVICE_URL=
+PRIVACY_POLICY_URL=
 FEEDBACK_EMAIL=
+ELEVENLABS_API_KEY=
+ELEVENLABS_AGENT_ID=
+ELEVENLABS_VOICE_ID=
+CLASSIC_TALE_COVERS_BASE_URL=
 ```
 
 Build sırasında `scripts/generate_ios_secrets.py` çalışır ve `Luma/Config/Secrets.generated.swift` üretilir.
@@ -185,3 +198,17 @@ Olia, birkaç güçlü mühendislik kararını aynı üründe birleştirir:
 ## Durum
 
 Ödeme akışı mimari olarak korunmuştur. Production'a çıkış öncesi kontrollü erişim modunun kapatılması, RevenueCat ürünlerinin App Store Connect ile doğrulanması ve uçtan uca satın alma testlerinin tamamlanması gerekir.
+
+## Release Öncesi Checklist
+
+- `Luma/Config/.env` gerçek değerlerle dolduruldu: Supabase, backend, RevenueCat, Terms, Privacy ve feedback mail.
+- `Luma/Config/.env` git takibinden çıkarıldı; dosya `.gitignore` içinde kalmalı ve commit edilmemeli.
+- `Luma/Config/Secrets.generated.swift` git takibinde değil; build sırasında yerelde üretiliyor.
+- `PortfolioAccessMode.isEnabled` Release build'de `false`; gerçek entitlement ve kredi kontrolleri aktif.
+- RevenueCat subscription offering id (`REVENUECAT_SUBSCRIPTION_OFFERING_KEY`) Premium/Family paketlerinin olduğu offering ile aynı.
+- RevenueCat credits offering id (`REVENUECAT_CREDITS_OFFERING_KEY`) kredi paketlerinin olduğu offering ile aynı.
+- RevenueCat subscription ve credit package id'leri App Store Connect ürünleriyle eşleşiyor.
+- Sandbox/Test Store ile satın alma, restore purchases ve backend IAP sync akışı test edildi.
+- Terms of Service ve Privacy Policy linkleri paywall'dan açılıyor.
+- Login, tab navigasyon, hikaye oluşturma ve profil çıkış akışları gerçek test hesabıyla geçti.
+- Release build `CODE_SIGNING_ALLOWED=NO` ile lokal olarak başarıyla tamamlandı.

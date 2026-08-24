@@ -76,6 +76,7 @@ struct PaywallView: View {
                 .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(HomeDashboardPalette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("paywall.heroTitle")
 
             Text(heroDescription)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
@@ -169,6 +170,23 @@ struct PaywallView: View {
                     tint: HomeDashboardPalette.muted
                 )
             }
+
+            #if DEBUG
+            if viewModel.didAttemptOfferingsLoad && !viewModel.offeringsDiagnostics.isEmpty {
+                Text(viewModel.offeringsDiagnostics)
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(HomeDashboardPalette.muted)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.72))
+                    )
+                    .accessibilityIdentifier("paywall.offeringsDiagnostics")
+            }
+            #endif
         }
     }
 
@@ -201,6 +219,15 @@ struct PaywallView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
+            if let unavailableSelectionMessage = viewModel.unavailableSelectionMessage {
+                Text(unavailableSelectionMessage)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.muted)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("paywall.purchase.unavailableReason")
+            }
+
             Button {
                 Task {
                     let ok = await viewModel.purchaseSelectedPackage()
@@ -230,6 +257,7 @@ struct PaywallView: View {
             }
             .buttonStyle(.plain)
             .disabled(!purchaseEnabled)
+            .accessibilityIdentifier("paywall.purchase.primary")
 
             Text("Aboneliğin App Store hesabın üzerinden yönetilir.")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -270,6 +298,7 @@ struct PaywallView: View {
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isPurchasing || viewModel.isRestoring)
+            .accessibilityIdentifier("paywall.restore")
 
             HStack(spacing: 16) {
                 termsLink
@@ -293,7 +322,6 @@ struct PaywallView: View {
         } else {
             Text("Kullanım Şartları")
                 .foregroundStyle(HomeDashboardPalette.muted.opacity(0.55))
-            // TODO: TERMS_OF_SERVICE_URL — `.env` / Secrets ile eklenince link aktif olur.
         }
     }
 
@@ -307,7 +335,6 @@ struct PaywallView: View {
         } else {
             Text("Gizlilik Politikası")
                 .foregroundStyle(HomeDashboardPalette.muted.opacity(0.55))
-            // TODO: PRIVACY_POLICY_URL — `.env` / Secrets ile eklenince link aktif olur.
         }
     }
 }

@@ -13,6 +13,7 @@ final class PaywallViewModel: ObservableObject {
 
     @Published private(set) var premiumPackage: Package?
     @Published private(set) var familyPackage: Package?
+    @Published private(set) var offeringsDiagnostics: String = ""
 
     /// Offering çekildi; ikisi de nil ise tam yükleme başarısız veya boş offering kabul edilir.
     @Published private(set) var didAttemptOfferingsLoad = false
@@ -63,6 +64,17 @@ final class PaywallViewModel: ObservableObject {
         package(for: selectedPackageType) != nil
     }
 
+    var unavailableSelectionMessage: String? {
+        guard didAttemptOfferingsLoad && !isLoadingOfferings && !canPurchaseSelectedPlan else { return nil }
+        if isCurrentSelectionOwned {
+            return "Bu plan hesabında zaten aktif görünüyor."
+        }
+        if EntitlementStore.shared.hasFamilyAccess, selectedPackageType == .premium {
+            return "Family planın aktif olduğu için Premium’a geçiş gerekmez."
+        }
+        return "Seçili plan mağazadan yüklenemedi. Test için Debug simulator ve RevenueCat test store ayarını kullan."
+    }
+
     /// Paywall açılınca mevcut aboneliğe göre seçimi hizala (işaret görünsün).
     func syncSelectionWithEntitlements() {
         let es = EntitlementStore.shared
@@ -95,12 +107,14 @@ final class PaywallViewModel: ObservableObject {
             let resolved = try await RevenueCatSubscriptionPaywallService.fetchSubscriptionPackages()
             premiumPackage = resolved.premium
             familyPackage = resolved.family
+            offeringsDiagnostics = resolved.diagnostics
             if resolved.premium == nil && resolved.family == nil {
                 errorMessage = "Paketler şu an yüklenemedi. Lütfen internet bağlantını kontrol edip tekrar dene."
             }
         } catch {
             premiumPackage = nil
             familyPackage = nil
+            offeringsDiagnostics = "offerings error=\(String(describing: error))"
             errorMessage = "Paketler şu an yüklenemedi. Lütfen internet bağlantını kontrol edip tekrar dene."
         }
     }

@@ -126,7 +126,7 @@ enum APIClientError: LocalizedError {
             return "Masal servisi şu an meşgul. Lütfen birazdan tekrar deneyin."
         case "CHILD_NOT_FOUND":
             return "Çocuk profili bulunamadı. Profilinden çocuğunu seç veya yeniden ekle, sonra tekrar dene."
-        case "CHILD_LIMIT_EXCEEDED", "MAX_CHILDREN", "MAX_CHILDREN_REACHED", "CHILD_LIMIT":
+        case "CHILD_LIMIT_EXCEEDED", "CHILD_PROFILE_LIMIT_REACHED", "MAX_CHILDREN", "MAX_CHILDREN_REACHED", "CHILD_LIMIT":
             return "Ekleyebileceğin çocuk profili sayısı sınırına ulaşıldı. Mevcut profillerden birini düzenleyebilir veya destek ile iletişime geçebilirsin."
         case "NOT_FOUND":
             if Self.messageSuggestsChildIssue(lower) {
@@ -550,4 +550,3 @@ private struct AnyEncodable: Encodable {
         try encodeFunc(encoder)
     }
 }
-

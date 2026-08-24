@@ -388,6 +388,7 @@ struct ProfileView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("profile.openPaywall")
             }
         }
     }

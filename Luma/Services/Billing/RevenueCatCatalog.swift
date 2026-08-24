@@ -7,6 +7,11 @@ enum RevenueCatSubscriptionTier {
 }
 
 enum RevenueCatCatalog {
+    enum Credits {
+        nonisolated static let productIds = CreditPackageConfig.all.map(\.id)
+        nonisolated static let packageIds = CreditPackageConfig.all.map(\.revenueCatPackageIdentifier)
+    }
+
     enum Subscription {
         nonisolated static let premiumProductIds = [
             "oliapremium",
@@ -55,6 +60,10 @@ enum RevenueCatCatalog {
         let productId = normalize(package.storeProduct.productIdentifier)
         let packageId = normalize(package.identifier)
 
+        if isCreditPackage(productId: productId, packageId: packageId) {
+            return nil
+        }
+
         if Subscription.familyProductIds.contains(where: { normalize($0) == productId })
             || Subscription.familyPackageIds.contains(where: { normalize($0) == packageId }) {
             return .family
@@ -65,6 +74,31 @@ enum RevenueCatCatalog {
             return .premium
         }
 
+        return nil
+    }
+
+    nonisolated static func fallbackSubscriptionTier(for package: Package) -> RevenueCatSubscriptionTier? {
+        let productId = normalize(package.storeProduct.productIdentifier)
+        let packageId = normalize(package.identifier)
+        let isSubscriptionProduct = package.storeProduct.productCategory == .subscription
+            || package.storeProduct.subscriptionPeriod != nil
+
+        if isCreditPackage(productId: productId, packageId: packageId) {
+            return nil
+        }
+
+        if productId.contains("family") || packageId.contains("family") {
+            return .family
+        }
+        if productId.contains("premium") || packageId.contains("premium") {
+            return .premium
+        }
+        if isSubscriptionProduct && (productId.contains("monthly") || packageId == "$rc_monthly") {
+            return .premium
+        }
+        if isSubscriptionProduct {
+            return .premium
+        }
         return nil
     }
 
@@ -109,5 +143,12 @@ enum RevenueCatCatalog {
 
     nonisolated static func normalize(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private nonisolated static func isCreditPackage(productId: String, packageId: String) -> Bool {
+        if productId.contains("credit") || productId.contains("credits") {
+            return true
+        }
+        return Credits.productIds.map(normalize).contains(productId)
     }
 }

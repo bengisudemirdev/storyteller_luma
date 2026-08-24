@@ -20,6 +20,8 @@ KEYS = [
     ("REVENUECAT_SANDBOX_API_KEY", "revenueCatSandboxAPIKey"),
     ("REVENUECAT_USE_TEST_STORE", "revenueCatUseTestStore"),
     ("REVENUECAT_OFFERING_KEY", "revenueCatOfferingKey"),
+    ("REVENUECAT_SUBSCRIPTION_OFFERING_KEY", "revenueCatSubscriptionOfferingKey"),
+    ("REVENUECAT_CREDITS_OFFERING_KEY", "revenueCatCreditsOfferingKey"),
     ("TERMS_OF_SERVICE_URL", "termsOfServiceURL"),
     ("PRIVACY_POLICY_URL", "privacyPolicyURL"),
     ("ELEVENLABS_API_KEY", "elevenLabsAPIKey"),

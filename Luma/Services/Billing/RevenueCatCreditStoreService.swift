@@ -4,8 +4,8 @@ import RevenueCat
 // MARK: - Offering seçimi (kredi + abonelik paywall ortak)
 
 enum RevenueCatOfferingResolver {
-    static func resolve(from offerings: Offerings) -> Offering? {
-        if let key = AppConfig.revenueCatOfferingKey,
+    static func resolve(from offerings: Offerings, preferredKey: String?) -> Offering? {
+        if let key = preferredKey,
            let configured = offerings[key] {
             return configured
         }
@@ -22,31 +22,65 @@ enum RevenueCatSubscriptionPaywallService {
     struct ResolvedPackages {
         var premium: Package?
         var family: Package?
+        var diagnostics: String = ""
     }
 
     /// Offering içinden ürünleri çöz; product, package ve entitlement adlarındaki küçük farklara toleranslıdır.
     static func fetchSubscriptionPackages() async throws -> ResolvedPackages {
         await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let offerings = try await Purchases.shared.offerings()
-        guard let offering = RevenueCatOfferingResolver.resolve(from: offerings) else {
-            return ResolvedPackages(premium: nil, family: nil)
-        }
 
         var premium: Package?
         var family: Package?
+        var diagnostics: [String] = []
 
-        for pkg in offering.availablePackages {
-            switch RevenueCatCatalog.subscriptionTier(for: pkg) {
-            case .premium:
-                premium = pkg
-            case .family:
-                family = pkg
-            case nil:
-                continue
+        diagnostics.append(
+            [
+                "subKey=\(AppConfig.revenueCatSubscriptionOfferingKey ?? "nil")",
+                "creditsKey=\(AppConfig.revenueCatCreditsOfferingKey ?? "nil")",
+                "legacyKey=\(AppConfig.revenueCatOfferingKey ?? "nil")",
+                "current=\(offerings.current?.identifier ?? "nil")"
+            ].joined(separator: " ")
+        )
+
+        let preferredOffering = RevenueCatOfferingResolver.resolve(
+            from: offerings,
+            preferredKey: AppConfig.revenueCatSubscriptionOfferingKey
+        )
+        let fallbackOfferings = offerings.all.values.filter { $0.identifier != preferredOffering?.identifier }
+
+        for offering in ([preferredOffering].compactMap { $0 } + fallbackOfferings) {
+            diagnostics.append("offering=\(offering.identifier) packages=\(offering.availablePackages.count)")
+            for pkg in offering.availablePackages {
+                let tier = RevenueCatCatalog.subscriptionTier(for: pkg)
+                    ?? RevenueCatCatalog.fallbackSubscriptionTier(for: pkg)
+                diagnostics.append(
+                    [
+                        "pkg=\(pkg.identifier)",
+                        "product=\(pkg.storeProduct.productIdentifier)",
+                        "category=\(String(describing: pkg.storeProduct.productCategory))",
+                        "period=\(pkg.storeProduct.subscriptionPeriod.map { String(describing: $0) } ?? "nil")",
+                        "tier=\(tier.map { String(describing: $0) } ?? "nil")"
+                    ].joined(separator: " ")
+                )
+
+                switch tier {
+                case .premium where premium == nil:
+                    premium = pkg
+                case .family where family == nil:
+                    family = pkg
+                default:
+                    continue
+                }
+            }
+
+            if premium != nil && family != nil {
+                break
             }
         }
 
-        return ResolvedPackages(premium: premium, family: family)
+        diagnostics.append("resolved premium=\(premium?.storeProduct.productIdentifier ?? "nil") family=\(family?.storeProduct.productIdentifier ?? "nil")")
+        return ResolvedPackages(premium: premium, family: family, diagnostics: diagnostics.joined(separator: "\n"))
     }
 
     static func purchase(package: Package) async throws -> CustomerInfo {
@@ -79,7 +113,10 @@ enum RevenueCatCreditStoreService {
     static func fetchPackages() async throws -> [RevenueCatCreditPackage] {
         await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let offerings = try await Purchases.shared.offerings()
-        guard let selectedOffering = RevenueCatOfferingResolver.resolve(from: offerings) else { return [] }
+        guard let selectedOffering = RevenueCatOfferingResolver.resolve(
+            from: offerings,
+            preferredKey: AppConfig.revenueCatCreditsOfferingKey
+        ) else { return [] }
 
         let lookup = RevenueCatCatalog.packageLookup(from: selectedOffering.availablePackages)
 

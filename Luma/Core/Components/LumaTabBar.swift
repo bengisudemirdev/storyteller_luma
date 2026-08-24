@@ -47,6 +47,8 @@ struct LumaTabBar: View {
                         }
                     }
                 }
+                .accessibilityLabel(tab.title)
+                .accessibilityIdentifier("tab.\(tab.title)")
 
                 Spacer()
             }

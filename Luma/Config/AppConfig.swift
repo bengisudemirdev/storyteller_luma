@@ -31,7 +31,19 @@ enum AppConfig {
         return key.isEmpty ? nil : key
     }
 
-    // TODO: `TERMS_OF_SERVICE_URL` ve `PRIVACY_POLICY_URL` anahtarlarını `Luma/Config/.env` içine ekleyin (scripts/generate_ios_secrets.py).
+    /// Subscription paywall offering identifier. Falls back to the legacy common offering key, then RevenueCat current.
+    static var revenueCatSubscriptionOfferingKey: String? {
+        let key = Secrets.revenueCatSubscriptionOfferingKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty { return key }
+        return revenueCatOfferingKey
+    }
+
+    /// Credit store offering identifier. Falls back to the legacy common offering key, then RevenueCat current.
+    static var revenueCatCreditsOfferingKey: String? {
+        let key = Secrets.revenueCatCreditsOfferingKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty { return key }
+        return revenueCatOfferingKey
+    }
 
     static var termsOfServiceURL: URL? {
         let raw = Secrets.termsOfServiceURL.trimmingCharacters(in: .whitespacesAndNewlines)
