@@ -526,10 +526,7 @@ struct StoryReaderView: View {
         await EntitlementStore.shared.refreshFromBackend()
         await SubscriptionManager.shared.refreshPlanFromServer()
         let ent = EntitlementStore.shared
-        // Ses hakkı bittiyse hediye/kampanya kredisi (yedek) yeterliyse devam edilebilir; sunucu aynı sırayı uygular.
-        await CreditBalanceViewModel.shared.refreshBalance()
-        let hasCreditsForNarration = CreditBalanceViewModel.shared.balance >= CreditCost.narration
-        guard ent.canNarrateStory || hasCreditsForNarration else {
+        guard ent.canNarrateStory else {
             AppLogger.warning("narration.saved_story.blocked_entitlements", [
                 "storyId": storyId.uuidString,
                 "voiceRemainingThisMonth": "\(ent.voiceRemainingThisMonth ?? 0)",

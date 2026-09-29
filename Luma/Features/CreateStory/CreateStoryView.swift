@@ -230,7 +230,7 @@ struct CreateStoryView: View {
         .sheet(isPresented: $viewModel.showCreditStore) {
             if !PortfolioAccessMode.isEnabled {
                 PaywallView(
-                    source: .insufficientCredits(required: viewModel.storyCreditCost),
+                    source: .insufficientCredits(required: 0),
                     onPurchaseCompleted: {
                         viewModel.handlePurchaseCompletion()
                     }

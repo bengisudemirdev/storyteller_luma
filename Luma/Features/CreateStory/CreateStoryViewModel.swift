@@ -24,7 +24,6 @@ class CreateStoryViewModel: ObservableObject {
     @Published var generatedStoryModel: StoryModel? = nil
     @Published var pendingAction: PendingAction?
     private var hasLoadedChildrenOnce = false
-    let storyCreditCost: Int = CreditCost.story
 
     func createStory() {
         let trimmedName = childName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,10 +40,7 @@ class CreateStoryViewModel: ObservableObject {
         Task {
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
-            // Aylık hak bittiyse hediye/kampanya kredisi (yedek) yeterliyse devam edilebilir; sunucu aynı sırayı uygular.
-            await CreditBalanceViewModel.shared.refreshBalance()
-            let hasCreditsForStory = CreditBalanceViewModel.shared.balance >= CreditCost.story
-            guard EntitlementStore.shared.canCreateStory || hasCreditsForStory else {
+            guard EntitlementStore.shared.canCreateStory else {
                 if EntitlementStore.shared.hasPremiumAccess {
                     errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
                     showErrorAlert = true
@@ -85,22 +81,11 @@ class CreateStoryViewModel: ObservableObject {
                 await CreditBalanceViewModel.shared.refreshBalance()
                 NotificationCenter.default.post(name: .lumaSavedStoriesDidChange, object: nil)
             } catch {
-                if let apiError = error as? APIClientError, apiError.serverErrorCode == "STORY_LIMIT_REACHED" {
-                    errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
-                    showErrorAlert = true
-                    isLoading = false
-                    return
-                }
-                if let apiError = error as? APIClientError, apiError.isInsufficientCredits {
-                    if PortfolioAccessMode.isEnabled {
-                        errorMessage = "Masal oluşturma şu an tamamlanamadı. Lütfen biraz sonra tekrar dene."
-                        showErrorAlert = true
-                        showCreditStore = false
-                        isLoading = false
-                        return
-                    }
-                    if EntitlementStore.shared.hasPremiumAccess {
-                        errorMessage = "Masal oluşturma şu an tamamlanamadı. Lütfen biraz sonra tekrar dene."
+                // Model: aylık kota. Hak dolduysa Premium kullanıcıya bilgi, ücretsiz kullanıcıya paywall gösterilir.
+                if let apiError = error as? APIClientError,
+                   apiError.serverErrorCode == "STORY_LIMIT_REACHED" || apiError.isInsufficientCredits {
+                    if PortfolioAccessMode.isEnabled || EntitlementStore.shared.hasPremiumAccess {
+                        errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
                         showErrorAlert = true
                     } else {
                         showCreditStore = true
