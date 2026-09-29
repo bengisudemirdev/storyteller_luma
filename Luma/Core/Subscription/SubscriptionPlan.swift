@@ -21,7 +21,7 @@ extension SubscriptionPlan {
                 maxChildren: 1,
                 maxWeeklyStories: 1,
                 maxWeeklyNarrations: nil,
-                hasOneTimeNarrationTrial: true,
+                hasOneTimeNarrationTrial: false,
                 maxSavedStories: 10
             )
         case .premium:
