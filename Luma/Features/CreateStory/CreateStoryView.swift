@@ -271,11 +271,17 @@ struct CreateStoryView: View {
     }
 
     @ViewBuilder
+    /// Yapay zekanın ürettiği başlık; yoksa "Defne'nin Masalı" biçiminde doğru ekli yedek başlık.
+    private var generatedStoryTitle: String {
+        let ai = viewModel.generatedStoryModel?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return ai.isEmpty ? TurkishGrammar.fallbackStoryTitle(for: viewModel.childName) : ai
+    }
+
     private var readerViewContainer: some View {
         StoryReaderView(
             child: viewModel.selectedChild,
             heroDisplayName: viewModel.selectedChild == nil ? viewModel.childName : nil,
-            storyTitle: "\(viewModel.childName)'nın Masalı",
+            storyTitle: generatedStoryTitle,
             storyContent: viewModel.generatedStory,
             showSaveButton: false,
             story: viewModel.generatedStoryModel,
@@ -284,7 +290,7 @@ struct CreateStoryView: View {
                 if let childId {
                     await viewModel.saveStoryToParent(
                         childId: childId,
-                        title: "\(viewModel.childName)'nın Masalı",
+                        title: generatedStoryTitle,
                         content: viewModel.generatedStory,
                         theme: viewModel.selectedTheme
                     )

@@ -653,16 +653,47 @@ struct ClassicTalePreviewView: View {
     @StateObject private var audioPlayer = AudioPlayerViewModel()
     @EnvironmentObject private var appUIState: AppUIState
 
-    private var storyPages: [String] {
-        StoryReadingPagination.pages(
-            from: tale.fullStory.trimmingCharacters(in: .whitespacesAndNewlines),
-            firstPageBudget: 900,
-            otherPageBudget: 1600
-        )
+    /// Her sayfa paragraf listesidir; gerçek ekran boyutu ölçülünce yeniden hesaplanır.
+    @State private var pages: [[String]] = []
+    @State private var lastPaginatedSize: CGSize = .zero
+
+    private var displayPages: [[String]] {
+        pages.isEmpty ? StoryReadingPagination.fallbackPages(from: tale.fullStory) : pages
     }
 
     private var pageCount: Int {
-        max(storyPages.count, 1)
+        max(displayPages.count, 1)
+    }
+
+    private enum ClassicReaderMetrics {
+        static let topInset: CGFloat = 8
+        static let bottomInset: CGFloat = 12
+        static let innerPadding: CGFloat = 22
+        static let contentSpacing: CGFloat = 14
+        static let coverSpacing: CGFloat = 14
+        /// Son sayfadaki kaynak/atıf satırı için ayrılan pay.
+        static let attributionReserve: CGFloat = 44
+        /// Etiket kapsülü (12pt + dikey dolgu).
+        static let tagHeight: CGFloat = 27
+    }
+
+    private func repaginate(for size: CGSize) {
+        guard size.width > 1, size.height > 1, size != lastPaginatedSize else { return }
+        lastPaginatedSize = size
+        let outerWidth = min(size.width - StoryReadingChrome.horizontalPadding * 2, StoryReadingChrome.cardMaxOuterWidth)
+        let textWidth = outerWidth - ClassicReaderMetrics.innerPadding * 2
+        let cardHeight = size.height - ClassicReaderMetrics.topInset - ClassicReaderMetrics.bottomInset
+        let innerHeight = cardHeight - ClassicReaderMetrics.innerPadding * 2 - ClassicReaderMetrics.attributionReserve
+        let coverBlock = coverWidth * StoryCoverMetrics.heightMultiplier + ClassicReaderMetrics.coverSpacing
+        let titleBlock = 5 + 10 + StoryTextMetrics.titleHeight(tale.title, width: textWidth)
+            + 10 + ClassicReaderMetrics.tagHeight + ClassicReaderMetrics.contentSpacing
+        pages = StoryReadingPagination.pages(
+            from: tale.fullStory,
+            textWidth: textWidth,
+            firstPageHeight: innerHeight - coverBlock - titleBlock,
+            otherPageHeight: innerHeight
+        )
+        currentPage = min(currentPage, max(pages.count - 1, 0))
     }
 
     private var coverWidth: CGFloat {
@@ -687,8 +718,9 @@ struct ClassicTalePreviewView: View {
                 StoryReadingWarmBackground()
 
                 VStack(spacing: 0) {
+                    GeometryReader { proxy in
                     TabView(selection: $currentPage) {
-                        ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
+                        ForEach(Array(displayPages.enumerated()), id: \.offset) { index, paragraphs in
                             ScrollView(showsIndicators: false) {
                                 VStack(spacing: 14) {
                                     if index == 0 {
@@ -706,7 +738,11 @@ struct ClassicTalePreviewView: View {
                                         .frame(maxWidth: .infinity)
                                     }
 
-                                    StoryReadingTextCard {
+                                    StoryReadingTextCard(
+                                        minHeight: index == 0
+                                            ? nil
+                                            : proxy.size.height - ClassicReaderMetrics.topInset - ClassicReaderMetrics.bottomInset
+                                    ) {
                                         VStack(alignment: .leading, spacing: 14) {
                                             if index == 0 {
                                                 VStack(alignment: .leading, spacing: 10) {
@@ -740,11 +776,9 @@ struct ClassicTalePreviewView: View {
                                                 }
                                             }
 
-                                            Text(pageText)
-                                                .storyReadingBodyStyle()
-                                                .fixedSize(horizontal: false, vertical: true)
+                                            StoryPageBody(paragraphs: paragraphs)
 
-                                            if index == storyPages.count - 1 {
+                                            if index == displayPages.count - 1 {
                                                 Text(tale.attribution)
                                                     .font(.system(size: 12, weight: .regular, design: .rounded))
                                                     .foregroundStyle(HomeDashboardPalette.muted)
@@ -764,6 +798,9 @@ struct ClassicTalePreviewView: View {
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
+                    .onAppear { repaginate(for: proxy.size) }
+                    .onChange(of: proxy.size) { _, newSize in repaginate(for: newSize) }
+                    }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)

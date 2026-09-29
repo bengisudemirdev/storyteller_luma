@@ -43,16 +43,44 @@ struct StoryReaderView: View {
     @EnvironmentObject private var appUIState: AppUIState
     @Environment(\.dismiss) var dismiss
 
-    private var storyPages: [String] {
-        StoryReadingPagination.pages(
-            from: storyContent,
-            firstPageBudget: 700,
-            otherPageBudget: 1200
-        )
+    /// Sayfalar: her sayfa paragraf listesidir. Gerçek ekran boyutu ölçülünce (`repaginate`) yeniden hesaplanır.
+    @State private var pages: [[String]] = []
+    @State private var lastPaginatedSize: CGSize = .zero
+
+    private var displayPages: [[String]] {
+        pages.isEmpty ? StoryReadingPagination.fallbackPages(from: storyContent) : pages
     }
 
     private var pageCount: Int {
-        max(storyPages.count, 1)
+        max(displayPages.count, 1)
+    }
+
+    /// Kart dış boşlukları (`pageCardView`) ve kart iç boşluğu; sayfalama bunları düşerek gerçek metin alanını bulur.
+    private enum ReaderMetrics {
+        static let cardTopInset: CGFloat = 10
+        static let cardBottomInset: CGFloat = 12
+        static let cardInnerPadding: CGFloat = 22
+        static let accentBarHeight: CGFloat = 5
+        static let titleBlockSpacing: CGFloat = 10
+        static let cardContentSpacing: CGFloat = 16
+    }
+
+    private func repaginate(for size: CGSize) {
+        guard size.width > 1, size.height > 1, size != lastPaginatedSize else { return }
+        lastPaginatedSize = size
+        let outerWidth = min(size.width - StoryReadingChrome.horizontalPadding * 2, StoryReadingChrome.cardMaxOuterWidth)
+        let textWidth = outerWidth - ReaderMetrics.cardInnerPadding * 2
+        let cardHeight = size.height - ReaderMetrics.cardTopInset - ReaderMetrics.cardBottomInset
+        let innerHeight = cardHeight - ReaderMetrics.cardInnerPadding * 2
+        let titleBlock = ReaderMetrics.accentBarHeight + ReaderMetrics.titleBlockSpacing
+            + StoryTextMetrics.titleHeight(storyTitle, width: textWidth) + ReaderMetrics.cardContentSpacing
+        pages = StoryReadingPagination.pages(
+            from: storyContent,
+            textWidth: textWidth,
+            firstPageHeight: innerHeight - titleBlock,
+            otherPageHeight: innerHeight
+        )
+        currentPage = min(currentPage, max(pages.count - 1, 0))
     }
 
     private var hasPlayableStoryAudioURL: Bool {
@@ -68,50 +96,53 @@ struct StoryReaderView: View {
                 VStack(spacing: 0) {
                     storyReaderHeader
 
-                    TabView(selection: $currentPage) {
-                        ForEach(Array(storyPages.enumerated()), id: \.offset) { index, pageText in
-                            ScrollView(showsIndicators: false) {
-                                StoryReadingTextCard {
-                                    VStack(alignment: .leading, spacing: 16) {
-                                        if index == 0 {
-                                            VStack(alignment: .leading, spacing: 10) {
-                                                Capsule()
-                                                    .fill(
-                                                        LinearGradient(
-                                                            colors: [
-                                                                HomeDashboardPalette.accentOrange,
-                                                                HomeDashboardPalette.accentOrangeSoft
-                                                            ],
-                                                            startPoint: .leading,
-                                                            endPoint: .trailing
+                    GeometryReader { proxy in
+                        TabView(selection: $currentPage) {
+                            ForEach(Array(displayPages.enumerated()), id: \.offset) { index, paragraphs in
+                                ScrollView(showsIndicators: false) {
+                                    StoryReadingTextCard(
+                                        minHeight: proxy.size.height - ReaderMetrics.cardTopInset - ReaderMetrics.cardBottomInset
+                                    ) {
+                                        VStack(alignment: .leading, spacing: ReaderMetrics.cardContentSpacing) {
+                                            if index == 0 {
+                                                VStack(alignment: .leading, spacing: ReaderMetrics.titleBlockSpacing) {
+                                                    Capsule()
+                                                        .fill(
+                                                            LinearGradient(
+                                                                colors: [
+                                                                    HomeDashboardPalette.accentOrange,
+                                                                    HomeDashboardPalette.accentOrangeSoft
+                                                                ],
+                                                                startPoint: .leading,
+                                                                endPoint: .trailing
+                                                            )
                                                         )
-                                                    )
-                                                    .frame(width: 44, height: 5)
+                                                        .frame(width: 44, height: ReaderMetrics.accentBarHeight)
 
-                                                Text(storyTitle)
-                                                    .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
-                                                    .foregroundStyle(HomeDashboardPalette.ink)
-                                                    .fixedSize(horizontal: false, vertical: true)
+                                                    Text(storyTitle)
+                                                        .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
+                                                        .foregroundStyle(HomeDashboardPalette.ink)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                }
                                             }
-                                        }
 
-                                        Text(pageText)
-                                            .storyReadingBodyStyle()
-                                            .fixedSize(horizontal: false, vertical: true)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            StoryPageBody(paragraphs: paragraphs)
+                                        }
                                     }
+                                    .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.horizontal, StoryReadingChrome.horizontalPadding)
+                                    .padding(.top, ReaderMetrics.cardTopInset)
+                                    .padding(.bottom, ReaderMetrics.cardBottomInset)
                                 }
-                                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                                .padding(.top, 10)
-                                .padding(.bottom, 32)
+                                .scrollClipDisabled()
+                                .tag(index)
                             }
-                            .scrollClipDisabled()
-                            .tag(index)
                         }
+                        .tabViewStyle(.page(indexDisplayMode: .never))
+                        .onAppear { repaginate(for: proxy.size) }
+                        .onChange(of: proxy.size) { _, newSize in repaginate(for: newSize) }
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
@@ -141,8 +172,9 @@ struct StoryReaderView: View {
             audioPlayer.cleanup()
             showFloatingAudioPanel = false
         }
-        .onChange(of: storyPages.count) { _, newCount in
-            currentPage = min(currentPage, max(newCount - 1, 0))
+        .onChange(of: storyContent) { _, _ in
+            lastPaginatedSize = .zero
+            pages = []
         }
         .alert("Masalı silmek istiyor musun?", isPresented: $showDeleteAlert) {
             Button("Vazgeç", role: .cancel) { }
@@ -212,6 +244,7 @@ struct StoryReaderView: View {
                             .font(.system(size: 16, weight: .semibold, design: .rounded))
                             .foregroundStyle(HomeDashboardPalette.ink)
                             .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                 } else if let hero = heroDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines), !hero.isEmpty {
                     HStack(spacing: 10) {
@@ -235,21 +268,22 @@ struct StoryReaderView: View {
                             .font(.system(size: 16, weight: .semibold, design: .rounded))
                             .foregroundStyle(HomeDashboardPalette.ink)
                             .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                 } else {
                     Text(AppBrand.displayName)
                         .font(.system(size: 17, weight: .semibold, design: .serif))
                         .foregroundStyle(HomeDashboardPalette.ink.opacity(0.88))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            ViewThatFits(in: .horizontal) {
-                headerActions(compact: false)
-                headerActions(compact: true)
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            // `ViewThatFits` + `.fixedSize` dar ekranda kompakt yerleşimi asla seçmiyor, butonlar adı sıkıştırıp taşıyordu.
+            // Başka eylemler (sil/sesli) varsa Kaydet yalnızca ikondur; yoksa etiketiyle görünür.
+            headerActions(compact: story != nil)
+                .layoutPriority(1)
         }
         .padding(.horizontal, StoryReadingChrome.horizontalPadding)
         .padding(.top, 10)

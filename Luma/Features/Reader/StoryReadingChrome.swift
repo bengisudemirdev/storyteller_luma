@@ -13,89 +13,219 @@ enum StoryReadingChrome {
     static var cardMaxOuterWidth: CGFloat { contentMaxWidth + 44 }
 }
 
-// MARK: - Sayfalama (tek ekranda okuma için kısa sayfalar)
+// MARK: - Sayfalama (gerçek metin yüksekliğine göre)
+
+/// Metnin gerçek yüksekliğini ölçmek için ekrandaki yazı tipiyle birebir aynı UIKit yazı tipleri.
+enum StoryTextMetrics {
+    static func roundedFont(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        if let descriptor = base.fontDescriptor.withDesign(.rounded) {
+            return UIFont(descriptor: descriptor, size: size)
+        }
+        return base
+    }
+
+    static func serifFont(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        if let descriptor = base.fontDescriptor.withDesign(.serif) {
+            return UIFont(descriptor: descriptor, size: size)
+        }
+        return base
+    }
+
+    static var bodyFont: UIFont { roundedFont(size: StoryReadingChrome.bodySize, weight: .regular) }
+    static var titleFont: UIFont { serifFont(size: StoryReadingChrome.titleSize, weight: .bold) }
+
+    static func height(of text: String, width: CGFloat, font: UIFont, lineSpacing: CGFloat) -> CGFloat {
+        guard !text.isEmpty, width > 1 else { return 0 }
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = lineSpacing
+        let rect = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font, .paragraphStyle: style],
+            context: nil
+        )
+        return ceil(rect.height)
+    }
+
+    static func bodyHeight(_ text: String, width: CGFloat) -> CGFloat {
+        height(of: text, width: width, font: bodyFont, lineSpacing: StoryReadingChrome.bodyLineSpacing)
+    }
+
+    static func titleHeight(_ text: String, width: CGFloat) -> CGFloat {
+        height(of: text, width: width, font: titleFont, lineSpacing: 0)
+    }
+}
 
 enum StoryReadingPagination {
-    /// İlk sayfada başlık için gövdeye biraz daha az; sonraki sayfalar daha uzun olabilir.
-    static func pages(from storyContent: String, firstPageBudget: Int = 640, otherPageBudget: Int = 1050) -> [String] {
-        let trimmed = storyContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [""] }
+    /// Paragraflar arası boşluk (metin içinde boş satır yerine gerçek aralık).
+    static let paragraphSpacing: CGFloat = 14
+    /// SwiftUI ile UIKit ölçümü arasındaki küçük farklara karşı güvenlik payı.
+    private static let safety: CGFloat = 0.94
 
-        let normalizedFirstBudget = max(360, min(firstPageBudget, 1500))
-        let normalizedOtherBudget = max(520, min(otherPageBudget, 2200))
+    /// Metni paragraflara ayırır. Boş satır yoksa tek satır sonlarına, o da yoksa uzun bloğu cümle gruplarına bölünür.
+    static func paragraphs(from text: String) -> [String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
 
-        let maxPiece = min(normalizedFirstBudget, normalizedOtherBudget)
-        let chunks = chunkText(trimmed, maxChunk: max(120, maxPiece))
+        var parts = trimmed.components(separatedBy: "\n\n")
+        if parts.count == 1 { parts = trimmed.components(separatedBy: "\n") }
+        parts = parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
 
-        var pages: [String] = []
+        // Tek koca blok geldiyse okunaklı olsun diye yaklaşık 450 karakterlik cümle gruplarına böl.
+        if parts.count == 1, let only = parts.first, only.count > 700 {
+            return groupSentences(sentences(of: only), maxChars: 450)
+        }
+        return parts
+    }
+
+    static func sentences(of text: String) -> [String] {
+        var result: [String] = []
+        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .bySentences) { sub, _, _, _ in
+            if let sub {
+                let t = sub.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty { result.append(t) }
+            }
+        }
+        return result.isEmpty ? [text] : result
+    }
+
+    private static func groupSentences(_ sentences: [String], maxChars: Int) -> [String] {
+        var groups: [String] = []
         var current = ""
-        var isFirstPage = true
-
-        for ch in chunks {
-            let budget = isFirstPage ? normalizedFirstBudget : normalizedOtherBudget
-            let candidate = current.isEmpty ? ch : current + "\n\n" + ch
-            if candidate.count <= budget {
-                current = candidate
+        for sentence in sentences {
+            if !current.isEmpty, current.count + 1 + sentence.count > maxChars {
+                groups.append(current)
+                current = sentence
             } else {
-                if !current.isEmpty {
-                    pages.append(current)
+                current = current.isEmpty ? sentence : current + " " + sentence
+            }
+        }
+        if !current.isEmpty { groups.append(current) }
+        return groups
+    }
+
+    /// Metni, verilen sayfa yüksekliklerine göre sayfalara böler. Paragraf sınırlarını korur; sığmayan paragrafı
+    /// CÜMLE sınırından bölerek sonraki sayfaya devam ettirir (cümle ortasında kesmez).
+    /// - Parameters:
+    ///   - textWidth: Metnin çizileceği gerçek genişlik.
+    ///   - firstPageHeight: İlk sayfada metne ayrılan yükseklik (başlık/kapak düşülmüş).
+    ///   - otherPageHeight: Diğer sayfalarda metne ayrılan yükseklik.
+    static func pages(
+        from storyContent: String,
+        textWidth: CGFloat,
+        firstPageHeight: CGFloat,
+        otherPageHeight: CGFloat
+    ) -> [[String]] {
+        let paras = paragraphs(from: storyContent)
+        guard !paras.isEmpty else { return [[""]] }
+
+        let minUseful = StoryTextMetrics.bodyHeight("Ag", width: textWidth) * 3
+        func capacity(_ pageIndex: Int) -> CGFloat {
+            max(minUseful, (pageIndex == 0 ? firstPageHeight : otherPageHeight) * safety)
+        }
+
+        var pages: [[String]] = [[]]
+        var used: CGFloat = 0
+
+        func startNewPage() {
+            pages.append([])
+            used = 0
+        }
+
+        func gapIfNeeded() -> CGFloat { pages[pages.count - 1].isEmpty ? 0 : paragraphSpacing }
+
+        for paragraph in paras {
+            var remaining = [paragraph]
+            // Tek paragraf en fazla birkaç kez bölünür; sonsuz döngüye karşı üst sınır.
+            var guardCount = 0
+            while let current = remaining.first, guardCount < 40 {
+                guardCount += 1
+                let pageIndex = pages.count - 1
+                let height = StoryTextMetrics.bodyHeight(current, width: textWidth)
+                let gap = gapIfNeeded()
+
+                if used + gap + height <= capacity(pageIndex) {
+                    pages[pageIndex].append(current)
+                    used += gap + height
+                    remaining.removeFirst()
+                    continue
                 }
-                current = ch
-                isFirstPage = false
+
+                // Sığmadı: cümle cümle doldur.
+                let sents = sentences(of: current)
+                var fit = ""
+                var consumed = 0
+                for sentence in sents {
+                    let candidate = fit.isEmpty ? sentence : fit + " " + sentence
+                    if used + gap + StoryTextMetrics.bodyHeight(candidate, width: textWidth) <= capacity(pageIndex) {
+                        fit = candidate
+                        consumed += 1
+                    } else {
+                        break
+                    }
+                }
+
+                if fit.isEmpty {
+                    if pages[pageIndex].isEmpty {
+                        // Sayfa boş ve tek cümle bile sığmıyor: cümleyi zorla yerleştir (kaydırma yedek olarak kalır).
+                        pages[pageIndex].append(sents.first ?? current)
+                        used += StoryTextMetrics.bodyHeight(sents.first ?? current, width: textWidth)
+                        let rest = sents.dropFirst().joined(separator: " ")
+                        remaining = rest.isEmpty ? [] : [rest]
+                        if !remaining.isEmpty { startNewPage() }
+                    } else {
+                        startNewPage()
+                    }
+                } else {
+                    pages[pageIndex].append(fit)
+                    let rest = sents.dropFirst(consumed).joined(separator: " ")
+                    remaining = rest.isEmpty ? [] : [rest]
+                    if !remaining.isEmpty { startNewPage() }
+                }
             }
         }
 
-        if !current.isEmpty {
-            pages.append(current)
-        }
+        var result = pages.filter { !$0.isEmpty }
 
-        // Son sayfada birkaç satırlık kırıntı kalırsa bir önceki sayfayla birleştir.
-        if pages.count >= 2, let last = pages.last, last.count < 220 {
-            let prevIndex = pages.count - 2
-            pages[prevIndex] += "\n\n" + last
-            pages.removeLast()
-        }
-
-        return pages.isEmpty ? [trimmed] : pages
-    }
-
-    private struct PrefixTake {
-        let text: String
-        let remainder: String
-    }
-
-    /// Kelime sınırına yakın keser; `maxLen` karakteri aşmamaya çalışır.
-    private static func takePrefix(upTo maxLen: Int, from text: String) -> PrefixTake {
-        guard text.count > maxLen else { return PrefixTake(text: text, remainder: "") }
-        let idx = text.index(text.startIndex, offsetBy: maxLen)
-        var cut = String(text[..<idx])
-        if let lastSpace = cut.lastIndex(of: " "), lastSpace > cut.startIndex {
-            cut = String(text[..<lastSpace])
-        }
-        if cut.isEmpty {
-            cut = String(text.prefix(maxLen))
-        }
-        let rest = String(text[cut.endIndex...]).trimmingCharacters(in: .whitespacesAndNewlines)
-        return PrefixTake(text: cut.trimmingCharacters(in: .whitespacesAndNewlines), remainder: rest)
-    }
-
-    private static func chunkText(_ text: String, maxChunk: Int) -> [String] {
-        var chunks: [String] = []
-        for para in text.components(separatedBy: "\n\n") {
-            let p = para.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !p.isEmpty else { continue }
-            if p.count <= maxChunk {
-                chunks.append(p)
-            } else {
-                var rest = p
-                while !rest.isEmpty {
-                    let t = takePrefix(upTo: maxChunk, from: rest)
-                    if !t.text.isEmpty { chunks.append(t.text) }
-                    rest = t.remainder
-                }
+        // Son sayfada çok az metin kalırsa (yetim), sığıyorsa öncekiyle birleştir.
+        if result.count >= 2, let last = result.last {
+            let lastHeight = last.reduce(0) { $0 + StoryTextMetrics.bodyHeight($1, width: textWidth) }
+                + CGFloat(max(last.count - 1, 0)) * paragraphSpacing
+            let prevIndex = result.count - 2
+            let prevHeight = result[prevIndex].reduce(0) { $0 + StoryTextMetrics.bodyHeight($1, width: textWidth) }
+                + CGFloat(max(result[prevIndex].count - 1, 0)) * paragraphSpacing
+            if lastHeight < minUseful, prevHeight + paragraphSpacing + lastHeight <= capacity(prevIndex) {
+                result[prevIndex].append(contentsOf: last)
+                result.removeLast()
             }
         }
-        return chunks
+        return result.isEmpty ? [[storyContent]] : result
+    }
+
+    /// Ölçüm henüz yapılamadıysa (ilk çizim) kullanılan basit yedek sayfalama.
+    static func fallbackPages(from storyContent: String) -> [[String]] {
+        let paras = paragraphs(from: storyContent)
+        return [paras.isEmpty ? [storyContent] : paras]
+    }
+}
+
+/// Sayfadaki paragraflar: boş satır yerine gerçek paragraf aralığı.
+struct StoryPageBody: View {
+    let paragraphs: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: StoryReadingPagination.paragraphSpacing) {
+            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                Text(paragraph)
+                    .storyReadingBodyStyle()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
     }
 }
 
@@ -234,12 +364,14 @@ struct StoryReadingPageControls: View {
 }
 
 struct StoryReadingTextCard<Content: View>: View {
+    var minHeight: CGFloat? = nil
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         content()
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(22)
+            .frame(minHeight: minHeight, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: StoryReadingChrome.cardCornerRadius, style: .continuous)
                     .fill(HomeDashboardPalette.dashboardCanvas)
