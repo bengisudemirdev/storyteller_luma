@@ -324,9 +324,6 @@ struct ProfileView: View {
                                     .font(.caption2)
                                     .foregroundStyle(HomeDashboardPalette.sectionCaption)
                             }
-                            Text("Kredi bakiyesi (kampanya / hediye): \(creditBalance.balance)")
-                                .font(.caption2)
-                                .foregroundStyle(HomeDashboardPalette.muted)
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.right")

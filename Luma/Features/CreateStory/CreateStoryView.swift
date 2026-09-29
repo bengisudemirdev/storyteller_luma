@@ -4,7 +4,7 @@ struct CreateStoryView: View {
     @StateObject private var viewModel: CreateStoryViewModel
     @FocusState private var focusedField: Field?
     @State private var hasLoadedScreenOnce = false
-    @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
+    @ObservedObject private var entitlements = EntitlementStore.shared
 
     private enum Field: Hashable { case childName; case interest }
 
@@ -44,6 +44,16 @@ struct CreateStoryView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         )
+    }
+
+    /// Plan bazlı kullanım bilgisi (aylık masal hakkı). Kredi gösterilmez.
+    private var planUsageFootnote: String {
+        if PortfolioAccessMode.isEnabled { return "Portföy modu: masal oluşturma test için açık." }
+        guard let remaining = entitlements.storyRemainingThisMonth, let limit = entitlements.storyLimitMonthly else {
+            return " "
+        }
+        let planName = entitlements.hasFamilyAccess ? "Family" : (entitlements.hasPremiumAccess ? "Premium" : "Ücretsiz plan")
+        return "\(planName) • Bu ay kalan masal hakkın: \(remaining) / \(limit)"
     }
 
     var body: some View {
@@ -166,11 +176,6 @@ struct CreateStoryView: View {
                             VStack(spacing: 4) {
                                 Text("Sihirli Masalı Yaz ✨")
                                     .font(.system(size: 17, weight: .semibold, design: .rounded))
-                                if !PortfolioAccessMode.isEnabled {
-                                    Text("Maliyet: \(viewModel.storyCreditCost) kredi")
-                                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                                }
                                 if let child = viewModel.selectedChild, let fears = child.fears, !fears.isEmpty {
                                     Text("Korkulardan arındırılmış güvenli bölge 🛡️")
                                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -198,7 +203,7 @@ struct CreateStoryView: View {
                         .disabled(viewModel.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
                         .opacity((viewModel.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading) ? 0.55 : 1.0)
 
-                        Text(PortfolioAccessMode.isEnabled ? "Portföy modu: masal oluşturma test için açık." : "Bakiyen: \(creditBalance.balance) kredi • Yeni kullanıcıya 1000 başlangıç kredisi verilir (yaklaşık 2 masal).")
+                        Text(planUsageFootnote)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(HomeDashboardPalette.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -234,6 +239,8 @@ struct CreateStoryView: View {
         }
         .onAppear {
             setupSegmentedControl()
+            // Kalan hak bilgisi güncel görünsün (ekran her açıldığında).
+            Task { await EntitlementStore.shared.refreshFromBackend() }
         }
         .task {
             if hasLoadedScreenOnce { return }
