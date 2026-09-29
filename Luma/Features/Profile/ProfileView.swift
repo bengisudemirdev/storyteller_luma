@@ -664,7 +664,7 @@ private struct AccountSecuritySheet: View {
                     }
                 }
             } message: {
-                Text("Bu işlem geri alınamaz. Hesabın ve ilişkili verilerin silinecektir.")
+                Text("Bu işlem geri alınamaz. Hesabın, çocuk profillerin, masalların, sesli anlatımların, kapakların ve satın alma kayıtların silinecek. Aktif bir aboneliğin varsa App Store > Abonelikler bölümünden ayrıca iptal etmelisin; hesabı silmek aboneliği iptal etmez.")
             }
         }
     }

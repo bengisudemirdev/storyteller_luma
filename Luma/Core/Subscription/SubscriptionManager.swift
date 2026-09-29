@@ -79,6 +79,19 @@ final class SubscriptionManager: ObservableObject {
         }
     }
 
+    /// Hesap silinince cihazdaki kullanım sayaçlarını da temizler.
+    func clearLocalUsage() {
+        [weeklyStoriesKey, weeklyNarrationsKey, usageWeekKey, freeNarrationTrialKey].forEach {
+            userDefaults.removeObject(forKey: $0)
+        }
+        weeklyStoriesUsed = 0
+        weeklyNarrationsUsed = 0
+        freeNarrationTrialUsed = false
+        plan = .free
+        status = "inactive"
+        currentPeriodEnd = nil
+    }
+
     // MARK: - Local usage persistence
 
     private func loadLocalUsage() {

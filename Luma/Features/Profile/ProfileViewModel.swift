@@ -305,6 +305,9 @@ class ProfileViewModel: ObservableObject {
             let message = try await AuthAPIService.deleteCurrentUserAccount()
             // Lokal oturumu da kapat: UI login ekranina dusmeli.
             try? await OliaApp.supabase.auth.signOut()
+            await RevenueCatIdentityService.resetToAnonymousIfNeeded()
+            EntitlementStore.shared.clearForLogout()
+            SubscriptionManager.shared.clearLocalUsage()
             AppLogger.info("profile.account.deleted", [:])
             return message
         } catch {
