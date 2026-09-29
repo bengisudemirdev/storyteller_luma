@@ -135,17 +135,8 @@ struct CreateStoryView: View {
                                 prompt: Text("Ekstra detaylar (Konuşan kedi, uçan halı vb.)")
                                     .foregroundStyle(HomeDashboardPalette.muted.opacity(0.85))
                             )
-                            .foregroundStyle(HomeDashboardPalette.ink)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                    .fill(HomeDashboardPalette.cardSurface)
-                                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 6, x: 0, y: 2)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                    .stroke(HomeDashboardPalette.accentOrange.opacity(0.18), lineWidth: 1)
-                            )
+                            .lumaInputText()
+                            .lumaInputBox(focused: focusedField == .interest)
                             .focused($focusedField, equals: .interest)
                         }
 
@@ -222,7 +213,7 @@ struct CreateStoryView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .overlay { if viewModel.isLoading { LoadingView().ignoresSafeArea() } }
+        .overlay { if viewModel.isLoading { LoadingView(onCancel: { viewModel.cancelGeneration() }).ignoresSafeArea() } }
         .fullScreenCover(isPresented: $viewModel.showReaderView) { readerViewContainer }
         .alert("Masal oluşturulamadı", isPresented: $viewModel.showErrorAlert) {
             Button("Tamam", role: .cancel) { }
@@ -337,17 +328,8 @@ struct CreateStoryView: View {
                 text: text,
                 prompt: Text(placeholder).foregroundStyle(HomeDashboardPalette.muted.opacity(0.85))
             )
-            .foregroundStyle(HomeDashboardPalette.ink)
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(HomeDashboardPalette.cardSurface)
-                    .shadow(color: HomeDashboardPalette.cardShadow, radius: 6, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(HomeDashboardPalette.accentOrange.opacity(0.18), lineWidth: 1)
-            )
+            .lumaInputText()
+            .lumaInputBox()
         }
     }
 

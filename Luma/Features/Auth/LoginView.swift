@@ -186,30 +186,19 @@ struct LoginView: View {
                     focusedField = field
                 }
 
-            ZStack(alignment: .leading) {
-                if text.wrappedValue.isEmpty {
-                    Text(title)
-                        .foregroundColor(LumaTheme.text.opacity(0.7))
-                        .allowsHitTesting(false)
+            TextField("", text: text, prompt: lumaPrompt(title))
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .lumaInputText()
+                .focused($focusedField, equals: field)
+                .submitLabel(.next)
+                .onSubmit {
+                    focusedField = .password
                 }
-                TextField("", text: text)
-                    .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .foregroundColor(LumaTheme.text)
-                    .focused($focusedField, equals: field)
-                    .submitLabel(.next)
-                    .onSubmit {
-                        focusedField = .password
-                    }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(15)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .lumaInputBox(focused: focusedField == field)
     }
 
     private func customPasswordField(title: String, text: Binding<String>, isVisible: Binding<Bool>, field: LoginFocusField) -> some View {
@@ -224,45 +213,31 @@ struct LoginView: View {
 
             Group {
                 if isVisible.wrappedValue {
-                    ZStack(alignment: .leading) {
-                        if text.wrappedValue.isEmpty {
-                            Text(title)
-                                .foregroundColor(LumaTheme.text.opacity(0.7))
-                                .allowsHitTesting(false)
-                        }
-                        TextField("", text: text)
-                            .textContentType(.password)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .foregroundColor(LumaTheme.text)
-                            .focused($focusedField, equals: field)
-                            .submitLabel(.go)
-                            .onSubmit {
-                                Task {
-                                    dismissKeyboard()
-                                    _ = await viewModel.signIn()
-                                }
+                    TextField("", text: text, prompt: lumaPrompt(title))
+                        .textContentType(.password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .lumaInputText()
+                        .focused($focusedField, equals: field)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            Task {
+                                dismissKeyboard()
+                                _ = await viewModel.signIn()
                             }
-                    }
+                        }
                 } else {
-                    ZStack(alignment: .leading) {
-                        if text.wrappedValue.isEmpty {
-                            Text(title)
-                                .foregroundColor(LumaTheme.text.opacity(0.7))
-                                .allowsHitTesting(false)
-                        }
-                        SecureField("", text: text)
-                            .textContentType(.password)
-                            .foregroundColor(LumaTheme.text)
-                            .focused($focusedField, equals: field)
-                            .submitLabel(.go)
-                            .onSubmit {
-                                Task {
-                                    dismissKeyboard()
-                                    _ = await viewModel.signIn()
-                                }
+                    SecureField("", text: text, prompt: lumaPrompt(title))
+                        .textContentType(.password)
+                        .lumaInputText()
+                        .focused($focusedField, equals: field)
+                        .submitLabel(.go)
+                        .onSubmit {
+                            Task {
+                                dismissKeyboard()
+                                _ = await viewModel.signIn()
                             }
-                    }
+                        }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -276,10 +251,7 @@ struct LoginView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(15)
-        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+        .lumaInputBox(focused: focusedField == field)
     }
 }
 

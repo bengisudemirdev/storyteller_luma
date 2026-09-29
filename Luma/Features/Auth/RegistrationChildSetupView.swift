@@ -75,40 +75,20 @@ struct RegistrationChildSetupView: View {
                             Label("Çocuğun adı", systemImage: "sparkles")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(HomeDashboardPalette.accentOrange)
-                            TextField("Örn: Elif", text: $childName)
-                                .font(.system(size: 16, weight: .medium, design: .rounded))
-                                .foregroundStyle(HomeDashboardPalette.ink)
+                            TextField("", text: $childName, prompt: lumaPrompt("Örn: Elif"))
+                                .lumaInputText()
                                 .textInputAutocapitalization(.words)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.12), lineWidth: 1)
-                                )
+                                .lumaInputBox()
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
                             Label("Yaş", systemImage: "birthday.cake.fill")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(HomeDashboardPalette.accentOrange)
-                            TextField("1–17 arası", text: $childAgeText)
+                            TextField("", text: $childAgeText, prompt: lumaPrompt("1–17 arası"))
                                 .keyboardType(.numberPad)
-                                .font(.system(size: 16, weight: .medium, design: .rounded))
-                                .foregroundStyle(HomeDashboardPalette.ink)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.12), lineWidth: 1)
-                                )
+                                .lumaInputText()
+                                .lumaInputBox()
                         }
 
                         VStack(alignment: .leading, spacing: 10) {

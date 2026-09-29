@@ -3,6 +3,9 @@ import SwiftUI
 /// Masal üretimi sırasında tam ekran; ana sayfa paleti ve yumuşak “peri tozu” animasyonu.
 struct LoadingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Verilirse, bir süre sonra "Beklemek istemiyorum" düğmesi çıkar (ekran dokunuşları bloklar; kaçış yolu olmalı).
+    var onCancel: (() -> Void)? = nil
+    @State private var showCancel = false
 
     private static let captionLines: [String] = [
         "Peri tozları sayfalara serpiliyor ✨",
@@ -67,7 +70,7 @@ struct LoadingView: View {
 
                     StoryPrepProgressDots(reduceMotion: reduceMotion)
 
-                    Text("Masal üretimi bazen birkaç dakika sürebilir. Bu ekranda beklemeye devam et; uygulamayı veya sekmeyi kapatma.")
+                    Text("Masal üretimi yaklaşık yarım dakika sürebilir. İstersen vazgeçebilirsin; tamamlanan masal kayıtlı masallarında görünür.")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(HomeDashboardPalette.sectionCaption)
                         .multilineTextAlignment(.center)
@@ -98,9 +101,27 @@ struct LoadingView: View {
                         )
                 )
 
+                if showCancel, let onCancel {
+                    Button(action: onCancel) {
+                        Text("Beklemek istemiyorum")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.accentOrange)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(Capsule().fill(HomeDashboardPalette.accentOrange.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+
                 Spacer(minLength: 40)
             }
             .padding(.horizontal, HomeDashboardMetrics.horizontalPadding)
+        }
+        .task {
+            guard onCancel != nil else { return }
+            try? await Task.sleep(nanoseconds: 20_000_000_000)
+            withAnimation(.easeInOut(duration: 0.3)) { showCancel = true }
         }
     }
 }
@@ -111,6 +132,7 @@ private struct StoryPrepHeroOrb: View {
     let reduceMotion: Bool
     @State private var pulse = false
     @State private var bob = false
+    @State private var orbit = false
 
     var body: some View {
         ZStack {
@@ -126,25 +148,24 @@ private struct StoryPrepHeroOrb: View {
             }
 
             if !reduceMotion {
-                TimelineView(.animation(minimumInterval: 1 / 24, paused: false)) { context in
-                    let angle = context.date.timeIntervalSinceReferenceDate * 32
-                    ZStack {
-                        ForEach(0..<6, id: \.self) { i in
-                            Image(systemName: "sparkle")
-                                .font(.system(size: 11 + CGFloat(i % 3) * 2, weight: .semibold))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [HomeDashboardPalette.accentOrangeSoft, LumaTheme.lavender],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
+                ZStack {
+                    ForEach(0..<6, id: \.self) { i in
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 11 + CGFloat(i % 3) * 2, weight: .semibold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [HomeDashboardPalette.accentOrangeSoft, LumaTheme.lavender],
+                                    startPoint: .top,
+                                    endPoint: .bottom
                                 )
-                                .offset(y: -76)
-                                .rotationEffect(.degrees(Double(i) * 60 + angle))
-                                .opacity(0.75)
-                        }
+                            )
+                            .offset(y: -76)
+                            .rotationEffect(.degrees(Double(i) * 60))
+                            .opacity(0.75)
                     }
                 }
+                // Tek sürekli dönüş (Core Animation): eskiden TimelineView ile saniyede 24 kez yeniden çiziliyordu.
+                .rotationEffect(.degrees(orbit ? 360 : 0))
             }
 
             ZStack {
@@ -214,6 +235,9 @@ private struct StoryPrepHeroOrb: View {
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
                 pulse = true
             }
+            withAnimation(.linear(duration: 11).repeatForever(autoreverses: false)) {
+                orbit = true
+            }
         }
     }
 }
@@ -221,45 +245,40 @@ private struct StoryPrepHeroOrb: View {
 // MARK: - Ambient specks
 
 private struct StoryPrepAmbientSpecks: View {
-    private static let specks: [Speck] = Speck.seeded(count: 42)
+    private static let specks: [Speck] = Speck.seeded(count: 24)
 
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            TimelineView(.animation(minimumInterval: 1 / 20, paused: false)) { timeline in
+        // Tek `Canvas` çizimi: eskiden 42 ayrı bulanık SwiftUI görünümü saniyede 20 kez yeniden hesaplanıyordu.
+        TimelineView(.animation(minimumInterval: 1 / 12, paused: false)) { timeline in
+            Canvas { context, size in
                 let t = timeline.date.timeIntervalSinceReferenceDate
-                ZStack {
-                    ForEach(Self.specks) { s in
-                        speckView(s, t: t, in: CGSize(width: w, height: h))
+                for s in Self.specks {
+                    let wobble = sin(t * s.speed + s.phase) * 10
+                    let drift = cos(t * s.speed * 0.7 + s.phase * 1.3) * 8
+                    let x = size.width * s.u + wobble
+                    let y = size.height * s.v + drift
+                    let twinkle = 0.35 + 0.45 * (0.5 + 0.5 * sin(t * 2.2 + s.phase))
+                    let rect = CGRect(x: x - s.size / 2, y: y - s.size / 2, width: s.size, height: s.size)
+                    if s.isStar {
+                        var star = Path()
+                        star.move(to: CGPoint(x: x, y: y - s.size))
+                        star.addLine(to: CGPoint(x: x + s.size * 0.3, y: y - s.size * 0.3))
+                        star.addLine(to: CGPoint(x: x + s.size, y: y))
+                        star.addLine(to: CGPoint(x: x + s.size * 0.3, y: y + s.size * 0.3))
+                        star.addLine(to: CGPoint(x: x, y: y + s.size))
+                        star.addLine(to: CGPoint(x: x - s.size * 0.3, y: y + s.size * 0.3))
+                        star.addLine(to: CGPoint(x: x - s.size, y: y))
+                        star.addLine(to: CGPoint(x: x - s.size * 0.3, y: y - s.size * 0.3))
+                        star.closeSubpath()
+                        context.fill(star, with: .color(s.tint.opacity(twinkle)))
+                    } else {
+                        context.fill(Path(ellipseIn: rect), with: .color(s.tint.opacity(twinkle * 0.85)))
                     }
                 }
             }
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
-    }
-
-    private func speckView(_ s: Speck, t: TimeInterval, in size: CGSize) -> some View {
-        let wobble = sin(t * s.speed + s.phase) * 10
-        let drift = cos(t * s.speed * 0.7 + s.phase * 1.3) * 8
-        let x = size.width * s.u + wobble
-        let y = size.height * s.v + drift
-        let twinkle = 0.35 + 0.45 * (0.5 + 0.5 * sin(t * 2.2 + s.phase))
-
-        return Group {
-            if s.isStar {
-                Image(systemName: "sparkle")
-                    .font(.system(size: s.size, weight: .light))
-                    .foregroundStyle(s.tint.opacity(twinkle))
-            } else {
-                Circle()
-                    .fill(s.tint.opacity(twinkle * 0.85))
-                    .frame(width: s.size, height: s.size)
-                    .blur(radius: s.blur)
-            }
-        }
-        .position(x: x, y: y)
     }
 
     private struct Speck: Identifiable {

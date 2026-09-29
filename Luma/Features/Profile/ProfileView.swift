@@ -101,10 +101,7 @@ struct ProfileView: View {
                 }
             }
             .sheet(isPresented: $isShowingFeedbackSheet) {
-                ProfileFeedbackSheet(
-                    recipientEmail: AppConfig.feedbackRecipientEmail,
-                    userEmail: viewModel.parentEmail
-                )
+                ProfileFeedbackSheet()
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
@@ -559,19 +556,15 @@ private struct AccountSecuritySheet: View {
                                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                                 .foregroundStyle(HomeDashboardPalette.ink)
 
-                            SecureField("Yeni şifre (en az 6 karakter)", text: $newPassword)
-                                .padding(12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(Color.white.opacity(0.9))
-                                )
+                            SecureField("", text: $newPassword, prompt: lumaPrompt("Yeni şifre (en az 6 karakter)"))
+                                .textContentType(.newPassword)
+                                .lumaInputText()
+                                .lumaInputBox()
 
-                            SecureField("Yeni şifre (tekrar)", text: $confirmPassword)
-                                .padding(12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(Color.white.opacity(0.9))
-                                )
+                            SecureField("", text: $confirmPassword, prompt: lumaPrompt("Yeni şifre (tekrar)"))
+                                .textContentType(.newPassword)
+                                .lumaInputText()
+                                .lumaInputBox()
 
                             Button {
                                 Task {
@@ -960,26 +953,14 @@ struct AddChildView: View {
                             Circle()
                                 .fill(HomeDashboardPalette.accentOrangeSoft.opacity(0.35))
                         )
-                    TextField("Örn: Elif", text: $viewModel.newChildName)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(HomeDashboardPalette.ink)
+                    TextField("", text: $viewModel.newChildName, prompt: lumaPrompt("Örn: Elif"))
+                        .lumaInputText()
                         .textInputAutocapitalization(.words)
                         .submitLabel(.done)
                         .focused($focusedField, equals: .name)
                         .lineLimit(1)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(Rectangle())
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(HomeDashboardPalette.creamDeep.opacity(0.65))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.15), lineWidth: 1)
-                )
+                .lumaInputBox(focused: focusedField == .name)
             }
 
             addChildSectionCard(title: "Avatar", subtitle: "Profilde görünsün") {
@@ -1225,19 +1206,11 @@ struct AddChildView: View {
         onAdd: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
-            TextField(placeholder, text: text)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.ink)
+            TextField("", text: text, prompt: lumaPrompt(placeholder))
+                .lumaInputText(size: 15)
                 .submitLabel(.done)
                 .focused($focusedField, equals: focus)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 10)
-                .frame(minHeight: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
-                )
-                .contentShape(Rectangle())
+                .lumaInputBox(focused: focusedField == focus)
             Button(action: onAdd) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 26, weight: .semibold))
@@ -1312,14 +1285,12 @@ struct EditChildView: View {
                             Text("Çocuğun adı")
                                 .font(.headline)
                                 .foregroundColor(.black)
-                            TextField("Örn: Elif", text: $viewModel.newChildName)
+                            TextField("", text: $viewModel.newChildName, prompt: lumaPrompt("Örn: Elif"))
                                 .textContentType(.name)
                                 .textInputAutocapitalization(.words)
                                 .submitLabel(.done)
-                                .foregroundColor(.black)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(12)
+                                .lumaInputText()
+                                .lumaInputBox()
                             Text("Masallarda ve profilde bu isim görünür.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -1362,11 +1333,9 @@ struct EditChildView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Neleri Sever?").font(.headline).foregroundColor(.black)
                             HStack {
-                                TextField("Hobi ekle...", text: $currentInterest)
-                                    .foregroundColor(.black)
-                                    .padding()
-                                    .background(Color.white)
-                                    .cornerRadius(12)
+                                TextField("", text: $currentInterest, prompt: lumaPrompt("Hobi ekle..."))
+                                    .lumaInputText()
+                                    .lumaInputBox()
                                 Button(action: {
                                     if !currentInterest.isEmpty {
                                         viewModel.interests.append(currentInterest)
@@ -1383,11 +1352,9 @@ struct EditChildView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Nelerden Korkar?").font(.headline).foregroundColor(.black)
                             HStack {
-                                TextField("Korku ekle...", text: $currentFear)
-                                    .foregroundColor(.black)
-                                    .padding()
-                                    .background(Color.white)
-                                    .cornerRadius(12)
+                                TextField("", text: $currentFear, prompt: lumaPrompt("Korku ekle..."))
+                                    .lumaInputText()
+                                    .lumaInputBox()
                                 Button(action: {
                                     if !currentFear.isEmpty {
                                         viewModel.fears.append(currentFear)

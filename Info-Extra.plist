@@ -3,6 +3,9 @@
 <plist version="1.0">
 <dict>
 	<!-- Sesli masal ekran kilitliyken / uygulama arka plandayken çalmaya devam etsin. -->
+	<!-- Arayüz yalnızca açık temaya göre tasarlandı (beyaz/krem kutular); koyu modda yer tutucu ve yazılar görünmez oluyordu. -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

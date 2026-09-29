@@ -69,6 +69,7 @@ struct OliaApp: App {
                     await handlePostRegistrationPaywallRequest()
                 }
             }
+            .preferredColorScheme(.light)
             .animation(.easeInOut(duration: 0.25), value: authManager.isSessionChecked)
             .animation(.easeInOut(duration: 0.25), value: authManager.isAuthenticated)
             .animation(.easeInOut(duration: 0.25), value: registrationRequiresChildSetup)

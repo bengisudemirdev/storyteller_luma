@@ -73,9 +73,8 @@ struct RegisterView: View {
                             title: "Ad Soyad",
                             icon: "person.fill",
                             content: {
-                                TextField("Adınız ve soyadınız", text: $viewModel.fullName)
-                                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                                    .foregroundStyle(HomeDashboardPalette.ink)
+                                TextField("", text: $viewModel.fullName, prompt: lumaPrompt("Adınız ve soyadınız"))
+                                    .lumaInputText()
                                     .textInputAutocapitalization(.words)
                             }
                         )
@@ -84,9 +83,8 @@ struct RegisterView: View {
                             title: "E-posta",
                             icon: "envelope.fill",
                             content: {
-                                TextField("ornek@eposta.com", text: $viewModel.email)
-                                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                                    .foregroundStyle(HomeDashboardPalette.ink)
+                                TextField("", text: $viewModel.email, prompt: lumaPrompt("ornek@eposta.com"))
+                                    .lumaInputText()
                                     .keyboardType(.emailAddress)
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
@@ -95,12 +93,14 @@ struct RegisterView: View {
 
                         registrationSecureField(
                             title: "Şifre",
+                            placeholder: "En az 6 karakter",
                             text: $viewModel.password,
                             isVisible: $isPasswordVisible
                         )
 
                         registrationSecureField(
                             title: "Şifre tekrar",
+                            placeholder: "Şifreni tekrar yaz",
                             text: $viewModel.confirmPassword,
                             isVisible: $isConfirmPasswordVisible
                         )
@@ -224,21 +224,13 @@ struct RegisterView: View {
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(HomeDashboardPalette.accentOrange)
             content()
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.12), lineWidth: 1)
-                )
+                .lumaInputBox()
         }
     }
 
     private func registrationSecureField(
         title: String,
+        placeholder: String,
         text: Binding<String>,
         isVisible: Binding<Bool>
     ) -> some View {
@@ -249,14 +241,14 @@ struct RegisterView: View {
             HStack(spacing: 10) {
                 Group {
                     if isVisible.wrappedValue {
-                        TextField("", text: text)
+                        TextField("", text: text, prompt: lumaPrompt(placeholder))
                             .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
                     } else {
-                        SecureField("", text: text)
+                        SecureField("", text: text, prompt: lumaPrompt(placeholder))
                     }
                 }
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .foregroundStyle(HomeDashboardPalette.ink)
+                .lumaInputText()
 
                 Button {
                     isVisible.wrappedValue.toggle()
@@ -267,16 +259,7 @@ struct RegisterView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(HomeDashboardPalette.accentOrange.opacity(0.12), lineWidth: 1)
-            )
+            .lumaInputBox()
         }
     }
 }

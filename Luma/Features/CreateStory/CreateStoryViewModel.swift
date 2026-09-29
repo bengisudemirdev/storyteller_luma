@@ -24,6 +24,7 @@ class CreateStoryViewModel: ObservableObject {
     @Published var generatedStoryModel: StoryModel? = nil
     @Published var pendingAction: PendingAction?
     private var hasLoadedChildrenOnce = false
+    private var generationTask: Task<Void, Never>?
 
     func createStory() {
         let trimmedName = childName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -37,7 +38,8 @@ class CreateStoryViewModel: ObservableObject {
             "hasExtraContext": interest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "false" : "true"
         ])
 
-        Task {
+        generationTask?.cancel()
+        generationTask = Task {
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
             guard EntitlementStore.shared.canCreateStory else {
@@ -81,6 +83,11 @@ class CreateStoryViewModel: ObservableObject {
                 await CreditBalanceViewModel.shared.refreshBalance()
                 NotificationCenter.default.post(name: .lumaSavedStoriesDidChange, object: nil)
             } catch {
+                if Task.isCancelled || error is CancellationError {
+                    // Kullanıcı beklemekten vazgeçti; hata gösterme. Sunucu masalı tamamlarsa kayıtlı masallarda görünür.
+                    isLoading = false
+                    return
+                }
                 // Model: aylık kota. Hak dolduysa Premium kullanıcıya bilgi, ücretsiz kullanıcıya paywall gösterilir.
                 if let apiError = error as? APIClientError,
                    apiError.serverErrorCode == "STORY_LIMIT_REACHED" || apiError.isInsufficientCredits {
@@ -107,12 +114,25 @@ class CreateStoryViewModel: ObservableObject {
         }
     }
 
+    /// Üretim beklemesini bırakır (yükleme ekranındaki "Beklemek istemiyorum").
+    func cancelGeneration() {
+        generationTask?.cancel()
+        generationTask = nil
+        isLoading = false
+        // Sunucu isteği tamamlayabilir; liste sonradan yenilensin.
+        Task {
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            NotificationCenter.default.post(name: .lumaSavedStoriesDidChange, object: nil)
+        }
+    }
+
     func fetchChildren(forceRefresh: Bool = false) async {
         if hasLoadedChildrenOnce && !forceRefresh {
             return
         }
         AppLogger.info("children.fetch.started", [:])
-        isLoading = true
+        // NOT: `isLoading` masal üretimi için tam ekran "Masalın hazırlanıyor" katmanını açar; çocuk listesi
+        // yüklenirken bu katman çıkmamalı (ağ yavaşken ekran donmuş gibi görünüyordu).
         do {
             let fetched = try await ChildrenAPIService.fetchChildren()
             children = fetched
@@ -125,7 +145,6 @@ class CreateStoryViewModel: ObservableObject {
                 "error": String(describing: type(of: error))
             ])
         }
-        isLoading = false
     }
 
     func saveStoryToParent(childId: UUID, title: String, content: String, theme: String) async -> Bool {

@@ -1,6 +1,8 @@
 import Foundation
 
 struct AuthenticatedRequestBuilder {
+    static let defaultTimeout: TimeInterval = 20
+
     private let sessionProvider: AuthSessionProviding
 
     init(sessionProvider: AuthSessionProviding = AuthSessionProvider.shared) {
@@ -45,9 +47,9 @@ struct AuthenticatedRequestBuilder {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.httpBody = jsonBody
-        if let timeout = endpoint.timeoutInterval {
-            request.timeoutInterval = timeout
-        }
+        // Sistem varsayılanı 60 sn; yavaş/kapalı sunucuda arayüz bu kadar bekliyormuş gibi görünüyordu.
+        // Uzun süren uçlar (masal üretimi, seslendirme) kendi zaman aşımını belirtir.
+        request.timeoutInterval = endpoint.timeoutInterval ?? AuthenticatedRequestBuilder.defaultTimeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
@@ -88,9 +90,9 @@ struct AuthenticatedRequestBuilder {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.httpBody = body
-        if let timeout = endpoint.timeoutInterval {
-            request.timeoutInterval = timeout
-        }
+        // Sistem varsayılanı 60 sn; yavaş/kapalı sunucuda arayüz bu kadar bekliyormuş gibi görünüyordu.
+        // Uzun süren uçlar (masal üretimi, seslendirme) kendi zaman aşımını belirtir.
+        request.timeoutInterval = endpoint.timeoutInterval ?? AuthenticatedRequestBuilder.defaultTimeout
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
@@ -115,9 +117,9 @@ struct AuthenticatedRequestBuilder {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.httpBody = jsonBody
-        if let timeout = endpoint.timeoutInterval {
-            request.timeoutInterval = timeout
-        }
+        // Sistem varsayılanı 60 sn; yavaş/kapalı sunucuda arayüz bu kadar bekliyormuş gibi görünüyordu.
+        // Uzun süren uçlar (masal üretimi, seslendirme) kendi zaman aşımını belirtir.
+        request.timeoutInterval = endpoint.timeoutInterval ?? AuthenticatedRequestBuilder.defaultTimeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 

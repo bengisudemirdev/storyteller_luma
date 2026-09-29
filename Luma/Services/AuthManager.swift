@@ -15,10 +15,14 @@ class AuthManager: ObservableObject {
         Task { @MainActor in
             let session = try? await OliaApp.supabase.auth.session
             self.isAuthenticated = Self.representsLoggedInUser(session)
-            if Self.representsLoggedInUser(session) {
-                await self.syncCurrentUserIfNeeded(force: true)
-            }
+            // Yerel oturum okunur okunmaz arayüz açılır. Ağ eşitlemesi (profil, RevenueCat, haklar) arka planda çalışır:
+            // eskiden bunu beklerken backend yavaş/kapalıysa uygulama dakikalarca açılış ekranında kalıyordu.
             self.isSessionChecked = true
+            if Self.representsLoggedInUser(session) {
+                Task { @MainActor [weak self] in
+                    await self?.syncCurrentUserIfNeeded(force: true)
+                }
+            }
             for await (_, session) in OliaApp.supabase.auth.authStateChanges {
                 self.isAuthenticated = Self.representsLoggedInUser(session)
                 if Self.representsLoggedInUser(session) {
