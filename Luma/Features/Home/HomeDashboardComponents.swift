@@ -803,6 +803,7 @@ struct ClassicTalePreviewView: View {
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
+            audioPlayer.nowPlayingTitle = tale.title
             classicDetailDiscoveryDone = false
             classicNarratePaymentBlocked = false
             narrationErrorMessage = nil

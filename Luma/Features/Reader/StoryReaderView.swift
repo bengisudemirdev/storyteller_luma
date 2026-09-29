@@ -133,6 +133,7 @@ struct StoryReaderView: View {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
             storyAudioURLState = story?.audioUrl ?? story?.audio_url
+            audioPlayer.nowPlayingTitle = storyTitle
         }
         .onDisappear {
             appUIState.isTabBarVisible = true
