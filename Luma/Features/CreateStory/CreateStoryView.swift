@@ -53,7 +53,9 @@ struct CreateStoryView: View {
             return " "
         }
         let planName = entitlements.hasFamilyAccess ? "Family" : (entitlements.hasPremiumAccess ? "Premium" : "Ücretsiz plan")
-        return "\(planName) • Bu ay kalan masal hakkın: \(remaining) / \(limit)"
+        // Ücretsiz plan haftalık, Premium/Family aylık yenilenir (backend `planService` ile aynı).
+        let period = entitlements.hasPremiumAccess ? "Bu ay" : "Bu hafta"
+        return "\(planName) • \(period) kalan masal hakkın: \(remaining) / \(limit)"
     }
 
     var body: some View {

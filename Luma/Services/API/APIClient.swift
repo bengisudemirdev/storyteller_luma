@@ -74,9 +74,9 @@ enum APIClientError: LocalizedError {
         case .paymentRequired(let apiCode, _):
             switch apiCode?.uppercased() {
             case "STORY_LIMIT_REACHED":
-                return "Bu ay için masal hakkın doldu. Hakkın yenilendiğinde tekrar deneyebilirsin."
+                return "Masal hakkın doldu. Hakkın yenilendiğinde tekrar deneyebilirsin."
             case "VOICE_LIMIT_REACHED":
-                return "Bu ay için sesli masal hakkın doldu."
+                return "Sesli masal hakkın doldu."
             default:
                 return "Bu işlem için uygun bir abonelik veya hak gerekiyor."
             }
@@ -108,7 +108,7 @@ enum APIClientError: LocalizedError {
         case "USAGE_LIMIT_EXCEEDED", "DAILY_LIMIT_EXCEEDED", "DAILY_STORY_LIMIT", "STORY_LIMIT_REACHED",
              "STORY_QUOTA_EXCEEDED", "QUOTA_EXCEEDED", "USAGE_LIMIT", "MASA_LIMIT", "MASAL_LIMIT", "STORY_LIMIT",
              "DAILY_USAGE_EXCEEDED":
-            return "Bu ay için masal hakkına ulaştın. Hakkın yenilendiğinde veya planını yükselttiğinde tekrar deneyebilirsin."
+            return "Masal hakkına ulaştın. Hakkın yenilendiğinde veya planını yükselttiğinde tekrar deneyebilirsin."
         case "SUBSCRIPTION_REQUIRED", "PAYMENT_REQUIRED", "PREMIUM_REQUIRED":
             return "Bu işlem için uygun bir abonelik gerekebilir. Abonelik ekranından seçeneklere bakabilirsin."
         case "INSUFFICIENT_CREDITS":
@@ -153,7 +153,7 @@ enum APIClientError: LocalizedError {
             return "Çok hızlı istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
         }
         if Self.messageSuggestsStoryUsageLimit(lower) {
-            return "Bu ay için masal hakkına ulaştın. Hakkın yenilendiğinde veya planını yükselttiğinde tekrar deneyebilirsin."
+            return "Masal hakkına ulaştın. Hakkın yenilendiğinde veya planını yükselttiğinde tekrar deneyebilirsin."
         }
         if Self.messageSuggestsChildIssue(lower) {
             return Self.turkishMessageForChildHeuristic(lower)
