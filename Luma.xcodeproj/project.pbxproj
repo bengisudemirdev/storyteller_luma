@@ -47,6 +47,7 @@
 		22682C572F45AD4D00DECACB /* Exceptions for "Luma" folder in "Luma" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Config/.env,
 				Config/.env.example,
 				Config/README.md,
 				ViewModels/Info.plist,
