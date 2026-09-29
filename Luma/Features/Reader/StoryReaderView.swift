@@ -557,6 +557,22 @@ struct StoryReaderView: View {
             return
         }
 
+        // Yerel masal nesnesi eski olabilir (ses başka bir cihazda ya da liste yenilenmeden önce üretilmiş olabilir).
+        // Sunucuda bu masal için ses zaten kayıtlıysa hak kontrolüne takılmadan doğrudan çal: tekrar dinlemek hak düşürmez.
+        if let saved = try? await StoryAPIService.fetchStory(id: storyId),
+           let savedURL = (saved.audioUrl ?? saved.audio_url)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !savedURL.isEmpty {
+            AppLogger.info("narration.saved_story.play_server_saved_audio", [
+                "storyId": storyId.uuidString
+            ].merging(AppLogger.narrationURLSummaryFields(savedURL)) { _, new in new })
+            await MainActor.run {
+                storyAudioURLState = savedURL
+                audioPlayer.isLoading = false
+                audioPlayer.play(urlString: savedURL)
+            }
+            return
+        }
+
         await EntitlementStore.shared.refreshFromBackend()
         await SubscriptionManager.shared.refreshPlanFromServer()
         let ent = EntitlementStore.shared
