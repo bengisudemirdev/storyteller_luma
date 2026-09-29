@@ -129,3 +129,25 @@ struct GeneratePayloadDecodingTests {
         #expect(decoded.story.title == "Defne ve Gökkuşağı")
     }
 }
+
+struct PaywallPricingTests {
+    @Test func yearlySavingsAreComputedAgainstTwelveMonthlyPayments() {
+        // Aylık 179,99; yıllık 1.499,99 → ayda ~125 → yaklaşık %30 tasarruf
+        #expect(PaywallPricing.yearlySavingsPercent(monthly: Decimal(string: "179.99")!, yearly: Decimal(string: "1499.99")!) == 31)
+        #expect(PaywallPricing.yearlySavingsPercent(monthly: 100, yearly: 800) == 33)
+    }
+
+    @Test func noSavingsClaimWhenYearlyIsNotCheaper() {
+        #expect(PaywallPricing.yearlySavingsPercent(monthly: 100, yearly: 1200) == nil)
+        #expect(PaywallPricing.yearlySavingsPercent(monthly: 100, yearly: 1150) == nil) // %4: anlamlı değil
+        #expect(PaywallPricing.yearlySavingsPercent(monthly: 0, yearly: 900) == nil)
+    }
+
+    @Test func yearlyCardShowsBadgeAndPerMonthLine() {
+        let card = PaywallPlanViewData.yearlyPlan(priceText: "₺1.499,99 / yıl", savingsPercent: 31, perMonthText: "₺125,00")
+        #expect(card.badge == "%31 tasarruf")
+        #expect(card.features.first?.contains("₺125,00") == true)
+        let plain = PaywallPlanViewData.yearlyPlan(priceText: "x")
+        #expect(plain.badge == "Yıllık")
+    }
+}

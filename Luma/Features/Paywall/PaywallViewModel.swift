@@ -24,7 +24,19 @@ final class PaywallViewModel: ObservableObject {
     }
 
     var yearlyPlanCardData: PaywallPlanViewData {
-        PaywallPlanViewData.yearlyPlan(priceText: priceDisplay(for: yearlyPackage, fallback: PaywallPlanViewData.yearlyFallbackPrice))
+        var savings: Int?
+        var perMonthText: String?
+        if let monthly = monthlyPackage?.storeProduct, let yearly = yearlyPackage?.storeProduct {
+            savings = PaywallPricing.yearlySavingsPercent(monthly: monthly.price, yearly: yearly.price)
+            // Aylık karşılık, mağazanın kendi para birimi biçimiyle (Türkiye hesabında ₺).
+            let formatter = yearly.priceFormatter ?? monthly.priceFormatter
+            perMonthText = formatter?.string(from: (yearly.price / 12) as NSDecimalNumber)
+        }
+        return PaywallPlanViewData.yearlyPlan(
+            priceText: priceDisplay(for: yearlyPackage, fallback: PaywallPlanViewData.yearlyFallbackPrice),
+            savingsPercent: savings,
+            perMonthText: perMonthText
+        )
     }
 
     var primaryCTATitle: String {

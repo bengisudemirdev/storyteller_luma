@@ -78,6 +78,7 @@ struct PaywallPlanCard: View {
 
     private func featureRow(_ text: String) -> some View {
         let emphasize = text.localizedCaseInsensitiveContains("sesli masal hakkı")
+            || text.localizedCaseInsensitiveContains("ayda yalnızca")
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 15, weight: .semibold))
