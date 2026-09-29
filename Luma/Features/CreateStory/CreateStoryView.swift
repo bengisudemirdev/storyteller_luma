@@ -132,7 +132,7 @@ struct CreateStoryView: View {
                             TextField(
                                 "",
                                 text: $viewModel.interest,
-                                prompt: Text("Ekstra detaylar (Konuşan kedi, uçan halı vb.)")
+                                prompt: Text("Ekstra detay (ör. konuşan kedi)")
                                     .foregroundStyle(HomeDashboardPalette.muted.opacity(0.85))
                             )
                             .lumaInputText()

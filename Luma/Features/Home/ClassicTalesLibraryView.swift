@@ -56,8 +56,9 @@ private struct ClassicTaleLibraryRow: View {
                 title: tale.title,
                 subtitle: nil,
                 tag: tale.tag,
-                showsTextOverlay: true,
-                titleOverlayExtraBottomInset: HomeDashboardMetrics.classicTaleTitleOverlayLift,
+                // Başlık ve etiket satırın yanında zaten yazıyor; 88 pt'lik küçük kapağın üstüne bindirilince yazılar
+                // taşıyor ("NAZİK ANLATI M", "Külkedi/si") ve başlık iki kez görünüyordu.
+                showsTextOverlay: false,
                 cornerRadius: 18,
                 width: 88
             )

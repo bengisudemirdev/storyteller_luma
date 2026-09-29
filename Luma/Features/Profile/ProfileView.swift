@@ -40,7 +40,6 @@ struct ProfileView: View {
                                 .font(.system(size: 14, weight: .regular, design: .rounded))
                                 .foregroundStyle(HomeDashboardPalette.muted)
                         }
-                        .padding(.horizontal, 2)
 
                         VStack(spacing: 16) {
                             if isProfileScreenLoading || (viewModel.isLoading && viewModel.children.isEmpty) {
@@ -239,7 +238,7 @@ struct ProfileView: View {
                         Text("Bize yaz")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(HomeDashboardPalette.ink)
-                        Text("Öneri, hata veya soruların için e-posta ile ilet.")
+                        Text("Öneri, hata veya soruların için bize yaz.")
                             .font(.caption)
                             .foregroundStyle(HomeDashboardPalette.muted)
                             .multilineTextAlignment(.leading)

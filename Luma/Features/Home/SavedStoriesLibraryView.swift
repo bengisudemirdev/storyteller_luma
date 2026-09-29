@@ -63,10 +63,26 @@ struct SavedStoriesLibraryView: View {
             Image(systemName: "books.vertical.fill")
                 .font(.system(size: 44))
                 .foregroundStyle(HomeDashboardPalette.accentOrange.opacity(0.85))
-            Text(loadFailed ? "Masallar yüklenemedi. Çekerek yenile." : "Henüz kayıtlı masal yok")
+            Text(loadFailed ? "Masallar yüklenemedi. Bağlantını kontrol edip tekrar dene." : "Henüz kayıtlı masal yok")
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .foregroundStyle(HomeDashboardPalette.ink)
                 .multilineTextAlignment(.center)
+            if loadFailed {
+                Button {
+                    Task { await loadStories() }
+                } label: {
+                    Text("Tekrar dene")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(HomeDashboardPalette.accentOrange)
+                        .frame(maxWidth: 280)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(HomeDashboardPalette.accentOrange.opacity(0.14))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
             NavigationLink {
                 CreateStoryView()
             } label: {

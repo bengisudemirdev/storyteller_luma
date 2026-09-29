@@ -1173,6 +1173,8 @@ struct DashboardQuickActionsSection: View {
                 }
                 .buttonStyle(.plain)
             }
+            // İki kart aynı yükseklikte olsun (metin uzunluğuna göre farklı boylanıyorlardı).
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -1204,7 +1206,12 @@ struct DashboardQuickActionsSection: View {
                 .lineLimit(2)
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: HomeDashboardMetrics.quickActionCardHeight, alignment: .topLeading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: HomeDashboardMetrics.quickActionCardHeight,
+            maxHeight: .infinity,
+            alignment: .topLeading
+        )
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
