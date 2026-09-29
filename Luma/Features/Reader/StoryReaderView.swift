@@ -9,6 +9,9 @@ struct StoryReaderView: View {
     let showSaveButton: Bool
     let story: StoryModel?
     let onSave: (() async -> Void)?
+    /// Yeni üretilen masalda "kayıtlı masallarına eklendi" bildirimi gösterir (otomatik kaydedilir).
+    let showsAutoSavedNotice: Bool
+    @State private var autoSavedNoticeVisible = false
 
     init(
         child: ChildModel?,
@@ -17,8 +20,10 @@ struct StoryReaderView: View {
         storyContent: String,
         showSaveButton: Bool,
         story: StoryModel?,
-        onSave: (() async -> Void)?
+        onSave: (() async -> Void)?,
+        showsAutoSavedNotice: Bool = false
     ) {
+        self.showsAutoSavedNotice = showsAutoSavedNotice
         self.child = child
         self.heroDisplayName = heroDisplayName
         self.storyTitle = storyTitle
@@ -144,6 +149,23 @@ struct StoryReaderView: View {
                         .onChange(of: proxy.size) { _, newSize in repaginate(for: newSize) }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .top) {
+                        if autoSavedNoticeVisible {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Masalın kayıtlı masallarına eklendi")
+                            }
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(Capsule().fill(HomeDashboardPalette.nightMid.opacity(0.92)))
+                            .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 3)
+                            .padding(.top, 6)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .accessibilityElement(children: .combine)
+                        }
+                    }
 
                     StoryReadingPageControls(currentPage: $currentPage, pageCount: pageCount)
                 }
@@ -163,6 +185,9 @@ struct StoryReaderView: View {
         .onAppear {
             appUIState.isTabBarVisible = false
             currentPage = min(currentPage, max(pageCount - 1, 0))
+            if showsAutoSavedNotice {
+                withAnimation(.easeOut(duration: 0.3)) { autoSavedNoticeVisible = true }
+            }
             storyAudioURLState = story?.audioUrl ?? story?.audio_url
             audioPlayer.nowPlayingTitle = storyTitle
         }
@@ -171,6 +196,11 @@ struct StoryReaderView: View {
             audioPlayer.stop()
             audioPlayer.cleanup()
             showFloatingAudioPanel = false
+        }
+        .task(id: autoSavedNoticeVisible) {
+            guard autoSavedNoticeVisible else { return }
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            withAnimation(.easeIn(duration: 0.3)) { autoSavedNoticeVisible = false }
         }
         .onChange(of: storyContent) { _, _ in
             lastPaginatedSize = .zero

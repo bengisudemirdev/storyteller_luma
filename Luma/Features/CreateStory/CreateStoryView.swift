@@ -276,18 +276,9 @@ struct CreateStoryView: View {
             storyContent: viewModel.generatedStory,
             showSaveButton: false,
             story: viewModel.generatedStoryModel,
-            onSave: {
-                let childId = viewModel.generatedStoryModel?.child_id ?? viewModel.selectedChild?.id
-                if let childId {
-                    await viewModel.saveStoryToParent(
-                        childId: childId,
-                        title: generatedStoryTitle,
-                        content: viewModel.generatedStory,
-                        theme: viewModel.selectedTheme
-                    )
-                }
-                viewModel.showReaderView = false
-            }
+            // Masal üretilir üretilmez sunucuya kaydedilir; elle "Kaydet" gerekmez (eski düğme hiçbir şey yapmıyordu).
+            onSave: nil,
+            showsAutoSavedNotice: viewModel.generatedStoryModel != nil
         )
         .ignoresSafeArea(edges: .bottom)
     }

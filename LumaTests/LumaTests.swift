@@ -76,3 +76,56 @@ struct StoryPaginationTests {
         }
     }
 }
+
+struct StoryModelDecodingTests {
+    private func decoder() -> JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }
+
+    private let profilelessStory = """
+    {"id":"11111111-1111-4111-8111-111111111111","user_id":"22222222-2222-4222-8222-222222222222",
+     "child_id":null,"title":"Defne'nin Masalı","content":"Bir varmış bir yokmuş.","theme":"uyku",
+     "age_group":"6-8","language":"Türkçe","cover_image_url":null,"audio_url":null,"created_at":"2026-09-30T10:00:00Z"}
+    """
+
+    @Test func storyWithNullChildIdDecodes() throws {
+        let story = try decoder().decode(StoryModel.self, from: Data(profilelessStory.utf8))
+        #expect(story.child_id == nil)
+        #expect(story.title == "Defne'nin Masalı")
+    }
+
+    @Test func oneProfilelessStoryDoesNotBreakTheWholeList() throws {
+        let withChild = profilelessStory.replacingOccurrences(of: "\"child_id\":null", with: "\"child_id\":\"33333333-3333-4333-8333-333333333333\"")
+            .replacingOccurrences(of: "11111111-1111-4111-8111-111111111111", with: "44444444-4444-4444-8444-444444444444")
+        let json = "{\"stories\":[\(withChild),\(profilelessStory)]}"
+        let list = try decoder().decode(StoryListDataDTO.self, from: Data(json.utf8))
+        #expect(list.stories.count == 2)
+        #expect(list.stories[0].child_id != nil)
+        #expect(list.stories[1].child_id == nil)
+    }
+}
+
+struct GeneratePayloadDecodingTests {
+    private struct Wrapper: Decodable {
+        let story: StoryModel
+        init(from decoder: Decoder) throws {
+            story = try StoryModel.decodeFlexibleGeneratePayload(from: decoder)
+        }
+    }
+
+    /// Backend `POST /v1/stories/generate` yanıtı: profil seçilmediğinde `childId: null`.
+    @Test func generateResponseWithoutChildDecodes() throws {
+        let json = """
+        {"id":"11111111-1111-4111-8111-111111111111","storyId":"11111111-1111-4111-8111-111111111111",
+         "title":"Defne ve Gökkuşağı","content":"Bir varmış bir yokmuş.","theme":"uyku","childId":null,
+         "createdAt":"2026-09-30T10:00:00.000Z","ageGroup":"6-8","language":"Türkçe","coverImageUrl":null,"audioUrl":null}
+        """
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        let decoded = try d.decode(Wrapper.self, from: Data(json.utf8))
+        #expect(decoded.story.child_id == nil)
+        #expect(decoded.story.title == "Defne ve Gökkuşağı")
+    }
+}

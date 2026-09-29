@@ -4,7 +4,8 @@ import Foundation
 struct StoryModel: Codable, Identifiable {
     let id: UUID
     let user_id: UUID
-    let child_id: UUID
+    /// Profil seçilmeden üretilen masallarda sunucu `child_id = NULL` yazar; zorunlu olursa TÜM liste çözülemez.
+    let child_id: UUID?
     let title: String
     let content: String
     let theme: String
@@ -33,7 +34,7 @@ struct StoryModel: Codable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
         user_id = try container.decode(UUID.self, forKey: .user_id)
-        child_id = try container.decode(UUID.self, forKey: .child_id)
+        child_id = try container.decodeIfPresent(UUID.self, forKey: .child_id)
         title = try container.decode(String.self, forKey: .title)
         content = try container.decode(String.self, forKey: .content)
         theme = try container.decode(String.self, forKey: .theme)
@@ -72,7 +73,7 @@ struct StoryModel: Codable, Identifiable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(user_id, forKey: .user_id)
-        try container.encode(child_id, forKey: .child_id)
+        try container.encodeIfPresent(child_id, forKey: .child_id)
         try container.encode(title, forKey: .title)
         try container.encode(content, forKey: .content)
         try container.encode(theme, forKey: .theme)
@@ -93,7 +94,7 @@ struct StoryModel: Codable, Identifiable {
     internal init(
         id: UUID,
         userId: UUID,
-        childId: UUID,
+        childId: UUID?,
         title: String,
         content: String,
         theme: String,
@@ -168,10 +169,9 @@ struct StoryModel: Codable, Identifiable {
             ?? c.decodeIfPresent(UUID.self, forKey: .userId)
             ?? placeholderUser
 
-        guard let childId = try c.decodeIfPresent(UUID.self, forKey: .child_id)
-            ?? c.decodeIfPresent(UUID.self, forKey: .childId) else {
-            throw DecodingError.dataCorruptedError(forKey: .child_id, in: c, debugDescription: "Missing child id")
-        }
+        // Profilsiz (ad-hoc) masalda çocuk kimliği yoktur; bu hata değildir.
+        let childId = try c.decodeIfPresent(UUID.self, forKey: .child_id)
+            ?? c.decodeIfPresent(UUID.self, forKey: .childId)
 
         let age_group = try c.decodeIfPresent(String.self, forKey: .age_group)
             ?? c.decodeIfPresent(String.self, forKey: .ageGroup)
