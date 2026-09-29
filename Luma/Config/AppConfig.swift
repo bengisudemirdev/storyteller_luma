@@ -22,7 +22,14 @@ enum AppConfig {
             }
         }
         #endif
-        return Secrets.revenueCatAPIKey
+        let productionKey = Secrets.revenueCatAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        #if !DEBUG
+        precondition(
+            productionKey.hasPrefix("appl_"),
+            "Release builds require the RevenueCat Apple production public SDK key (appl_...)."
+        )
+        #endif
+        return productionKey
     }
 
     /// RevenueCat Offering identifier; boşsa SDK `current` offering kullanılır.
@@ -35,7 +42,7 @@ enum AppConfig {
     static var revenueCatSubscriptionOfferingKey: String? {
         let key = Secrets.revenueCatSubscriptionOfferingKey.trimmingCharacters(in: .whitespacesAndNewlines)
         if !key.isEmpty { return key }
-        return revenueCatOfferingKey
+        return "oliapremium"
     }
 
     /// Credit store offering identifier. Falls back to the legacy common offering key, then RevenueCat current.
@@ -72,7 +79,7 @@ enum AppConfig {
     }
 
     static var supabaseURL: URL {
-        let urlString = Secrets.supabaseURL
+        let urlString = Secrets.supabaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !urlString.isEmpty,
               urlString != "https://YOUR_PROJECT.supabase.co",
               let url = URL(string: urlString) else {
@@ -82,7 +89,7 @@ enum AppConfig {
     }
 
     static var supabaseAnonKey: String {
-        let key = Secrets.supabaseAnonKey
+        let key = Secrets.supabaseAnonKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty, key != "YOUR_SUPABASE_ANON_KEY" else {
             fatalError("Luma/Config/.env içinde SUPABASE_ANON_KEY tanımlayın.")
         }
@@ -90,9 +97,17 @@ enum AppConfig {
     }
 
     static var backendBaseURL: URL {
-        let raw = Secrets.backendBaseURL
+        let raw = Secrets.backendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let configuredPath = URLComponents(string: raw)?.path
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? ""
         guard !raw.isEmpty,
-              let url = URL(string: raw) else {
+              let components = URLComponents(string: raw),
+              let scheme = components.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              components.host != nil,
+              configuredPath != "v1",
+              configuredPath != "api/v1",
+              let url = components.url else {
             fatalError("Luma/Config/.env içinde BACKEND_BASE_URL tanımlayın.")
         }
         return url

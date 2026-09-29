@@ -2,8 +2,8 @@ import Foundation
 import RevenueCat
 
 enum RevenueCatSubscriptionTier {
-    case premium
-    case family
+    case monthly
+    case yearly
 }
 
 enum RevenueCatCatalog {
@@ -13,7 +13,7 @@ enum RevenueCatCatalog {
     }
 
     enum Subscription {
-        nonisolated static let premiumProductIds = [
+        nonisolated static let monthlyProductIds = [
             "oliapremium",
             "oliapremium1",
             "olia_premium",
@@ -21,22 +21,20 @@ enum RevenueCatCatalog {
             "com.olia.premium.monthly"
         ]
 
-        nonisolated static let familyProductIds = [
-            "olia_family_monthly",
-            "oliafamily",
-            "olia_family",
-            "com.olia.family.monthly"
+        nonisolated static let yearlyProductIds = [
+            "oliapremium_yearly"
         ]
 
-        nonisolated static let premiumPackageIds = [
+        nonisolated static let monthlyPackageIds = [
             "premium",
             "premium_monthly",
             "$rc_monthly"
         ]
 
-        nonisolated static let familyPackageIds = [
-            "family",
-            "family_monthly"
+        nonisolated static let yearlyPackageIds = [
+            "yearly",
+            "premium_yearly",
+            "$rc_annual"
         ]
 
         nonisolated static let premiumEntitlementIds = [
@@ -52,7 +50,7 @@ enum RevenueCatCatalog {
             "oliafamily"
         ]
 
-        nonisolated static let allProductIds = premiumProductIds + familyProductIds
+        nonisolated static let allProductIds = monthlyProductIds + yearlyProductIds
         nonisolated static let allEntitlementIds = premiumEntitlementIds + familyEntitlementIds
     }
 
@@ -64,14 +62,14 @@ enum RevenueCatCatalog {
             return nil
         }
 
-        if Subscription.familyProductIds.contains(where: { normalize($0) == productId })
-            || Subscription.familyPackageIds.contains(where: { normalize($0) == packageId }) {
-            return .family
+        if Subscription.yearlyProductIds.contains(where: { normalize($0) == productId })
+            || Subscription.yearlyPackageIds.contains(where: { normalize($0) == packageId }) {
+            return .yearly
         }
 
-        if Subscription.premiumProductIds.contains(where: { normalize($0) == productId })
-            || Subscription.premiumPackageIds.contains(where: { normalize($0) == packageId }) {
-            return .premium
+        if Subscription.monthlyProductIds.contains(where: { normalize($0) == productId })
+            || Subscription.monthlyPackageIds.contains(where: { normalize($0) == packageId }) {
+            return .monthly
         }
 
         return nil
@@ -87,36 +85,36 @@ enum RevenueCatCatalog {
             return nil
         }
 
-        if productId.contains("family") || packageId.contains("family") {
-            return .family
+        if productId.contains("year") || packageId.contains("annual") || packageId.contains("year") {
+            return .yearly
         }
-        if productId.contains("premium") || packageId.contains("premium") {
-            return .premium
+        if isSubscriptionProduct && package.storeProduct.subscriptionPeriod?.unit == .year {
+            return .yearly
         }
         if isSubscriptionProduct && (productId.contains("monthly") || packageId == "$rc_monthly") {
-            return .premium
+            return .monthly
         }
-        if isSubscriptionProduct {
-            return .premium
+        if isSubscriptionProduct && (productId.contains("premium") || packageId.contains("premium")) {
+            return .monthly
         }
         return nil
     }
 
     nonisolated static func activeSubscriptionTier(from info: CustomerInfo) -> RevenueCatSubscriptionTier? {
         let activeProductIds = Set(info.activeSubscriptions.map(normalize))
-        if Subscription.familyProductIds.map(normalize).contains(where: activeProductIds.contains) {
-            return .family
+        if Subscription.yearlyProductIds.map(normalize).contains(where: activeProductIds.contains) {
+            return .yearly
         }
-        if Subscription.premiumProductIds.map(normalize).contains(where: activeProductIds.contains) {
-            return .premium
+        if Subscription.monthlyProductIds.map(normalize).contains(where: activeProductIds.contains) {
+            return .monthly
         }
 
         let activeEntitlementIds = Set(info.entitlements.active.keys.map(normalize))
         if Subscription.familyEntitlementIds.map(normalize).contains(where: activeEntitlementIds.contains) {
-            return .family
+            return .monthly
         }
         if Subscription.premiumEntitlementIds.map(normalize).contains(where: activeEntitlementIds.contains) {
-            return .premium
+            return .monthly
         }
 
         return nil

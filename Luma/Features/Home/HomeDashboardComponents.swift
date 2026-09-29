@@ -1062,9 +1062,16 @@ struct ClassicTalePreviewView: View {
         } catch {
             AppLogger.error("narration.classic.detail_fetch_failed", [
                 "taleId": tale.id,
-                "errorType": String(describing: type(of: error))
+                "errorType": String(describing: type(of: error)),
+                "apiCode": (error as? APIClientError)?.serverErrorCode ?? "",
+                "message": error.localizedDescription
             ])
-            narrationErrorMessage = "Sesli masal hazırlanamadı. Lütfen tekrar deneyin."
+            narrationErrorMessage = error.localizedDescription
+            #if DEBUG
+            if let code = (error as? APIClientError)?.serverErrorCode {
+                narrationErrorMessage = "\(error.localizedDescription) (\(code))"
+            }
+            #endif
         }
         classicDetailDiscoveryDone = true
     }

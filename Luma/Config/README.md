@@ -29,9 +29,6 @@ python3 scripts/generate_ios_secrets.py
 | `TERMS_OF_SERVICE_URL`           | Paywall’daki Kullanım Şartları linki |
 | `PRIVACY_POLICY_URL`             | Paywall’daki Gizlilik Politikası linki |
 | `FEEDBACK_EMAIL`                 | Profil ekranındaki geri bildirimin gideceği adres (`mailto:`). Boşsa yedek `olia.destek@gmail.com` kullanılır — kendi adresinizi yazın. |
-| `ELEVENLABS_API_KEY`             | ElevenLabs entegrasyon anahtarı |
-| `ELEVENLABS_AGENT_ID`            | ElevenLabs agent kimliği |
-| `ELEVENLABS_VOICE_ID`            | ElevenLabs varsayılan ses kimliği |
 | `CLASSIC_TALE_COVERS_BASE_URL`   | İsteğe bağlı klasik masal kapak CDN kökü |
 
 > Backend’deki `luma-backend/.env` ile **aynı dosya değil**. Orada service role vb. var; iOS’ta yalnızca **anon** ve public anahtarlar kullanılır.

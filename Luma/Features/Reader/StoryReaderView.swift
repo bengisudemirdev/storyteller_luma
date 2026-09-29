@@ -525,7 +525,10 @@ struct StoryReaderView: View {
         await EntitlementStore.shared.refreshFromBackend()
         await SubscriptionManager.shared.refreshPlanFromServer()
         let ent = EntitlementStore.shared
-        guard ent.canNarrateStory else {
+        // Ses hakkı bittiyse hediye/kampanya kredisi (yedek) yeterliyse devam edilebilir; sunucu aynı sırayı uygular.
+        await CreditBalanceViewModel.shared.refreshBalance()
+        let hasCreditsForNarration = CreditBalanceViewModel.shared.balance >= CreditCost.narration
+        guard ent.canNarrateStory || hasCreditsForNarration else {
             AppLogger.warning("narration.saved_story.blocked_entitlements", [
                 "storyId": storyId.uuidString,
                 "voiceRemainingThisMonth": "\(ent.voiceRemainingThisMonth ?? 0)",
@@ -579,7 +582,7 @@ struct StoryReaderView: View {
             AppLogger.error("narration.saved_story.api_failed", fields)
             await MainActor.run {
                 audioPlayer.isLoading = false
-                if error.isInsufficientCredits {
+                if error.isInsufficientCredits || error.serverErrorCode == "VOICE_LIMIT_REACHED" {
                     narrationErrorMessage = PortfolioAccessMode.isEnabled
                         ? "Seslendirme şu an başlatılamadı. Lütfen biraz sonra tekrar dene."
                         : EntitlementStore.shared.hasPremiumAccess

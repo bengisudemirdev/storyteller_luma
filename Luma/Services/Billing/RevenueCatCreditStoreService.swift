@@ -16,12 +16,12 @@ enum RevenueCatOfferingResolver {
     }
 }
 
-// MARK: - Abonelik paywall (Premium / Family aylık)
+// MARK: - Abonelik paywall (aylık / yıllık Premium)
 
 enum RevenueCatSubscriptionPaywallService {
     struct ResolvedPackages {
-        var premium: Package?
-        var family: Package?
+        var monthly: Package?
+        var yearly: Package?
         var diagnostics: String = ""
     }
 
@@ -30,8 +30,8 @@ enum RevenueCatSubscriptionPaywallService {
         await RevenueCatIdentityService.syncWithCurrentSupabaseUser()
         let offerings = try await Purchases.shared.offerings()
 
-        var premium: Package?
-        var family: Package?
+        var monthly: Package?
+        var yearly: Package?
         var diagnostics: [String] = []
 
         diagnostics.append(
@@ -65,22 +65,22 @@ enum RevenueCatSubscriptionPaywallService {
                 )
 
                 switch tier {
-                case .premium where premium == nil:
-                    premium = pkg
-                case .family where family == nil:
-                    family = pkg
+                case .monthly where monthly == nil:
+                    monthly = pkg
+                case .yearly where yearly == nil:
+                    yearly = pkg
                 default:
                     continue
                 }
             }
 
-            if premium != nil && family != nil {
+            if monthly != nil && yearly != nil {
                 break
             }
         }
 
-        diagnostics.append("resolved premium=\(premium?.storeProduct.productIdentifier ?? "nil") family=\(family?.storeProduct.productIdentifier ?? "nil")")
-        return ResolvedPackages(premium: premium, family: family, diagnostics: diagnostics.joined(separator: "\n"))
+        diagnostics.append("resolved monthly=\(monthly?.storeProduct.productIdentifier ?? "nil") yearly=\(yearly?.storeProduct.productIdentifier ?? "nil")")
+        return ResolvedPackages(monthly: monthly, yearly: yearly, diagnostics: diagnostics.joined(separator: "\n"))
     }
 
     static func purchase(package: Package) async throws -> CustomerInfo {

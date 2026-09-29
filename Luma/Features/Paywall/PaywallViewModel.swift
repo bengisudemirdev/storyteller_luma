@@ -7,46 +7,44 @@ final class PaywallViewModel: ObservableObject {
     @Published private(set) var isLoadingOfferings = false
     @Published private(set) var isPurchasing = false
     @Published private(set) var isRestoring = false
-    @Published var selectedPackageType: PaywallPlanType = .premium
+    @Published var selectedPackageType: PaywallPlanType = .monthly
     @Published var errorMessage: String?
     @Published var successMessage: String?
 
-    @Published private(set) var premiumPackage: Package?
-    @Published private(set) var familyPackage: Package?
+    @Published private(set) var monthlyPackage: Package?
+    @Published private(set) var yearlyPackage: Package?
+    @Published private(set) var activeSubscriptionProductID: String?
     @Published private(set) var offeringsDiagnostics: String = ""
 
     /// Offering çekildi; ikisi de nil ise tam yükleme başarısız veya boş offering kabul edilir.
     @Published private(set) var didAttemptOfferingsLoad = false
 
     var premiumPlanCardData: PaywallPlanViewData {
-        PaywallPlanViewData.premiumPlan(priceText: priceDisplay(for: premiumPackage, fallback: PaywallPlanViewData.premiumFallbackPrice))
+        PaywallPlanViewData.premiumPlan(priceText: priceDisplay(for: monthlyPackage, fallback: PaywallPlanViewData.monthlyFallbackPrice))
     }
 
-    var familyPlanCardData: PaywallPlanViewData {
-        PaywallPlanViewData.familyPlan(priceText: priceDisplay(for: familyPackage, fallback: PaywallPlanViewData.familyFallbackPrice))
+    var yearlyPlanCardData: PaywallPlanViewData {
+        PaywallPlanViewData.yearlyPlan(priceText: priceDisplay(for: yearlyPackage, fallback: PaywallPlanViewData.yearlyFallbackPrice))
     }
 
     var primaryCTATitle: String {
         if isCurrentSelectionOwned {
             return "Bu plan zaten aktif"
         }
-        if EntitlementStore.shared.hasFamilyAccess, selectedPackageType == .premium {
-            return "Family planın aktif"
-        }
         switch selectedPackageType {
-        case .premium:
-            return "Premium’a Geç"
-        case .family:
-            return "Family’ye Geç"
+        case .monthly:
+            return "Aylık Premium’a Geç"
+        case .yearly:
+            return "Yıllık Premium’a Geç"
         }
     }
 
     /// Bu paket kullanıcının App Store / backend’deki mevcut aboneliği mi?
     func isPlanOwned(_ type: PaywallPlanType) -> Bool {
-        let es = EntitlementStore.shared
-        if es.hasFamilyAccess { return type == .family }
-        if es.hasPremiumAccess { return type == .premium }
-        return false
+        guard let activeSubscriptionProductID else { return false }
+        return package(for: type).map {
+            RevenueCatCatalog.normalize($0.storeProduct.productIdentifier) == activeSubscriptionProductID
+        } ?? false
     }
 
     var isCurrentSelectionOwned: Bool {
@@ -56,7 +54,6 @@ final class PaywallViewModel: ObservableObject {
     /// Seçili paket RevenueCat’ten satın alınabilir mi (sahip olunan veya alt seviye seçimde hayır).
     var canPurchaseSelectedPlan: Bool {
         if isCurrentSelectionOwned { return false }
-        if EntitlementStore.shared.hasFamilyAccess, selectedPackageType == .premium { return false }
         return package(for: selectedPackageType) != nil
     }
 
@@ -69,20 +66,12 @@ final class PaywallViewModel: ObservableObject {
         if isCurrentSelectionOwned {
             return "Bu plan hesabında zaten aktif görünüyor."
         }
-        if EntitlementStore.shared.hasFamilyAccess, selectedPackageType == .premium {
-            return "Family planın aktif olduğu için Premium’a geçiş gerekmez."
-        }
-        return "Seçili plan mağazadan yüklenemedi. Test için Debug simulator ve RevenueCat test store ayarını kullan."
+        return "Seçili plan App Store’dan yüklenemedi. Lütfen tekrar dene."
     }
 
     /// Paywall açılınca mevcut aboneliğe göre seçimi hizala (işaret görünsün).
     func syncSelectionWithEntitlements() {
-        let es = EntitlementStore.shared
-        if es.hasFamilyAccess {
-            selectedPackageType = .family
-        } else if es.hasPremiumAccess {
-            selectedPackageType = .premium
-        }
+        selectedPackageType = .monthly
     }
 
     var purchaseStatusFootnote: String {
@@ -105,17 +94,19 @@ final class PaywallViewModel: ObservableObject {
 
         do {
             let resolved = try await RevenueCatSubscriptionPaywallService.fetchSubscriptionPackages()
-            premiumPackage = resolved.premium
-            familyPackage = resolved.family
+            monthlyPackage = resolved.monthly
+            yearlyPackage = resolved.yearly
             offeringsDiagnostics = resolved.diagnostics
-            if resolved.premium == nil && resolved.family == nil {
-                errorMessage = "Paketler şu an yüklenemedi. Lütfen internet bağlantını kontrol edip tekrar dene."
+            if resolved.monthly == nil && resolved.yearly == nil {
+                errorMessage = "Premium paketleri şu an App Store’dan yüklenemedi. Lütfen tekrar dene."
+            } else {
+                await syncActiveSubscription()
             }
         } catch {
-            premiumPackage = nil
-            familyPackage = nil
+            monthlyPackage = nil
+            yearlyPackage = nil
             offeringsDiagnostics = "offerings error=\(String(describing: error))"
-            errorMessage = "Paketler şu an yüklenemedi. Lütfen internet bağlantını kontrol edip tekrar dene."
+            errorMessage = "Premium paketleri şu an App Store’dan yüklenemedi. Lütfen tekrar dene."
         }
     }
 
@@ -140,11 +131,25 @@ final class PaywallViewModel: ObservableObject {
             try await Task.sleep(nanoseconds: 120_000_000)
             hasBegunPurchaseTransaction = true
             let customerInfo = try await RevenueCatSubscriptionPaywallService.purchase(package: package)
-            _ = try await RevenueCatSubscriptionPaywallService.refreshCustomerInfo()
+            let freshInfo = try await RevenueCatSubscriptionPaywallService.refreshCustomerInfo()
 
             await refreshBackendEntitlements(customerInfo: customerInfo)
 
+            let paidInStore = RevenueCatSubscriptionPaywallService.hasActiveSubscription(freshInfo)
+                || RevenueCatSubscriptionPaywallService.hasActiveSubscription(customerInfo)
+
+            // Ödeme App Store'da alındıysa backend senkronu gecikmiş olabilir: bir kez daha dene.
+            if !EntitlementStore.shared.hasPremiumAccess, paidInStore {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                await refreshBackendEntitlements(customerInfo: freshInfo)
+            }
+
             guard EntitlementStore.shared.hasPremiumAccess else {
+                if paidInStore {
+                    // Kullanıcı ödeme yaptı: "hata" göstermek yanlış olur (tekrar satın almaya iter).
+                    successMessage = "Ödemen alındı. Aboneliğin birkaç dakika içinde etkinleşecek; etkinleşmezse Satın alımları geri yükle'yi dene."
+                    return true
+                }
                 errorMessage = "Satın alma sırasında bir hata oluştu. Lütfen tekrar deneyin."
                 return false
             }
@@ -191,10 +196,10 @@ final class PaywallViewModel: ObservableObject {
 
     private func package(for type: PaywallPlanType) -> Package? {
         switch type {
-        case .premium:
-            return premiumPackage
-        case .family:
-            return familyPackage
+        case .monthly:
+            return monthlyPackage
+        case .yearly:
+            return yearlyPackage
         }
     }
 
@@ -213,7 +218,25 @@ final class PaywallViewModel: ObservableObject {
             return "\(raw) / ay"
         }
 
+        if let period = sp.subscriptionPeriod, period.unit == .year, period.value == 1 {
+            return "\(raw) / yıl"
+        }
+
         return raw
+    }
+
+    private func syncActiveSubscription() async {
+        guard let info = try? await RevenueCatSubscriptionPaywallService.refreshCustomerInfo() else { return }
+        let supportedProductIDs = [monthlyPackage, yearlyPackage]
+            .compactMap { $0?.storeProduct.productIdentifier }
+            .map(RevenueCatCatalog.normalize)
+        let activeIDs = Set(info.activeSubscriptions.map(RevenueCatCatalog.normalize))
+        activeSubscriptionProductID = supportedProductIDs.first(where: activeIDs.contains)
+        if activeSubscriptionProductID == yearlyPackage.map({ RevenueCatCatalog.normalize($0.storeProduct.productIdentifier) }) {
+            selectedPackageType = .yearly
+        } else if activeSubscriptionProductID != nil {
+            selectedPackageType = .monthly
+        }
     }
 
     private func refreshBackendEntitlements(customerInfo: CustomerInfo) async {

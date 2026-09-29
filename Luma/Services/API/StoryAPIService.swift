@@ -2,7 +2,10 @@ import Foundation
 
 /// POST /v1/stories/generate — yalnızca hikâyeye özel alanlar; çocuk profili sunucuda okunur.
 struct StoryGenerateRequestDTO: Encodable {
-    let childId: UUID
+    /// Kayıtlı profil seçiliyse dolu; değilse `childName` ile geçici (kalıcı olmayan) üretim yapılır.
+    let childId: UUID?
+    let childName: String?
+    let childAge: Int?
     let theme: String
     let language: String?
     let extraContext: String?
@@ -80,15 +83,18 @@ enum StoryAPIService {
     }()
 
     static func generateStory(
-        childId: UUID,
+        childId: UUID?,
+        childName: String? = nil,
+        childAge: Int? = nil,
         theme: String,
         language: String? = nil,
         extraContext: String? = nil,
         selectedInterests: [String]? = nil,
         storyGoal: String? = nil
     ) async throws -> StoryModel {
+        let childLogId = childId?.uuidString ?? "ad_hoc"
         AppLogger.info("stories.generate.request_sent", [
-            "childId": childId.uuidString,
+            "childId": childLogId,
             "theme": theme,
             "language": language ?? "default",
             "hasExtraContext": extraContext == nil || extraContext?.isEmpty == true ? "false" : "true",
@@ -105,6 +111,8 @@ enum StoryAPIService {
         )
         let body = StoryGenerateRequestDTO(
             childId: childId,
+            childName: childId == nil ? childName : nil,
+            childAge: childId == nil ? childAge : nil,
             theme: theme,
             language: language,
             extraContext: extraContext,
@@ -114,6 +122,7 @@ enum StoryAPIService {
 
         let maxAttempts = 4
         var lastError: Error?
+        _ = childLogId
 
         for attempt in 1...maxAttempts {
             do {
@@ -125,7 +134,7 @@ enum StoryAPIService {
                     attempt: attempt
                 )
                 AppLogger.info("stories.generate.response_received", [
-                    "childId": childId.uuidString,
+                    "childId": childLogId,
                     "theme": theme,
                     "storyId": story.id.uuidString,
                     "result": "ok",
@@ -136,7 +145,7 @@ enum StoryAPIService {
                 lastError = err
                 if attempt < maxAttempts, shouldRetryGenerate(err) {
                     AppLogger.info("stories.generate.retrying", [
-                        "childId": childId.uuidString,
+                        "childId": childLogId,
                         "theme": theme,
                         "attempt": "\(attempt)",
                         "nextAttempt": "\(attempt + 1)",
@@ -150,7 +159,7 @@ enum StoryAPIService {
             } catch {
                 lastError = error
                 AppLogger.error("stories.generate.failed", [
-                    "childId": childId.uuidString,
+                    "childId": childLogId,
                     "theme": theme,
                     "attempt": "\(attempt)",
                     "errorKind": "unknown"
@@ -165,14 +174,14 @@ enum StoryAPIService {
 
         if let apiErr = err as? APIClientError, apiErr.allowsStoryGenerateListRecovery {
             AppLogger.info("stories.generate.recovery_attempt", [
-                "childId": childId.uuidString,
+                "childId": childLogId,
                 "theme": theme,
                 "errorKind": "\(apiErr)"
             ])
             try await Task.sleep(nanoseconds: 750_000_000)
             if let recovered = await recoverRecentlyGeneratedStory(childId: childId, theme: theme, windowSeconds: 120) {
                 AppLogger.info("stories.generate.recovered_from_list", [
-                    "childId": childId.uuidString,
+                    "childId": childLogId,
                     "theme": theme,
                     "storyId": recovered.id.uuidString
                 ])
@@ -186,10 +195,11 @@ enum StoryAPIService {
     private static func generateStoryOnce(
         endpoint: APIEndpoint,
         body: StoryGenerateRequestDTO,
-        childId: UUID,
+        childId: UUID?,
         theme: String,
         attempt: Int
     ) async throws -> StoryModel {
+        let childLogId = childId?.uuidString ?? "ad_hoc"
         let (data, http) = try await client.requestRawSuccessData(
             endpoint,
             body: body,
@@ -200,7 +210,7 @@ enum StoryAPIService {
         } catch {
             let preview = String(data: data.prefix(1000), encoding: .utf8) ?? "<binary>"
             AppLogger.error("stories.generate.payload_decode_failed", [
-                "childId": childId.uuidString,
+                "childId": childLogId,
                 "theme": theme,
                 "attempt": "\(attempt)",
                 "statusCode": "\(http.statusCode)",
@@ -253,13 +263,14 @@ enum StoryAPIService {
         throw APIClientError.decodingFailed
     }
 
-    private static func recoverRecentlyGeneratedStory(childId: UUID, theme: String, windowSeconds: TimeInterval) async -> StoryModel? {
+    private static func recoverRecentlyGeneratedStory(childId: UUID?, theme: String, windowSeconds: TimeInterval) async -> StoryModel? {
+        let childLogId = childId?.uuidString ?? "ad_hoc"
         let themeNorm = theme.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let cutoff = Date().addingTimeInterval(-windowSeconds)
         do {
             let stories = try await fetchStories(limit: 100)
             let candidates = stories.filter { story in
-                guard story.child_id == childId else { return false }
+                guard story.child_id == childId else { return false } // nil == nil: profilsiz (ad-hoc) masallar
                 guard let created = story.created_at, created >= cutoff else { return false }
                 let t = story.theme.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
                 return t == themeNorm
@@ -267,7 +278,7 @@ enum StoryAPIService {
             return candidates.max(by: { ($0.created_at ?? .distantPast) < ($1.created_at ?? .distantPast) })
         } catch {
             AppLogger.error("stories.generate.recovery_fetch_failed", [
-                "childId": childId.uuidString,
+                "childId": childLogId,
                 "theme": theme,
                 "error": String(describing: error)
             ])
@@ -275,7 +286,8 @@ enum StoryAPIService {
         }
     }
 
-    private static func logGenerateFailure(_ err: APIClientError, childId: UUID, theme: String, attempt: Int) {
+    private static func logGenerateFailure(_ err: APIClientError, childId: UUID?, theme: String, attempt: Int) {
+        let childLogId = childId?.uuidString ?? "ad_hoc"
         let code: String
         switch err {
         case .decodingFailed:
@@ -288,7 +300,7 @@ enum StoryAPIService {
             code = "client_error"
         }
         AppLogger.error("stories.generate.failed", [
-            "childId": childId.uuidString,
+            "childId": childLogId,
             "theme": theme,
             "attempt": "\(attempt)",
             "errorKind": "\(err)",
@@ -409,7 +421,9 @@ enum StoryAPIService {
     private static func shouldRetryGenerate(_ error: APIClientError) -> Bool {
         switch error {
         case .networkFailure:
-            return true
+            // Zaman aşımında sunucu masalı üretmeye/kaydetmeye devam edebilir; körlemesine yeniden denemek
+            // ikinci bir masal ve ikinci bir ücret demektir. Bunun yerine liste ile kurtarma denenir.
+            return false
         case .server(let code, _):
             let normalized = code.uppercased()
             return normalized == "INTERNAL_SERVER_ERROR"

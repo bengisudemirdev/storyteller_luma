@@ -41,7 +41,10 @@ class CreateStoryViewModel: ObservableObject {
         Task {
             await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
-            guard EntitlementStore.shared.canCreateStory else {
+            // Aylık hak bittiyse hediye/kampanya kredisi (yedek) yeterliyse devam edilebilir; sunucu aynı sırayı uygular.
+            await CreditBalanceViewModel.shared.refreshBalance()
+            let hasCreditsForStory = CreditBalanceViewModel.shared.balance >= CreditCost.story
+            guard EntitlementStore.shared.canCreateStory || hasCreditsForStory else {
                 if EntitlementStore.shared.hasPremiumAccess {
                     errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
                     showErrorAlert = true
@@ -53,24 +56,10 @@ class CreateStoryViewModel: ObservableObject {
                 return
             }
 
-            var ephemeralChildId: UUID?
             do {
-                let childId: UUID
-                if let existing = selectedChild {
-                    childId = existing.id
-                } else {
-                    // Üretim API’si childId istiyor; kalıcı profil istenmiyorsa geçici kayıt açılıp masal sonrası silinir.
-                    let newChild = try await ChildrenAPIService.createChild(
-                        name: trimmedName,
-                        age: 7,
-                        profile: nil,
-                        avatarEmoji: ChildModel.defaultAvatarEmoji,
-                        interests: nil,
-                        fears: nil
-                    )
-                    childId = newChild.id
-                    ephemeralChildId = newChild.id
-                }
+                // Profil seçilmediyse sunucu `childName` ile profilsiz (child_id = NULL) masal üretir;
+                // eskiden geçici profil açılıp silinirken cascade masalı da siliyordu.
+                let childId: UUID? = selectedChild?.id
 
                 let backendTheme = mapThemeToBackend(selectedTheme)
                 let extra = interest.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -79,23 +68,14 @@ class CreateStoryViewModel: ObservableObject {
 
                 let story = try await StoryService.generateStory(
                     childId: childId,
+                    childName: trimmedName,
+                    childAge: nil,
                     theme: backendTheme,
                     language: "Türkçe",
                     extraContext: extraContext,
                     selectedInterests: perStoryInterests,
                     storyGoal: nil
                 )
-
-                if let tempId = ephemeralChildId {
-                    do {
-                        try await ChildrenAPIService.deleteChild(id: tempId)
-                    } catch {
-                        AppLogger.error("children.delete.ephemeral_failed", [
-                            "childId": tempId.uuidString,
-                            "error": String(describing: type(of: error))
-                        ])
-                    }
-                }
 
                 generatedStoryModel = story
                 generatedStory = story.content
@@ -105,6 +85,12 @@ class CreateStoryViewModel: ObservableObject {
                 await CreditBalanceViewModel.shared.refreshBalance()
                 NotificationCenter.default.post(name: .lumaSavedStoriesDidChange, object: nil)
             } catch {
+                if let apiError = error as? APIClientError, apiError.serverErrorCode == "STORY_LIMIT_REACHED" {
+                    errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
+                    showErrorAlert = true
+                    isLoading = false
+                    return
+                }
                 if let apiError = error as? APIClientError, apiError.isInsufficientCredits {
                     if PortfolioAccessMode.isEnabled {
                         errorMessage = "Masal oluşturma şu an tamamlanamadı. Lütfen biraz sonra tekrar dene."
@@ -124,20 +110,10 @@ class CreateStoryViewModel: ObservableObject {
                     isLoading = false
                     return
                 }
-                if let tempId = ephemeralChildId {
-                    do {
-                        try await ChildrenAPIService.deleteChild(id: tempId)
-                    } catch {
-                        AppLogger.error("children.delete.ephemeral_failed", [
-                            "childId": tempId.uuidString,
-                            "error": String(describing: type(of: error))
-                        ])
-                    }
-                }
                 errorMessage = Self.userFacingStoryCreationFailureMessage(for: error)
                 showErrorAlert = true
                 AppLogger.error("stories.create.failed", [
-                    "childId": selectedChild?.id.uuidString ?? ephemeralChildId?.uuidString ?? "none",
+                    "childId": selectedChild?.id.uuidString ?? "ad_hoc",
                     "theme": mapThemeToBackend(selectedTheme),
                     "error": String(describing: type(of: error))
                 ])
@@ -189,18 +165,20 @@ class CreateStoryViewModel: ObservableObject {
         }
     }
 
+    /// Arayüzdeki tema adı → backend tema allowlist'i (`themeWhitelist.ts`). Her tema kendi hedef/ton ayarına sahiptir.
     private func mapThemeToBackend(_ theme: String) -> String {
         switch theme.lowercased() {
         case "uyku":
-            return "hayvanlar"
+            return "uyku"
         case "dostluk":
-            return "arkadaşlık"
+            return "dostluk"
         case "eğitici":
-            return "umut"
+            return "eğitici"
         case "macera":
-            return "adventure"
+            return "macera"
         default:
-            return "hayvanlar"
+            // Bilinmeyen tema: en güvenli/sakin varsayılan.
+            return "uyku"
         }
     }
 

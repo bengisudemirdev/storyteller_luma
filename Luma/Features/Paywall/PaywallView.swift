@@ -132,26 +132,26 @@ struct PaywallView: View {
 
             PaywallPlanCard(
                 plan: viewModel.premiumPlanCardData,
-                isSelected: viewModel.selectedPackageType == .premium,
-                isOwned: entitlements.hasPremiumAccess && !entitlements.hasFamilyAccess,
+                isSelected: viewModel.selectedPackageType == .monthly,
+                isOwned: viewModel.isPlanOwned(.monthly),
                 style: .premiumPopular
             ) {
-                viewModel.selectedPackageType = .premium
+                viewModel.selectedPackageType = .monthly
                 viewModel.clearTransientMessages()
             }
 
             PaywallPlanCard(
-                plan: viewModel.familyPlanCardData,
-                isSelected: viewModel.selectedPackageType == .family,
-                isOwned: entitlements.hasFamilyAccess,
-                style: .family
+                plan: viewModel.yearlyPlanCardData,
+                isSelected: viewModel.selectedPackageType == .yearly,
+                isOwned: viewModel.isPlanOwned(.yearly),
+                style: .yearly
             ) {
-                viewModel.selectedPackageType = .family
+                viewModel.selectedPackageType = .yearly
                 viewModel.clearTransientMessages()
             }
 
             if viewModel.didAttemptOfferingsLoad,
-               viewModel.premiumPackage == nil && viewModel.familyPackage == nil,
+               viewModel.monthlyPackage == nil && viewModel.yearlyPackage == nil,
                !viewModel.isLoadingOfferings {
                 Button {
                     Task { await viewModel.loadOfferings() }
@@ -171,22 +171,6 @@ struct PaywallView: View {
                 )
             }
 
-            #if DEBUG
-            if viewModel.didAttemptOfferingsLoad && !viewModel.offeringsDiagnostics.isEmpty {
-                Text(viewModel.offeringsDiagnostics)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(HomeDashboardPalette.muted)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.white.opacity(0.72))
-                    )
-                    .accessibilityIdentifier("paywall.offeringsDiagnostics")
-            }
-            #endif
         }
     }
 

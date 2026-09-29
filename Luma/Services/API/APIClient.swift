@@ -71,8 +71,15 @@ enum APIClientError: LocalizedError {
             return "Geçersiz API URL."
         case .unauthorized:
             return "Yetkilendirme başarısız. Lütfen tekrar giriş yapın."
-        case .paymentRequired:
-            return "Bu işlem için uygun bir abonelik veya hak gerekiyor."
+        case .paymentRequired(let apiCode, _):
+            switch apiCode?.uppercased() {
+            case "STORY_LIMIT_REACHED":
+                return "Bu ay için masal hakkın doldu. Hakkın yenilendiğinde tekrar deneyebilirsin."
+            case "VOICE_LIMIT_REACHED":
+                return "Bu ay için sesli masal hakkın doldu."
+            default:
+                return "Bu işlem için uygun bir abonelik veya hak gerekiyor."
+            }
         case .server(let code, let message):
             if let mapped = Self.turkishMessageForServerError(code: code, message: message) {
                 return mapped
@@ -101,7 +108,7 @@ enum APIClientError: LocalizedError {
         case "USAGE_LIMIT_EXCEEDED", "DAILY_LIMIT_EXCEEDED", "DAILY_STORY_LIMIT", "STORY_LIMIT_REACHED",
              "STORY_QUOTA_EXCEEDED", "QUOTA_EXCEEDED", "USAGE_LIMIT", "MASA_LIMIT", "MASAL_LIMIT", "STORY_LIMIT",
              "DAILY_USAGE_EXCEEDED":
-            return "Bugün için masal limitine ulaştın. Limit yenilendiğinde veya uygun aboneliğinle tekrar deneyebilirsin."
+            return "Bu ay için masal hakkına ulaştın. Hakkın yenilendiğinde veya planını yükselttiğinde tekrar deneyebilirsin."
         case "SUBSCRIPTION_REQUIRED", "PAYMENT_REQUIRED", "PREMIUM_REQUIRED":
             return "Bu işlem için uygun bir abonelik gerekebilir. Abonelik ekranından seçeneklere bakabilirsin."
         case "INSUFFICIENT_CREDITS":
@@ -118,6 +125,12 @@ enum APIClientError: LocalizedError {
             return "Masal servisi yoğun. Birkaç saniye sonra tekrar deneyin."
         case "OPENAI_CONFIG_ERROR":
             return "Masal servisi geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+        case "MINIMAX_INSUFFICIENT_BALANCE", "MINIMAX_NOT_CONFIGURED":
+            return "Seslendirme servisi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin."
+        case "MINIMAX_TTS_TIMEOUT":
+            return "Seslendirme bu denemede zaman aşımına uğradı. Lütfen tekrar deneyin."
+        case "MINIMAX_TTS_FAILED", "MINIMAX_AUDIO_MISSING", "MINIMAX_AUDIO_FETCH_FAILED", "AUDIO_UPLOAD_FAILED":
+            return "Seslendirme oluşturulurken bir sorun oluştu. Lütfen biraz sonra tekrar deneyin."
         case "OPENAI_MODEL_NOT_FOUND":
             return "Masal servisi model ayarı geçersiz. Lütfen destek ile iletişime geçin."
         case "OPENAI_PROMPT_TOO_LONG":
@@ -140,7 +153,7 @@ enum APIClientError: LocalizedError {
             return "Çok hızlı istek gönderildi. Güvenlik için kısa bir süre bekleyip tekrar dene."
         }
         if Self.messageSuggestsStoryUsageLimit(lower) {
-            return "Bugün için masal limitine ulaştın. Limit yenilendiğinde veya uygun aboneliğinle tekrar deneyebilirsin."
+            return "Bu ay için masal hakkına ulaştın. Hakkın yenilendiğinde veya planını yükselttiğinde tekrar deneyebilirsin."
         }
         if Self.messageSuggestsChildIssue(lower) {
             return Self.turkishMessageForChildHeuristic(lower)

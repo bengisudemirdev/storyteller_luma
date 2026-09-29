@@ -11,7 +11,7 @@ struct PaywallPlanCard: View {
 
     enum PaywallPlanCardStyle {
         case premiumPopular
-        case family
+        case yearly
     }
 
     var body: some View {
@@ -95,7 +95,7 @@ struct PaywallPlanCard: View {
         switch style {
         case .premiumPopular:
             return Color(hex: "FFF5EE").opacity(0.98)
-        case .family:
+        case .yearly:
             return Color.white.opacity(0.92)
         }
     }
@@ -107,7 +107,7 @@ struct PaywallPlanCard: View {
         switch style {
         case .premiumPopular:
             return HomeDashboardPalette.accentOrange.opacity(0.28)
-        case .family:
+        case .yearly:
             return Color.black.opacity(0.06)
         }
     }
@@ -116,7 +116,7 @@ struct PaywallPlanCard: View {
         switch style {
         case .premiumPopular:
             return HomeDashboardPalette.accentOrange.opacity(0.22)
-        case .family:
+        case .yearly:
             return Color.black.opacity(0.08)
         }
     }
@@ -125,7 +125,7 @@ struct PaywallPlanCard: View {
         switch style {
         case .premiumPopular:
             return HomeDashboardPalette.accentOrange.opacity(0.22)
-        case .family:
+        case .yearly:
             return HomeDashboardPalette.nightMid.opacity(0.12)
         }
     }
@@ -134,7 +134,7 @@ struct PaywallPlanCard: View {
         switch style {
         case .premiumPopular:
             return HomeDashboardPalette.accentOrange
-        case .family:
+        case .yearly:
             return HomeDashboardPalette.nightMid.opacity(0.85)
         }
     }

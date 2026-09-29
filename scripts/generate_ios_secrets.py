@@ -5,7 +5,9 @@ Run automatically from Xcode (Build Phase) or: python3 scripts/generate_ios_secr
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / "Luma" / "Config" / ".env"
@@ -24,13 +26,12 @@ KEYS = [
     ("REVENUECAT_CREDITS_OFFERING_KEY", "revenueCatCreditsOfferingKey"),
     ("TERMS_OF_SERVICE_URL", "termsOfServiceURL"),
     ("PRIVACY_POLICY_URL", "privacyPolicyURL"),
-    ("ELEVENLABS_API_KEY", "elevenLabsAPIKey"),
-    ("ELEVENLABS_AGENT_ID", "elevenLabsAgentId"),
-    ("ELEVENLABS_VOICE_ID", "elevenLabsVoiceId"),
     ("FEEDBACK_EMAIL", "feedbackEmail"),
     # İsteğe bağlı CDN tabanı .../classic-tales (sonunda / yok). Boşsa Supabase URL + bucket ile üretilir.
     ("CLASSIC_TALE_COVERS_BASE_URL", "classicTaleCoversBaseURL"),
 ]
+
+REQUIRED_KEYS = ("SUPABASE_URL", "SUPABASE_ANON_KEY", "BACKEND_BASE_URL")
 
 
 def parse_env(path: Path) -> dict[str, str]:
@@ -62,8 +63,37 @@ def swift_string_literal(s: str) -> str:
     return f'"{escaped}"'
 
 
+def validate_env(env: dict[str, str]) -> None:
+    """Fail before touching the generated file when API configuration is unusable."""
+    if not ENV_PATH.is_file():
+        raise SystemExit(
+            "Missing Luma/Config/.env. Copy Luma/Config/.env.example to .env "
+            "and configure the API values before building."
+        )
+
+    missing = [key for key in REQUIRED_KEYS if not env.get(key, "").strip()]
+    if missing:
+        raise SystemExit(
+            "Missing required values in Luma/Config/.env: " + ", ".join(missing)
+        )
+
+    for key in ("SUPABASE_URL", "BACKEND_BASE_URL"):
+        raw = env[key].strip()
+        parsed = urlparse(raw)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise SystemExit(f"{key} must be an absolute http(s) URL.")
+
+    backend = urlparse(env["BACKEND_BASE_URL"].strip())
+    if backend.path.rstrip("/").endswith(("/v1", "/api/v1")):
+        raise SystemExit(
+            "BACKEND_BASE_URL must be the server origin only (for example "
+            "https://luma.beysemi.com), without /v1 or /api/v1."
+        )
+
+
 def main() -> None:
     env = parse_env(ENV_PATH)
+    validate_env(env)
     lines = [
         "//",
         "//  Secrets.generated.swift",
@@ -81,8 +111,14 @@ def main() -> None:
         lines.append(f"    static let {prop} = {swift_string_literal(raw)}")
     lines.extend(["}", ""])
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Wrote {OUT_PATH.relative_to(ROOT)}")
+    temporary_path = OUT_PATH.with_suffix(OUT_PATH.suffix + ".tmp")
+    temporary_path.write_text("\n".join(lines), encoding="utf-8")
+    os.replace(temporary_path, OUT_PATH)
+    try:
+        display_path = OUT_PATH.relative_to(ROOT)
+    except ValueError:
+        display_path = OUT_PATH
+    print(f"Wrote {display_path}")
 
 
 if __name__ == "__main__":

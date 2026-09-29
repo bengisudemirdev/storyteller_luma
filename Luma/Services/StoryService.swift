@@ -23,7 +23,9 @@ enum StoryService {
 
     /// Kalıcı çocuk tercihleri sunucuda `childId` ile okunur; burada yalnızca bu masala özel alanlar gider.
     static func generateStory(
-        childId: UUID,
+        childId: UUID?,
+        childName: String? = nil,
+        childAge: Int? = nil,
         theme: String,
         language: String? = nil,
         extraContext: String? = nil,
@@ -32,6 +34,8 @@ enum StoryService {
     ) async throws -> StoryModel {
         return try await StoryAPIService.generateStory(
             childId: childId,
+            childName: childName,
+            childAge: childAge,
             theme: theme,
             language: language,
             extraContext: extraContext,

@@ -12,6 +12,7 @@ final class AudioPlayerViewModel: ObservableObject {
     private var player: AVPlayer?
     private var currentURLString: String?
     private var failureObserverToken: NSObjectProtocol?
+    private var endObserverToken: NSObjectProtocol?
 
     func play(urlString: String) {
         errorMessage = nil
@@ -115,6 +116,19 @@ final class AudioPlayerViewModel: ObservableObject {
     private func attachPlaybackFailureObserver() {
         detachPlaybackFailureObserver()
         guard let item = player?.currentItem else { return }
+        // Ses bittiğinde UI "çalıyor" durumunda kalmasın; başa sarılır, tekrar oynat çalışır.
+        endObserverToken = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isPlaying = false
+                self.isLoading = false
+                self.player?.seek(to: .zero)
+            }
+        }
         failureObserverToken = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemFailedToPlayToEndTime,
             object: item,
@@ -134,6 +148,10 @@ final class AudioPlayerViewModel: ObservableObject {
         if let token = failureObserverToken {
             NotificationCenter.default.removeObserver(token)
             failureObserverToken = nil
+        }
+        if let token = endObserverToken {
+            NotificationCenter.default.removeObserver(token)
+            endObserverToken = nil
         }
     }
 
