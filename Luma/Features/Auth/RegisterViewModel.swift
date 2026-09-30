@@ -51,7 +51,10 @@ class RegisterViewModel: ObservableObject {
         } catch {
             UserDefaults.standard.set(false, forKey: "luma_registration_requires_child_setup")
             try? await OliaApp.supabase.auth.signOut()
-            errorMessage = error.userFacingTurkishMessage
+            // Hesap Supabase'de ZATEN oluştu; yalnızca sunucudaki profil adımı başarısız oldu. Kullanıcı tekrar kayıt
+            // olmaya çalışırsa "e-posta zaten kayıtlı" görürdü; bu yüzden giriş yapmasını söyleriz (giriş profili tamamlar).
+            errorMessage = "Hesabın oluşturuldu ama profilin sunucuda kurulamadı. Lütfen giriş yapmayı dene; sorun sürerse biraz sonra tekrar dene."
+            AppLogger.error("register.profile_sync_failed", ["error": String(describing: type(of: error)), "detail": error.userFacingTurkishMessage])
             isLoading = false
             return false
         }
