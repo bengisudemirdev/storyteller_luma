@@ -10,12 +10,12 @@ struct PaywallPlanViewData: Identifiable {
     let type: PaywallPlanType
     let title: String
     let badge: String?
-    /// RevenueCat / StoreKit fiyatı veya ürün yoksa yedek metin (örn. ₺179,99 / ay).
+    /// RevenueCat / StoreKit fiyatı veya ürün yoksa yedek metin (örn. ₺179,99 / ay, ₺1.799,99 / yıl).
     let priceText: String
     let features: [String]
 
     static let monthlyFallbackPrice = "₺179,99 / ay"
-    static let yearlyFallbackPrice = "Yıllık fiyat App Store’dan yükleniyor"
+    static let yearlyFallbackPrice = "₺1.799,99 / yıl"
 
     static func premiumPlan(priceText: String) -> PaywallPlanViewData {
         PaywallPlanViewData(
