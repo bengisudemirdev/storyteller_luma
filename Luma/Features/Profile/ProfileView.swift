@@ -65,6 +65,11 @@ struct ProfileView: View {
                         feedbackSection
                         accountSettingsSection
                         signOutButton
+                        // Hangi sürümün çalıştığı kesin görülsün (destek ve test için).
+                        Text(Self.appVersionText)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.muted.opacity(0.8))
+                            .frame(maxWidth: .infinity, alignment: .center)
                         Spacer(minLength: 80)
                     }
                     .padding(.horizontal, 20)
@@ -258,6 +263,13 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private static var appVersionText: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "Olia \(version) (\(build))"
     }
 
     private var creditSection: some View {
