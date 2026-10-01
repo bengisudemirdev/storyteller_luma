@@ -685,17 +685,33 @@ struct ClassicTalePreviewView: View {
         let outerWidth = min(size.width - StoryReadingChrome.horizontalPadding * 2, StoryReadingChrome.cardMaxOuterWidth)
         let textWidth = outerWidth - ClassicReaderMetrics.innerPadding * 2
         let cardHeight = size.height - ClassicReaderMetrics.topInset - ClassicReaderMetrics.bottomInset
-        let innerHeight = cardHeight - ClassicReaderMetrics.innerPadding * 2 - ClassicReaderMetrics.attributionReserve
+        let innerHeight = cardHeight - ClassicReaderMetrics.innerPadding * 2
         // İlk sayfada kartın üstünde banner var; etiket banner'ın üstünde olduğu için başlık bloğunda yer almaz.
         let coverBlock = StoryHeroBanner.height(forCardWidth: outerWidth)
         let titleBlock = 12 + 10 + StoryTextMetrics.titleHeight(tale.title, width: textWidth)
             + ClassicReaderMetrics.contentSpacing
-        pages = StoryReadingPagination.pages(
-            from: tale.fullStory,
-            textWidth: textWidth,
-            firstPageHeight: innerHeight - coverBlock - titleBlock,
-            otherPageHeight: innerHeight
-        )
+
+        func paginate(reserve: CGFloat) -> [[String]] {
+            StoryReadingPagination.pages(
+                from: tale.fullStory,
+                textWidth: textWidth,
+                firstPageHeight: innerHeight - coverBlock - titleBlock - reserve,
+                otherPageHeight: innerHeight - reserve
+            )
+        }
+
+        // Sayfalar sonuna kadar dolsun: kaynak satırı için yer yalnızca son sayfa sığmıyorsa ayrılır.
+        var result = paginate(reserve: 0)
+        if let last = result.last {
+            let lastIndex = result.count - 1
+            let lastHeight = last.reduce(CGFloat(0)) { $0 + StoryTextMetrics.bodyHeight($1, width: textWidth) }
+                + CGFloat(max(last.count - 1, 0)) * StoryReadingPagination.paragraphSpacing
+            let available = lastIndex == 0 ? innerHeight - coverBlock - titleBlock : innerHeight
+            if lastHeight + ClassicReaderMetrics.attributionReserve > available * 0.975 {
+                result = paginate(reserve: ClassicReaderMetrics.attributionReserve)
+            }
+        }
+        pages = result
         currentPage = min(currentPage, max(pages.count - 1, 0))
     }
 
