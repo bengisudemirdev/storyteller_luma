@@ -65,7 +65,7 @@ struct StoryReaderView: View {
         static let cardTopInset: CGFloat = 10
         static let cardBottomInset: CGFloat = 12
         static let cardInnerPadding: CGFloat = 22
-        static let accentBarHeight: CGFloat = 5
+        static let accentBarHeight: CGFloat = 12
         static let titleBlockSpacing: CGFloat = 10
         static let cardContentSpacing: CGFloat = 16
     }
@@ -80,19 +80,12 @@ struct StoryReaderView: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: ReaderMetrics.titleBlockSpacing) {
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [HomeDashboardPalette.accentOrange, HomeDashboardPalette.accentOrangeSoft],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(width: 44, height: ReaderMetrics.accentBarHeight)
+            StoryOrnamentDivider()
+                .frame(height: ReaderMetrics.accentBarHeight)
 
             Text(storyTitle)
                 .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
-                .foregroundStyle(HomeDashboardPalette.ink)
+                .foregroundStyle(StoryReadingPalette.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -349,12 +342,12 @@ struct StoryReaderView: View {
         .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
         .frame(maxWidth: .infinity)
         .background(
-            HomeDashboardPalette.dashboardCanvas.opacity(0.92)
-                .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 6)
+            Color(hex: "FBEFD9").opacity(0.94)
+                .shadow(color: Color(hex: "6B4A24").opacity(0.16), radius: 10, x: 0, y: 5)
         )
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(HomeDashboardPalette.accentOrange.opacity(0.08))
+                .fill(StoryReadingPalette.paperEdge)
                 .frame(height: 1)
         }
     }

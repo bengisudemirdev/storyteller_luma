@@ -5,8 +5,8 @@ enum StoryReadingChrome {
     static let horizontalPadding: CGFloat = 20
     static let cardCornerRadius: CGFloat = 22
     static let titleSize: CGFloat = 24
-    static let bodySize: CGFloat = 16
-    static let bodyLineSpacing: CGFloat = 8
+    static let bodySize: CGFloat = 17
+    static let bodyLineSpacing: CGFloat = 7
     /// Metin sütunu (iPad’de çok geniş kırpılmasın diye üst sınır).
     static let contentMaxWidth: CGFloat = 540
     /// İç padding (22×2) + metin alanı üst sınırı.
@@ -33,7 +33,7 @@ enum StoryTextMetrics {
         return base
     }
 
-    static var bodyFont: UIFont { roundedFont(size: StoryReadingChrome.bodySize, weight: .regular) }
+    static var bodyFont: UIFont { serifFont(size: StoryReadingChrome.bodySize, weight: .regular) }
     static var titleFont: UIFont { serifFont(size: StoryReadingChrome.titleSize, weight: .bold) }
 
     static func height(of text: String, width: CGFloat, font: UIFont, lineSpacing: CGFloat) -> CGFloat {
@@ -62,7 +62,7 @@ enum StoryReadingPagination {
     /// Paragraflar arası boşluk (metin içinde boş satır yerine gerçek aralık).
     static let paragraphSpacing: CGFloat = 14
     /// SwiftUI ile UIKit ölçümü arasındaki küçük farklara karşı güvenlik payı.
-    private static let safety: CGFloat = 0.94
+    private static let safety: CGFloat = 0.975
 
     /// Metni paragraflara ayırır. Boş satır yoksa tek satır sonlarına, o da yoksa uzun bloğu cümle gruplarına bölünür.
     static func paragraphs(from text: String) -> [String] {
@@ -108,8 +108,8 @@ enum StoryReadingPagination {
         return groups
     }
 
-    /// Metni, verilen sayfa yüksekliklerine göre sayfalara böler. Paragraf sınırlarını korur; sığmayan paragrafı
-    /// CÜMLE sınırından bölerek sonraki sayfaya devam ettirir (cümle ortasında kesmez).
+    /// Metni, verilen sayfa yüksekliklerine göre sayfalara böler. Her sayfa dolana kadar metin akar; sığmayan
+    /// paragraf kelime sınırından bölünüp sonraki sayfada devam eder (sayfa altında boşluk kalmaz).
     /// - Parameters:
     ///   - textWidth: Metnin çizileceği gerçek genişlik.
     ///   - firstPageHeight: İlk sayfada metne ayrılan yükseklik (başlık/kapak düşülmüş).
@@ -155,34 +155,35 @@ enum StoryReadingPagination {
                     continue
                 }
 
-                // Sığmadı: cümle cümle doldur.
-                let sents = sentences(of: current)
-                var fit = ""
-                var consumed = 0
-                for sentence in sents {
-                    let candidate = fit.isEmpty ? sentence : fit + " " + sentence
-                    if used + gap + StoryTextMetrics.bodyHeight(candidate, width: textWidth) <= capacity(pageIndex) {
-                        fit = candidate
-                        consumed += 1
-                    } else {
-                        break
-                    }
+                // Sığmadı: sayfayı kelime kelime doldur (ikili arama); kalan metin sonraki sayfada devam eder.
+                let words = current.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+                let room = capacity(pageIndex)
+                func fits(_ count: Int) -> Bool {
+                    used + gap + StoryTextMetrics.bodyHeight(words.prefix(count).joined(separator: " "), width: textWidth) <= room
+                }
+                var low = 0
+                var high = words.count
+                while low < high {
+                    let mid = (low + high + 1) / 2
+                    if fits(mid) { low = mid } else { high = mid - 1 }
                 }
 
-                if fit.isEmpty {
+                if low == 0 {
                     if pages[pageIndex].isEmpty {
-                        // Sayfa boş ve tek cümle bile sığmıyor: cümleyi zorla yerleştir (kaydırma yedek olarak kalır).
-                        pages[pageIndex].append(sents.first ?? current)
-                        used += StoryTextMetrics.bodyHeight(sents.first ?? current, width: textWidth)
-                        let rest = sents.dropFirst().joined(separator: " ")
+                        // Sayfa boş ve tek kelime bile sığmıyor: yine de yerleştir (kaydırma yedek olarak kalır).
+                        let first = words.first ?? current
+                        pages[pageIndex].append(first)
+                        used += StoryTextMetrics.bodyHeight(first, width: textWidth)
+                        let rest = words.dropFirst().joined(separator: " ")
                         remaining = rest.isEmpty ? [] : [rest]
                         if !remaining.isEmpty { startNewPage() }
                     } else {
                         startNewPage()
                     }
                 } else {
+                    let fit = words.prefix(low).joined(separator: " ")
                     pages[pageIndex].append(fit)
-                    let rest = sents.dropFirst(consumed).joined(separator: " ")
+                    let rest = words.dropFirst(low).joined(separator: " ")
                     remaining = rest.isEmpty ? [] : [rest]
                     if !remaining.isEmpty { startNewPage() }
                 }
@@ -229,18 +230,74 @@ struct StoryPageBody: View {
     }
 }
 
+/// Okuma ekranı renkleri: lamba ışığında kâğıt hissi (sıcak krem + kahverengi mürekkep).
+enum StoryReadingPalette {
+    static let paperTop = Color(hex: "FFFBF2")
+    static let paperBottom = Color(hex: "FBF0DC")
+    static let paperEdge = Color(hex: "E9D7B8")
+    static let ink = Color(hex: "3A2E27")
+    static let accent = Color(hex: "C8743F")
+}
+
 struct StoryReadingWarmBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [
-                HomeDashboardPalette.cream,
-                HomeDashboardPalette.creamDeep,
-                Color(hex: "F7EFE4")
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            LinearGradient(
+                colors: [Color(hex: "F6E7CF"), Color(hex: "EFDDBF"), Color(hex: "E8D1AE")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            // Lamba ışığı: üstten yumuşak sıcak parıltı.
+            RadialGradient(
+                colors: [Color(hex: "FFE9C2").opacity(0.75), .clear],
+                center: .top,
+                startRadius: 10,
+                endRadius: 420
+            )
+        }
         .ignoresSafeArea()
+    }
+}
+
+/// Kâğıt dokulu sayfa zemini: sıcak degrade, ince kenar ve iç gölge ile kitap sayfası görünümü.
+struct StoryPaperBackground: View {
+    var cornerRadius: CGFloat = StoryReadingChrome.cardCornerRadius
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [StoryReadingPalette.paperTop, StoryReadingPalette.paperBottom],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(StoryReadingPalette.paperEdge, lineWidth: 1)
+            )
+            .overlay(
+                // Sayfa kıvrımı hissi: kenarlarda hafif iç gölge.
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color(hex: "B9894F").opacity(0.10), lineWidth: 6)
+                    .blur(radius: 5)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            )
+            .shadow(color: Color(hex: "6B4A24").opacity(0.22), radius: 16, x: 0, y: 10)
+    }
+}
+
+/// Başlık altı süs çizgisi.
+struct StoryOrnamentDivider: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Capsule().fill(StoryReadingPalette.accent.opacity(0.35)).frame(width: 34, height: 1.5)
+            Image(systemName: "sparkle")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(StoryReadingPalette.accent.opacity(0.8))
+            Capsule().fill(StoryReadingPalette.accent.opacity(0.35)).frame(width: 34, height: 1.5)
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -317,28 +374,18 @@ struct StoryReadingPageControls: View {
                 .padding(.bottom, 14)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(HomeDashboardPalette.cardSurface.opacity(0.97))
-                        .shadow(color: HomeDashboardPalette.cardShadow, radius: 6, x: 0, y: 3)
+                        .fill(Color(hex: "FFF6E6").opacity(0.95))
+                        .shadow(color: Color(hex: "6B4A24").opacity(0.14), radius: 6, x: 0, y: 3)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(HomeDashboardPalette.accentOrange.opacity(0.1), lineWidth: 1)
+                        .stroke(StoryReadingPalette.paperEdge, lineWidth: 1)
                 )
             }
         }
         .padding(.horizontal, StoryReadingChrome.horizontalPadding)
         .padding(.top, 8)
         .padding(.bottom, 22)
-        .background(
-            LinearGradient(
-                colors: [
-                    HomeDashboardPalette.creamDeep.opacity(0.22),
-                    HomeDashboardPalette.cream.opacity(0.96)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
     }
 
     private func pageStepButton(
@@ -372,25 +419,7 @@ struct StoryReadingTextCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(22)
             .frame(minHeight: minHeight, alignment: .topLeading)
-            .background(
-                RoundedRectangle(cornerRadius: StoryReadingChrome.cardCornerRadius, style: .continuous)
-                    .fill(HomeDashboardPalette.dashboardCanvas)
-                    .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 8)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: StoryReadingChrome.cardCornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                HomeDashboardPalette.accentOrange.opacity(0.22),
-                                HomeDashboardPalette.cardEdgeStroke
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
+            .background(StoryPaperBackground())
     }
 }
 
@@ -398,8 +427,8 @@ extension View {
     /// Masal gövdesi: okunabilir rounded + rahat satır aralığı.
     func storyReadingBodyStyle() -> some View {
         self
-            .font(.system(size: StoryReadingChrome.bodySize, weight: .regular, design: .rounded))
-            .foregroundStyle(HomeDashboardPalette.ink.opacity(0.92))
+            .font(.system(size: StoryReadingChrome.bodySize, weight: .regular, design: .serif))
+            .foregroundStyle(StoryReadingPalette.ink)
             .lineSpacing(StoryReadingChrome.bodyLineSpacing)
     }
 }

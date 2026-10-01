@@ -88,19 +88,11 @@ struct StoryReadingHeroCard<Banner: View, Content: View>: View {
                 .padding(22)
         }
         .frame(minHeight: minHeight, alignment: .topLeading)
-        .background(HomeDashboardPalette.dashboardCanvas)
+        .background(StoryPaperBackground())
         .clipShape(RoundedRectangle(cornerRadius: StoryReadingChrome.cardCornerRadius, style: .continuous))
-        .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 14, x: 0, y: 8)
         .overlay(
             RoundedRectangle(cornerRadius: StoryReadingChrome.cardCornerRadius, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [HomeDashboardPalette.accentOrange.opacity(0.22), HomeDashboardPalette.cardEdgeStroke],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
+                .strokeBorder(StoryReadingPalette.paperEdge, lineWidth: 1)
         )
     }
 }

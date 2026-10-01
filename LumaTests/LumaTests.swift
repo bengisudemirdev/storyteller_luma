@@ -49,19 +49,21 @@ struct StoryPaginationTests {
         #expect(paras.allSatisfy { $0.count <= 520 })
     }
 
-    @Test func pagesNeverSplitMidSentenceAndKeepAllText() {
+    @Test func pagesKeepAllTextAndFillBeforeBreaking() {
         let width: CGFloat = 300
-        let pages = StoryReadingPagination.pages(from: sample, textWidth: width, firstPageHeight: 220, otherPageHeight: 300)
+        let limit: CGFloat = 220
+        let pages = StoryReadingPagination.pages(from: sample, textWidth: width, firstPageHeight: limit, otherPageHeight: limit)
         #expect(pages.count > 1)
 
         let original = sample.replacingOccurrences(of: "\n\n", with: " ").split(separator: " ").joined(separator: " ")
         let rebuilt = pages.flatMap { $0 }.joined(separator: " ").split(separator: " ").joined(separator: " ")
         #expect(rebuilt == original, "Sayfalama metin kaybetmemeli/eklememeli")
 
-        for page in pages {
-            for fragment in page {
-                #expect(fragment.last.map { ".!?\"”'".contains($0) } ?? false, "Parça cümle sonunda bitmeli: \(fragment)")
-            }
+        // Son sayfa hariç her sayfa büyük ölçüde dolu olmalı (altta büyük boşluk kalmamalı).
+        for page in pages.dropLast() {
+            let height = page.reduce(CGFloat(0)) { $0 + StoryTextMetrics.bodyHeight($1, width: width) }
+                + CGFloat(max(page.count - 1, 0)) * StoryReadingPagination.paragraphSpacing
+            #expect(height >= limit * 0.8, "Sayfa dolmadan sonrakine geçildi (\(height) < \(limit * 0.8))")
         }
     }
 

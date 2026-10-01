@@ -688,7 +688,7 @@ struct ClassicTalePreviewView: View {
         let innerHeight = cardHeight - ClassicReaderMetrics.innerPadding * 2 - ClassicReaderMetrics.attributionReserve
         // İlk sayfada kartın üstünde banner var; etiket banner'ın üstünde olduğu için başlık bloğunda yer almaz.
         let coverBlock = StoryHeroBanner.height(forCardWidth: outerWidth)
-        let titleBlock = 5 + 10 + StoryTextMetrics.titleHeight(tale.title, width: textWidth)
+        let titleBlock = 12 + 10 + StoryTextMetrics.titleHeight(tale.title, width: textWidth)
             + ClassicReaderMetrics.contentSpacing
         pages = StoryReadingPagination.pages(
             from: tale.fullStory,
@@ -742,22 +742,12 @@ struct ClassicTalePreviewView: View {
                                         } content: {
                                             VStack(alignment: .leading, spacing: 14) {
                                                 VStack(alignment: .leading, spacing: 10) {
-                                                    Capsule()
-                                                        .fill(
-                                                            LinearGradient(
-                                                                colors: [
-                                                                    HomeDashboardPalette.accentOrange,
-                                                                    HomeDashboardPalette.accentOrangeSoft
-                                                                ],
-                                                                startPoint: .leading,
-                                                                endPoint: .trailing
-                                                            )
-                                                        )
-                                                        .frame(width: 44, height: 5)
+                                                    StoryOrnamentDivider()
+                                                        .frame(height: 12)
 
                                                     Text(tale.title)
                                                         .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
-                                                        .foregroundStyle(HomeDashboardPalette.ink)
+                                                        .foregroundStyle(StoryReadingPalette.ink)
                                                         .fixedSize(horizontal: false, vertical: true)
                                                 }
 
