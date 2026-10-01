@@ -17,7 +17,7 @@ enum StoryAudioServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .insufficientCredits:
-            return "Seslendirme için yeterli kredin yok."
+            return "Seslendirme için yeterli hakkın yok."
         case .unauthorized:
             return "Oturum süren dolmuş olabilir. Lütfen tekrar giriş yap."
         case .storyNotFound:

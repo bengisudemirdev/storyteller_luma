@@ -112,7 +112,7 @@ enum APIClientError: LocalizedError {
         case "SUBSCRIPTION_REQUIRED", "PAYMENT_REQUIRED", "PREMIUM_REQUIRED":
             return "Bu işlem için uygun bir abonelik gerekebilir. Abonelik ekranından seçeneklere bakabilirsin."
         case "INSUFFICIENT_CREDITS":
-            return "Kredi bakiyen bu işlem için yetersiz."
+            return "Bu işlem için kullanım hakkın yetersiz."
         case "INTERNAL_SERVER_ERROR":
             return "Sunucuda beklenmeyen bir sorun oluştu. Kısa bir süre sonra tekrar dene."
         case "CONTENT_UNSAFE", "UNSAFE_CONTENT", "CONTENT_POLICY_VIOLATION":
