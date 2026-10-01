@@ -44,7 +44,7 @@ enum ClassicTaleSeeds {
 
         Pamuk Prenses cüceleri ziyaret etmeyi hiç bırakmamış. Masal da burada, sıcacık bir “iyi geceler” ile bitmiş.
         """,
-        attribution: "Geleneksel Alman halk masalı · Grimm Kardeşler’in ‘Schneewittchen’ derlemesi (1812) ile yaygınlaşmıştır."
+        attribution: "Geleneksel Alman halk masalı · Grimm Kardeşler’in derlemesi (1812) ile yaygınlaşmıştır."
     )
 
     static let sleepingBeauty = ClassicTaleItem(
@@ -64,7 +64,7 @@ enum ClassicTaleSeeds {
 
         Uyku, korku değil; yeniden doğuşun kısa bir molasıymış. Ve o gece, herkes pencereleri açıp yıldızlara iyi dilekler göndermiş.
         """,
-        attribution: "Geleneksel Fransız halk masalı · Charles Perrault ‘La Belle au bois dormant’ (1697); Grimm’de ‘Dornröschen’ adıyla yer alır."
+        attribution: "Geleneksel Fransız halk masalı · Charles Perrault’nun “Uyuyan Güzel” masalı (1697); Grimm Kardeşler’de de yer alır."
     )
 
     static let cinderella = ClassicTaleItem(
@@ -84,7 +84,7 @@ enum ClassicTaleSeeds {
 
         Masal, “içtenlik görülür” diye fısıldayıp bitmiş.
         """,
-        attribution: "Geleneksel Avrupa halk masalı · Charles Perrault ‘Cendrillon’ (1697); Grimm’de ‘Aschenputtel’."
+        attribution: "Geleneksel Avrupa halk masalı · Charles Perrault’nun “Külkedisi” masalı (1697); Grimm Kardeşler’de de yer alır."
     )
 
     static let hanselAndGretel = ClassicTaleItem(
@@ -102,7 +102,7 @@ enum ClassicTaleSeeds {
 
         O günden sonra aile, konuşarak dertlerini paylaşmayı öğrenmiş. Hansel ile Gretel de birbirlerini hiç bırakmamış. Masal, “birlikteyken yol bulunur” diyerek usulca kapanmış.
         """,
-        attribution: "Geleneksel Alman halk masalı · Grimm Kardeşler ‘Hänsel und Gretel’ (KHM 15), 1812."
+        attribution: "Geleneksel Alman halk masalı · Grimm Kardeşler’in derlemesi, 1812."
     )
 
     static let rapunzel = ClassicTaleItem(
@@ -122,7 +122,7 @@ enum ClassicTaleSeeds {
 
         Rapunzel özgürlüğü, prens ise sabrı öğrenmiş. Masal, “kalp dinlenince yol açılır” diyerek sona ermiş.
         """,
-        attribution: "Geleneksel Alman halk masalı · Grimm Kardeşler ‘Rapunzel’ (KHM 12)."
+        attribution: "Geleneksel Alman halk masalı · Grimm Kardeşler’in derlemesi, 1812."
     )
 
     static let threeLittlePigs = ClassicTaleItem(
@@ -160,7 +160,7 @@ enum ClassicTaleSeeds {
 
         O günden sonra anne ile çocuk, paylaştıkça çoğalan bir mutlulukla yaşamış. Masal da, “cesaret nazik olunca gökyüzü bile yol gösterir” diyerek usulca bitmiş.
         """,
-        attribution: "İngiliz halk masalı ‘Jack and the Beanstalk’ · çeşitli sözlü anlatılarda yer alır."
+        attribution: "İngiliz halk masalı · çeşitli sözlü anlatılarda yer alır."
     )
 
     static let uglyDuckling = ClassicTaleItem(
@@ -180,7 +180,7 @@ enum ClassicTaleSeeds {
 
         Göl o gece çok sakinmiş; yıldızlar suda ikişer kopyalanmış. Masal, “farklılık, doğru yerde güzelliğe dönüşür” diyerek sona ermiş.
         """,
-        attribution: "Hans Christian Andersen ‘Den grimme ælling’ (1843) · evrensel kuğu dönüşümü motifi."
+        attribution: "Hans Christian Andersen’in “Çirkin Ördek Yavrusu” masalı (1843) · evrensel kuğu dönüşümü motifi."
     )
 
     static let pussInBoots = ClassicTaleItem(
@@ -200,7 +200,7 @@ enum ClassicTaleSeeds {
 
         Masal, “akıl ve sevgi yan yana yürüdüğünde yollar açılır” diyerek kapanmış; çizmeli kedi de o gece, sobanın yanında minik patilerini sıcak tutmuş.
         """,
-        attribution: "Charles Perrault ‘Le Maître chat ou le Chat botté’ (1697) · dünya masallarında yaygın motif."
+        attribution: "Charles Perrault’nun “Çizmeli Kedi” masalı (1697) · dünya masallarında yaygın motif."
     )
 
     static let goldilocksAndThreeBears = ClassicTaleItem(
@@ -220,7 +220,7 @@ enum ClassicTaleSeeds {
 
         Gece çöktüğünde kulübenin penceresinden sıcak ışık sızıyormuş. Masal, “paylaşılan ev, paylaşılan neşe” diyerek sona ermiş.
         """,
-        attribution: "İngiliz halk masalı ‘Goldilocks and the Three Bears’ · Robert Southey ve sonraki sözlü rivayetler."
+        attribution: "İngiliz halk masalı · Robert Southey ve sonraki sözlü rivayetler."
     )
 
     static let frogPrince = ClassicTaleItem(
@@ -238,7 +238,7 @@ enum ClassicTaleSeeds {
 
         İkisi bahçede yürümüş, göldeki yıldızları saymış. Prenses artık sözün ağırlığını biliyormuş. Masal, “dürüstlük, sihirden daha parlak” diyerek kapanmış.
         """,
-        attribution: "Grimm Kardeşler ‘Der Froschkönig’ (KHM 1) · dünya masallarında yaygın motif."
+        attribution: "Grimm Kardeşler’in derlemesi, 1812 · dünya masallarında yaygın motif."
     )
 
     static let thumbelina = ClassicTaleItem(
@@ -256,7 +256,7 @@ enum ClassicTaleSeeds {
 
         Parmak Kız sonunda, kendi seçtiği bir çiçeğin içinde mutlu uyumuş; rüyasında yıldızlar ona fısıldamış: “Küçük olmak, dünyayı büyük görmektir.” Masal da, “her boy kendi gökyüzünü taşır” diyerek bitmiş.
         """,
-        attribution: "Hans Christian Andersen ‘Tommelise’ (1835) · minik kahraman motifi."
+        attribution: "Hans Christian Andersen’in “Parmak Kız” masalı (1835) · minik kahraman motifi."
     )
 
     static let emperorsNewClothes = ClassicTaleItem(
@@ -274,7 +274,7 @@ enum ClassicTaleSeeds {
 
         İmparator önce kızarmış; sonra gülmüş: “Doğruyu söyleyen çocuk, bana en güzel giysiyi verdi: dürüstlük,” demiş. O günden sonra sarayda moda yarışları yerine hikâye geceleri düzenlenmiş. Masal, “içtenlik, en parlak kumaştır” diyerek sona ermiş.
         """,
-        attribution: "Hans Christian Andersen ‘Kejserens nye klæder’ (1837) · dünya edebiyatında yaygın anlatı."
+        attribution: "Hans Christian Andersen’in “İmparatorun Yeni Kıyafetleri” masalı (1837) · dünya edebiyatında yaygın anlatı."
     )
 
     static let littleMermaid = ClassicTaleItem(
@@ -294,7 +294,7 @@ enum ClassicTaleSeeds {
 
         Masal, “hayaller paylaşılınca mesafe küçülür” diyerek usulca biter; deniz de o gece özellikle sakinmiş.
         """,
-        attribution: "Hans Christian Andersen ‘Den lille havfrue’ (1837) · bu anlatım uyku öncesi için yumuşatılmıştır."
+        attribution: "Hans Christian Andersen’in “Küçük Deniz Kızı” masalı (1837) · bu anlatım uyku öncesi için yumuşatılmıştır."
     )
 
     static let lionAndMouse = ClassicTaleItem(
