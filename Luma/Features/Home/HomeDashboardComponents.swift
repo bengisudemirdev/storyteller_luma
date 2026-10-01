@@ -686,9 +686,10 @@ struct ClassicTalePreviewView: View {
         let textWidth = outerWidth - ClassicReaderMetrics.innerPadding * 2
         let cardHeight = size.height - ClassicReaderMetrics.topInset - ClassicReaderMetrics.bottomInset
         let innerHeight = cardHeight - ClassicReaderMetrics.innerPadding * 2 - ClassicReaderMetrics.attributionReserve
-        let coverBlock = coverWidth * StoryCoverMetrics.heightMultiplier + ClassicReaderMetrics.coverSpacing
+        // İlk sayfada kartın üstünde banner var; etiket banner'ın üstünde olduğu için başlık bloğunda yer almaz.
+        let coverBlock = StoryHeroBanner.height(forCardWidth: outerWidth)
         let titleBlock = 5 + 10 + StoryTextMetrics.titleHeight(tale.title, width: textWidth)
-            + 10 + ClassicReaderMetrics.tagHeight + ClassicReaderMetrics.contentSpacing
+            + ClassicReaderMetrics.contentSpacing
         pages = StoryReadingPagination.pages(
             from: tale.fullStory,
             textWidth: textWidth,
@@ -724,29 +725,22 @@ struct ClassicTalePreviewView: View {
                     TabView(selection: $currentPage) {
                         ForEach(Array(displayPages.enumerated()), id: \.offset) { index, paragraphs in
                             ScrollView(showsIndicators: false) {
-                                VStack(spacing: 14) {
-                                    if index == 0 {
-                                        StoryPhotoCoverView(
-                                            imageURL: tale.resolvedCoverImageURL,
-                                            fallbackTemplate: tale.coverTemplate,
-                                            title: tale.title,
-                                            subtitle: nil,
-                                            tag: tale.tag,
-                                            showsTextOverlay: false,
-                                            cornerRadius: StoryCoverMetrics.cornerRadius,
-                                            width: coverWidth
-                                        )
-                                        .shadow(color: HomeDashboardPalette.cardElevatedShadow, radius: 12, x: 0, y: 6)
-                                        .frame(maxWidth: .infinity)
-                                    }
+                                let cardWidth = min(proxy.size.width - StoryReadingChrome.horizontalPadding * 2, StoryReadingChrome.cardMaxOuterWidth)
+                                let cardMinHeight = proxy.size.height - ClassicReaderMetrics.topInset - ClassicReaderMetrics.bottomInset
 
-                                    StoryReadingTextCard(
-                                        minHeight: index == 0
-                                            ? nil
-                                            : proxy.size.height - ClassicReaderMetrics.topInset - ClassicReaderMetrics.bottomInset
-                                    ) {
-                                        VStack(alignment: .leading, spacing: 14) {
-                                            if index == 0 {
+                                Group {
+                                    if index == 0 {
+                                        // Kapak: kartın üstünde tam genişlikte banner (eskiden ortada duran küçük, ayrı bir kart).
+                                        StoryReadingHeroCard(minHeight: cardMinHeight) {
+                                            StoryHeroBanner(
+                                                imageURL: tale.resolvedCoverImageURL,
+                                                fallbackTemplate: tale.coverTemplate,
+                                                title: tale.title,
+                                                tag: tale.tag,
+                                                height: StoryHeroBanner.height(forCardWidth: cardWidth)
+                                            )
+                                        } content: {
+                                            VStack(alignment: .leading, spacing: 14) {
                                                 VStack(alignment: .leading, spacing: 10) {
                                                     Capsule()
                                                         .fill(
@@ -765,36 +759,40 @@ struct ClassicTalePreviewView: View {
                                                         .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
                                                         .foregroundStyle(HomeDashboardPalette.ink)
                                                         .fixedSize(horizontal: false, vertical: true)
+                                                }
 
-                                                    Text(tale.tag)
-                                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                                        .foregroundStyle(HomeDashboardPalette.accentOrange)
-                                                        .padding(.horizontal, 10)
-                                                        .padding(.vertical, 5)
-                                                        .background(
-                                                            Capsule(style: .continuous)
-                                                                .fill(HomeDashboardPalette.accentOrange.opacity(0.15))
-                                                        )
+                                                StoryPageBody(paragraphs: paragraphs)
+
+                                                if index == displayPages.count - 1 {
+                                                    Text(tale.attribution)
+                                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                                        .foregroundStyle(HomeDashboardPalette.muted)
+                                                        .italic()
+                                                        .padding(.top, 8)
                                                 }
                                             }
+                                        }
+                                    } else {
+                                        StoryReadingTextCard(minHeight: cardMinHeight) {
+                                            VStack(alignment: .leading, spacing: 14) {
+                                                StoryPageBody(paragraphs: paragraphs)
 
-                                            StoryPageBody(paragraphs: paragraphs)
-
-                                            if index == displayPages.count - 1 {
-                                                Text(tale.attribution)
-                                                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                                                    .foregroundStyle(HomeDashboardPalette.muted)
-                                                    .italic()
-                                                    .padding(.top, 8)
+                                                if index == displayPages.count - 1 {
+                                                    Text(tale.attribution)
+                                                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                                                        .foregroundStyle(HomeDashboardPalette.muted)
+                                                        .italic()
+                                                        .padding(.top, 8)
+                                                }
                                             }
                                         }
                                     }
-                                    .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
-                                    .frame(maxWidth: .infinity)
                                 }
+                                .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
+                                .frame(maxWidth: .infinity)
                                 .padding(.horizontal, StoryReadingChrome.horizontalPadding)
-                                .padding(.top, 8)
-                                .padding(.bottom, 12)
+                                .padding(.top, ClassicReaderMetrics.topInset)
+                                .padding(.bottom, ClassicReaderMetrics.bottomInset)
                             }
                             .tag(index)
                         }
@@ -819,7 +817,8 @@ struct ClassicTalePreviewView: View {
                     .animation(.spring(response: 0.35, dampingFraction: 0.82), value: showFloatingAudioPanel)
             }
         }
-        .navigationTitle(tale.title)
+        // Başlık zaten kartta; üst çubukta tekrarlanmasın.
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(HomeDashboardPalette.dashboardCanvas.opacity(0.94), for: .navigationBar)
         .toolbar {

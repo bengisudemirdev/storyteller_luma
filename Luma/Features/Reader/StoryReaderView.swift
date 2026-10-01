@@ -70,6 +70,33 @@ struct StoryReaderView: View {
         static let cardContentSpacing: CGFloat = 16
     }
 
+    /// Kaydedilmiş/üretilmiş bir masalda (tema bilgisi olan) ilk sayfada banner gösterilir.
+    private var hasThemeBanner: Bool { story != nil }
+
+    private var themeBannerTag: String? {
+        guard let theme = story?.theme.trimmingCharacters(in: .whitespacesAndNewlines), !theme.isEmpty else { return nil }
+        return theme.prefix(1).uppercased(with: Locale(identifier: "tr")) + theme.dropFirst()
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: ReaderMetrics.titleBlockSpacing) {
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [HomeDashboardPalette.accentOrange, HomeDashboardPalette.accentOrangeSoft],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 44, height: ReaderMetrics.accentBarHeight)
+
+            Text(storyTitle)
+                .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
+                .foregroundStyle(HomeDashboardPalette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private func repaginate(for size: CGSize) {
         guard size.width > 1, size.height > 1, size != lastPaginatedSize else { return }
         lastPaginatedSize = size
@@ -79,10 +106,11 @@ struct StoryReaderView: View {
         let innerHeight = cardHeight - ReaderMetrics.cardInnerPadding * 2
         let titleBlock = ReaderMetrics.accentBarHeight + ReaderMetrics.titleBlockSpacing
             + StoryTextMetrics.titleHeight(storyTitle, width: textWidth) + ReaderMetrics.cardContentSpacing
+        let bannerBlock = hasThemeBanner ? StoryHeroBanner.height(forCardWidth: outerWidth) : 0
         pages = StoryReadingPagination.pages(
             from: storyContent,
             textWidth: textWidth,
-            firstPageHeight: innerHeight - titleBlock,
+            firstPageHeight: innerHeight - titleBlock - bannerBlock,
             otherPageHeight: innerHeight
         )
         currentPage = min(currentPage, max(pages.count - 1, 0))
@@ -105,33 +133,33 @@ struct StoryReaderView: View {
                         TabView(selection: $currentPage) {
                             ForEach(Array(displayPages.enumerated()), id: \.offset) { index, paragraphs in
                                 ScrollView(showsIndicators: false) {
-                                    StoryReadingTextCard(
-                                        minHeight: proxy.size.height - ReaderMetrics.cardTopInset - ReaderMetrics.cardBottomInset
-                                    ) {
-                                        VStack(alignment: .leading, spacing: ReaderMetrics.cardContentSpacing) {
-                                            if index == 0 {
-                                                VStack(alignment: .leading, spacing: ReaderMetrics.titleBlockSpacing) {
-                                                    Capsule()
-                                                        .fill(
-                                                            LinearGradient(
-                                                                colors: [
-                                                                    HomeDashboardPalette.accentOrange,
-                                                                    HomeDashboardPalette.accentOrangeSoft
-                                                                ],
-                                                                startPoint: .leading,
-                                                                endPoint: .trailing
-                                                            )
-                                                        )
-                                                        .frame(width: 44, height: ReaderMetrics.accentBarHeight)
+                                    let cardWidth = min(proxy.size.width - StoryReadingChrome.horizontalPadding * 2, StoryReadingChrome.cardMaxOuterWidth)
+                                    let cardMinHeight = proxy.size.height - ReaderMetrics.cardTopInset - ReaderMetrics.cardBottomInset
 
-                                                    Text(storyTitle)
-                                                        .font(.system(size: StoryReadingChrome.titleSize, weight: .bold, design: .serif))
-                                                        .foregroundStyle(HomeDashboardPalette.ink)
-                                                        .fixedSize(horizontal: false, vertical: true)
+                                    Group {
+                                        if index == 0 && hasThemeBanner {
+                                            // İlk sayfada temaya uygun hazır kapak (ve varsa gerçek kapak) kartın üstünde banner olarak durur.
+                                            StoryReadingHeroCard(minHeight: cardMinHeight) {
+                                                StoryHeroBanner(
+                                                    imageURL: story?.cover_image_url.flatMap { URL(string: $0) },
+                                                    fallbackTemplate: StoryCoverTemplateType.forTheme(story?.theme),
+                                                    title: storyTitle,
+                                                    tag: themeBannerTag,
+                                                    height: StoryHeroBanner.height(forCardWidth: cardWidth)
+                                                )
+                                            } content: {
+                                                VStack(alignment: .leading, spacing: ReaderMetrics.cardContentSpacing) {
+                                                    titleBlock
+                                                    StoryPageBody(paragraphs: paragraphs)
                                                 }
                                             }
-
-                                            StoryPageBody(paragraphs: paragraphs)
+                                        } else {
+                                            StoryReadingTextCard(minHeight: cardMinHeight) {
+                                                VStack(alignment: .leading, spacing: ReaderMetrics.cardContentSpacing) {
+                                                    if index == 0 { titleBlock }
+                                                    StoryPageBody(paragraphs: paragraphs)
+                                                }
+                                            }
                                         }
                                     }
                                     .frame(maxWidth: StoryReadingChrome.cardMaxOuterWidth)
