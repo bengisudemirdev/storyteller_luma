@@ -451,11 +451,13 @@ struct ClassicTaleCard: View {
                         .fill(HomeDashboardPalette.accentOrange.opacity(0.12))
                 )
 
+                // Özet 1 ya da 2 satır olabilir; sabit 2 satırlık yükseklik tüm kartları aynı boya getirir.
                 Text(tale.teaser)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(HomeDashboardPalette.sectionCaption)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, minHeight: 28, alignment: .topLeading)
             }
             .padding(HomeDashboardMetrics.classicCardPadding)
             .frame(width: HomeDashboardMetrics.classicCardWidth, alignment: .leading)
@@ -596,7 +598,7 @@ struct ClassicTalesSection: View {
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: HomeDashboardMetrics.classicCarouselSpacing) {
+                HStack(alignment: .top, spacing: HomeDashboardMetrics.classicCarouselSpacing) {
                     ForEach(carouselTales) { tale in
                         ClassicTaleCard(tale: tale)
                             .id(tale.id)

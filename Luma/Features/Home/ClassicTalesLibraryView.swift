@@ -90,7 +90,7 @@ private struct ClassicTaleLibraryRow: View {
                 Text(tale.teaser)
                     .font(.system(size: 13, weight: .regular, design: .rounded))
                     .foregroundStyle(HomeDashboardPalette.sectionCaption)
-                    .lineLimit(3)
+                    .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
                 Text(tale.tag)
@@ -111,6 +111,8 @@ private struct ClassicTaleLibraryRow: View {
                 .foregroundStyle(HomeDashboardPalette.muted.opacity(0.65))
         }
         .padding(14)
+        // Tüm satırlar aynı yükseklikte (kapak 88x~117 pt + dolgu); metin uzunluğu satır boyunu değiştirmesin.
+        .frame(minHeight: 150)
         .background(
             RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 2, style: .continuous)
                 .fill(HomeDashboardPalette.dashboardCanvas)
