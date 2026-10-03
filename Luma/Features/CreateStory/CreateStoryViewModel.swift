@@ -40,9 +40,11 @@ class CreateStoryViewModel: ObservableObject {
 
         generationTask?.cancel()
         generationTask = Task {
-            await EntitlementStore.shared.refreshFromBackend()
+            let entitlementsFresh = await EntitlementStore.shared.refreshFromBackend()
             await SubscriptionManager.shared.refreshPlanFromServer()
-            guard EntitlementStore.shared.canCreateStory else {
+            // Hak bilgisi yüklenemediyse (ağ/yenileme sorunu) eski ya da boş bilgiyle kullanıcıyı engelleme: karar sunucuda
+            // verilir (`STORY_LIMIT_REACHED` aşağıda paywall/mesaj olarak ele alınır). Yalnızca taze ve kesin "0 hak" engeller.
+            guard !entitlementsFresh || EntitlementStore.shared.canCreateStory else {
                 if EntitlementStore.shared.hasPremiumAccess {
                     errorMessage = "Bu ay için kişiselleştirilmiş masal hakkın doldu."
                     showErrorAlert = true

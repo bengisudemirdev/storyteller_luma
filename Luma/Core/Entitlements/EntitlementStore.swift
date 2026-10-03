@@ -63,12 +63,14 @@ final class EntitlementStore: ObservableObject {
         return voice > 0 || extra > 0
     }
 
-    func refreshFromBackend() async {
+    /// Haklar sunucudan yenilenir. Başarılıysa `true` döner; başarısızsa eski (veya boş) bilgi kalır ve `false` döner.
+    @discardableResult
+    func refreshFromBackend() async -> Bool {
         if PortfolioAccessMode.isEnabled {
             applyPortfolioSnapshot()
             lastSuccessfulFetchAt = Date()
             lastFetchErrorDescription = nil
-            return
+            return true
         }
         AppLogger.info("entitlement.fetch.started", [:])
         do {
@@ -87,11 +89,13 @@ final class EntitlementStore: ObservableObject {
                     "extraVoiceCredits": "\(extraVoiceCredits ?? 0)",
                     "canNarrateStory": canNarrateStory ? "true" : "false"
                 ])
+            return true
         } catch {
             lastFetchErrorDescription = error.localizedDescription
             AppLogger.error("entitlement.fetch.failed", [
                 "errorType": String(describing: type(of: error))
             ])
+            return false
         }
     }
 

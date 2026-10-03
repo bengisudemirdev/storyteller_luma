@@ -83,7 +83,7 @@ struct ProfileView: View {
             .task {
                 isProfileScreenLoading = true
                 defer { isProfileScreenLoading = false }
-                async let entitlements: Void = EntitlementStore.shared.refreshFromBackend()
+                async let entitlements: Bool = EntitlementStore.shared.refreshFromBackend()
                 async let plan: Void = SubscriptionManager.shared.refreshPlanFromServer()
                 async let credits: Void = creditBalance.syncFromBackend()
                 async let children: Void = viewModel.fetchChildren()

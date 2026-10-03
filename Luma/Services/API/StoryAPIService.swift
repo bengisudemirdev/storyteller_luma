@@ -93,6 +93,9 @@ enum StoryAPIService {
         storyGoal: String? = nil
     ) async throws -> StoryModel {
         let childLogId = childId?.uuidString ?? "ad_hoc"
+        // Kurtarma (hata sonrası liste taraması) yalnızca BU isteğin başlamasından sonra oluşan masalı kabul eder;
+        // yoksa bir önceki masal (ekstra detaysız) bu isteğin sonucu gibi gösterilebilirdi.
+        let requestStartedAt = Date()
         AppLogger.info("stories.generate.request_sent", [
             "childId": childLogId,
             "theme": theme,
@@ -143,6 +146,20 @@ enum StoryAPIService {
                 return story
             } catch let err as APIClientError {
                 lastError = err
+                // Önceki deneme sunucuda tamamlanmış olabilir (ağ geçidi hatası yanıtı düşürür). Yeniden denemeden ya da
+                // "hak doldu" (402) sonucunu göstermeden önce masal zaten oluştuysa onu kullan: aksi halde ücretsiz
+                // kullanıcı kendi ürettiği masalın hakkı yüzünden paywall görür.
+                if attempt > 1 || shouldRetryGenerate(err) || err.allowsStoryGenerateListRecovery {
+                    if let recovered = await recoverRecentlyGeneratedStory(childId: childId, theme: theme, since: requestStartedAt) {
+                        AppLogger.info("stories.generate.recovered_before_retry", [
+                            "childId": childLogId,
+                            "theme": theme,
+                            "storyId": recovered.id.uuidString,
+                            "attempt": "\(attempt)"
+                        ])
+                        return recovered
+                    }
+                }
                 if attempt < maxAttempts, shouldRetryGenerate(err) {
                     AppLogger.info("stories.generate.retrying", [
                         "childId": childLogId,
@@ -179,7 +196,7 @@ enum StoryAPIService {
                 "errorKind": "\(apiErr)"
             ])
             try await Task.sleep(nanoseconds: 750_000_000)
-            if let recovered = await recoverRecentlyGeneratedStory(childId: childId, theme: theme, windowSeconds: 120) {
+            if let recovered = await recoverRecentlyGeneratedStory(childId: childId, theme: theme, since: requestStartedAt) {
                 AppLogger.info("stories.generate.recovered_from_list", [
                     "childId": childLogId,
                     "theme": theme,
@@ -263,10 +280,11 @@ enum StoryAPIService {
         throw APIClientError.decodingFailed
     }
 
-    private static func recoverRecentlyGeneratedStory(childId: UUID?, theme: String, windowSeconds: TimeInterval) async -> StoryModel? {
+    private static func recoverRecentlyGeneratedStory(childId: UUID?, theme: String, since requestStartedAt: Date) async -> StoryModel? {
         let childLogId = childId?.uuidString ?? "ad_hoc"
         let themeNorm = theme.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let cutoff = Date().addingTimeInterval(-windowSeconds)
+        // Sunucu/cihaz saat farkına karşı küçük tolerans (10 sn).
+        let cutoff = requestStartedAt.addingTimeInterval(-10)
         do {
             let stories = try await fetchStories(limit: 100)
             let candidates = stories.filter { story in
