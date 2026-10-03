@@ -2,6 +2,8 @@ import SwiftUI
 import Supabase
 
 struct ProfileView: View {
+    /// Sekme canlı tutulduğu için seçili olup olmadığı dışarıdan verilir (başka yerlerden açıldığında varsayılan `true`).
+    var isActive: Bool = true
     @StateObject private var viewModel = ProfileViewModel()
     @State private var isShowingAddProfile = false
     @State private var childPendingDelete: ChildModel?
@@ -11,8 +13,6 @@ struct ProfileView: View {
     @State private var isShowingFeedbackSheet = false
     @State private var isShowingAccountSecuritySheet = false
     @State private var accountSecurityDetent: PresentationDetent = .large
-    @State private var isProfileScreenLoading = false
-    @ObservedObject private var creditBalance = CreditBalanceViewModel.shared
     @ObservedObject private var entitlements = EntitlementStore.shared
 
     private enum ProfileCardMetrics {
@@ -42,7 +42,7 @@ struct ProfileView: View {
                         }
 
                         VStack(spacing: 16) {
-                            if isProfileScreenLoading || (viewModel.isLoading && viewModel.children.isEmpty) {
+                            if viewModel.isLoading && viewModel.children.isEmpty {
                                 ProgressView()
                                     .tint(HomeDashboardPalette.accentOrange)
                                     .frame(maxWidth: .infinity)
@@ -81,13 +81,16 @@ struct ProfileView: View {
                 viewModel.applySessionEmailIfAvailable()
             }
             .task {
-                isProfileScreenLoading = true
-                defer { isProfileScreenLoading = false }
+                // Hak/plan bilgisi arka planda yenilenir (önbellekteki bilgi hemen görünür); ekran bekletilmez.
                 async let entitlements: Bool = EntitlementStore.shared.refreshFromBackend()
                 async let plan: Void = SubscriptionManager.shared.refreshPlanFromServer()
-                async let credits: Void = creditBalance.syncFromBackend()
                 async let children: Void = viewModel.fetchChildren()
-                _ = await (entitlements, plan, credits, children)
+                _ = await (entitlements, plan, children)
+            }
+            .onChange(of: isActive) { _, nowActive in
+                // Sekmeye her dönüşte hakları sessizce tazele.
+                guard nowActive else { return }
+                Task { await EntitlementStore.shared.refreshFromBackend() }
             }
             .sheet(isPresented: $isShowingAddProfile) {
                 AddChildView(viewModel: viewModel, isShowing: $isShowingAddProfile)

@@ -19,7 +19,7 @@ struct HomeView: View {
 
                         ClassicTalesSection(classicTales: viewModel.classicTales)
 
-                        DashboardRecentStoriesSection(stories: viewModel.recentStories)
+                        DashboardRecentStoriesSection(stories: viewModel.recentStories, isLoading: viewModel.isLoadingInitial)
                     }
                     .padding(.top, 4)
                     .padding(.horizontal, HomeDashboardMetrics.horizontalPadding)
@@ -29,13 +29,6 @@ struct HomeView: View {
                     await viewModel.loadDashboard(forceRefresh: true)
                 }
 
-                if viewModel.isLoadingInitial {
-                    Color.black.opacity(0.05)
-                        .ignoresSafeArea()
-                    ProgressView()
-                        .tint(Color(hex: "E8956A"))
-                        .scaleEffect(1.2)
-                }
             }
         }
         .task {
@@ -95,15 +88,16 @@ class HomeViewModel: ObservableObject {
         do {
             async let childrenTask: [ChildModel] = fetchChildren()
             async let storiesTask: [StoryModel] = fetchStories()
-            let (fetchedChildren, fetchedStories) = try await (childrenTask, storiesTask)
-            let fetchedClassics = await fetchClassicTalesFromAPI()
-            self.children = fetchedChildren
-            self.recentStories = fetchedStories
-            self.classicTales = fetchedClassics
-
-            Task(priority: .utility) {
+            // Klasik masallar yerelde hazır (bundledTales); sunucu listesi (kapak/ses bilgisi) arka planda gelir, ekranı bekletmez.
+            Task { [weak self] in
+                guard let self else { return }
+                let fetchedClassics = await self.fetchClassicTalesFromAPI()
+                self.classicTales = fetchedClassics
                 await ClassicTaleRemoteNarrationFetcher.prefetchRemoteAudio(for: fetchedClassics)
             }
+            let (fetchedChildren, fetchedStories) = try await (childrenTask, storiesTask)
+            self.children = fetchedChildren
+            self.recentStories = fetchedStories
 
             if selectedChild == nil {
                 selectedChild = fetchedChildren.first

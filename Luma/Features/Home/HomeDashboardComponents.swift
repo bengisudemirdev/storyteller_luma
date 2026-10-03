@@ -1246,6 +1246,8 @@ struct DashboardQuickActionsSection: View {
 
 struct DashboardRecentStoriesSection: View {
     let stories: [StoryModel]
+    /// İlk yükleme sürerken "henüz masal yok" yerine hafif bir yer tutucu gösterilir.
+    var isLoading: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -1297,7 +1299,20 @@ struct DashboardRecentStoriesSection: View {
                 .buttonStyle(.plain)
             }
 
-            if stories.isEmpty {
+            if stories.isEmpty && isLoading {
+                RoundedRectangle(cornerRadius: HomeDashboardMetrics.cardCornerRadius + 3, style: .continuous)
+                    .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
+                    .frame(height: 96)
+                    .overlay(
+                        HStack(spacing: 10) {
+                            ProgressView().tint(HomeDashboardPalette.accentOrange)
+                            Text("Masalların yükleniyor…")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                        }
+                    )
+                    .accessibilityElement(children: .combine)
+            } else if stories.isEmpty {
                 NavigationLink(destination: CreateStoryView()) {
                     HStack(spacing: 14) {
                         Image(systemName: "moon.stars.fill")

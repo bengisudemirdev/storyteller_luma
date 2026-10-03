@@ -23,10 +23,14 @@ struct CreateStoryView: View {
     let initialChild: ChildModel?
     let initialTheme: String?
     let autoStart: Bool
+    /// Sekme canlı tutulduğu için seçili olup olmadığı dışarıdan verilir (başka yerlerden açıldığında varsayılan `true`).
+    let isActive: Bool
 
     init(initialChild: ChildModel? = nil,
          initialTheme: String? = nil,
-         autoStart: Bool = false) {
+         autoStart: Bool = false,
+         isActive: Bool = true) {
+        self.isActive = isActive
         _viewModel = StateObject(wrappedValue: CreateStoryViewModel())
         self.initialChild = initialChild
         self.initialTheme = initialTheme
@@ -99,6 +103,18 @@ struct CreateStoryView: View {
                                 .font(.system(size: 20, weight: .bold, design: .serif))
                                 .foregroundStyle(HomeDashboardPalette.ink)
                                 .padding(.leading, 4)
+                            if !childrenLoaded {
+                                HStack(spacing: 15) {
+                                    ForEach(0..<3, id: \.self) { _ in
+                                        VStack(spacing: 8) {
+                                            Circle().fill(HomeDashboardPalette.creamDeep.opacity(0.8)).frame(width: 60, height: 60)
+                                            Capsule().fill(HomeDashboardPalette.creamDeep.opacity(0.8)).frame(width: 44, height: 10)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 5).padding(.bottom, 5)
+                                .accessibilityHidden(true)
+                            }
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 15) {
                                     ForEach(viewModel.children) { child in childSelectionCard(child: child) }
@@ -253,6 +269,22 @@ struct CreateStoryView: View {
                         viewModel.handlePurchaseCompletion()
                     }
                 )
+            }
+        }
+        .onChange(of: isActive) { _, nowActive in
+            // Sekmeye her dönüşte kalan hak bilgisi güncel görünsün.
+            guard nowActive, childrenLoaded else { return }
+            Task {
+                await EntitlementStore.shared.refreshFromBackend()
+                // Profil sekmesinde çocuk eklenmiş/silinmiş olabilir: listeyi sessizce yenile, seçimi koru ya da düzelt.
+                await viewModel.fetchChildren(forceRefresh: true)
+                if let current = viewModel.selectedChild, !viewModel.children.contains(where: { $0.id == current.id }) {
+                    viewModel.selectedChild = viewModel.children.first
+                    viewModel.childName = viewModel.selectedChild?.name ?? ""
+                } else if viewModel.selectedChild == nil, viewModel.childName.isEmpty, let first = viewModel.children.first {
+                    viewModel.selectedChild = first
+                    viewModel.childName = first.name
+                }
             }
         }
         .onChange(of: viewModel.selectedChild?.id) { _, _ in
