@@ -13,6 +13,10 @@ class CreateStoryViewModel: ObservableObject {
     @Published var selectedInterests: [String] = []
     /// "Bu akşam ne var?" seçimi (isteğe bağlı): masalın şefkatle ele alacağı, çocuğun yaşadığı durum.
     @Published var selectedSituation: String? = nil
+    /// "Sesli de hazırla": masal üretilince okuyucu açılır açılmaz seslendirme başlar (1 sesli hak kullanır).
+    @Published var prepareVoice: Bool = false
+    /// Üretilen masalın okuyucuda otomatik seslendirilip seslendirilmeyeceği (istek anındaki seçim).
+    @Published var autoNarrateGeneratedStory: Bool = false
     @Published var isLoading: Bool = false
     @Published var showReaderView: Bool = false
     @Published var generatedStory: String = ""
@@ -104,6 +108,7 @@ class CreateStoryViewModel: ObservableObject {
 
                 generatedStoryModel = story
                 generatedStory = story.content
+                autoNarrateGeneratedStory = prepareVoice
                 showReaderView = true
                 await EntitlementStore.shared.refreshFromBackend()
                 await SubscriptionManager.shared.refreshPlanFromServer()

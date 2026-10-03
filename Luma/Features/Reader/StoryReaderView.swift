@@ -11,6 +11,9 @@ struct StoryReaderView: View {
     let onSave: (() async -> Void)?
     /// Yeni üretilen masalda "kayıtlı masallarına eklendi" bildirimi gösterir (otomatik kaydedilir).
     let showsAutoSavedNotice: Bool
+    /// "Sesli de hazırla" seçildiyse okuyucu açılır açılmaz seslendirme başlar.
+    let autoNarrate: Bool
+    @State private var hasAutoNarrated = false
     @State private var autoSavedNoticeVisible = false
 
     init(
@@ -21,9 +24,11 @@ struct StoryReaderView: View {
         showSaveButton: Bool,
         story: StoryModel?,
         onSave: (() async -> Void)?,
-        showsAutoSavedNotice: Bool = false
+        showsAutoSavedNotice: Bool = false,
+        autoNarrate: Bool = false
     ) {
         self.showsAutoSavedNotice = showsAutoSavedNotice
+        self.autoNarrate = autoNarrate
         self.child = child
         self.heroDisplayName = heroDisplayName
         self.storyTitle = storyTitle
@@ -211,6 +216,11 @@ struct StoryReaderView: View {
             }
             storyAudioURLState = story?.audioUrl ?? story?.audio_url
             audioPlayer.nowPlayingTitle = storyTitle
+            if autoNarrate, !hasAutoNarrated, story?.id != nil {
+                hasAutoNarrated = true
+                showFloatingAudioPanel = true
+                Task { await narrateStoryAndPlay() }
+            }
         }
         .onDisappear {
             appUIState.isTabBarVisible = true

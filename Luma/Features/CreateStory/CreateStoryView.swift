@@ -53,6 +53,80 @@ struct CreateStoryView: View {
         .accessibilityAddTraits(.isHeader)
     }
 
+    /// "Sesli de hazırla" satırının durumu: Premium + sesli hak varsa açılabilir; ücretsizse paywall'a götürür.
+    private enum VoiceOption { case available(remaining: Int), exhausted, premiumRequired }
+
+    private var voiceOption: VoiceOption {
+        if PortfolioAccessMode.isEnabled { return .available(remaining: 999) }
+        guard entitlements.hasPremiumAccess else { return .premiumRequired }
+        let remaining = (entitlements.voiceRemainingThisMonth ?? 0) + (entitlements.extraVoiceCredits ?? 0)
+        return remaining > 0 ? .available(remaining: remaining) : .exhausted
+    }
+
+    private var isVoiceAvailable: Bool {
+        if case .available = voiceOption { return true }
+        return false
+    }
+
+    private var voiceToggleRow: some View {
+        let option = voiceOption
+        let subtitle: String
+        let isEnabled: Bool
+        switch option {
+        case .available(let remaining):
+            subtitle = remaining >= 999 ? "Masal hazır olunca otomatik dinle" : "Masal hazır olunca otomatik dinle • \(remaining) sesli hakkın var"
+            isEnabled = true
+        case .exhausted:
+            subtitle = "Bu ayki sesli masal hakkın doldu"
+            isEnabled = false
+        case .premiumRequired:
+            subtitle = "Sesli masal Premium ile açılır"
+            isEnabled = false
+        }
+        return HStack(spacing: 12) {
+            Image(systemName: "headphones")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(HomeDashboardPalette.accentOrange)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(HomeDashboardPalette.accentOrange.opacity(0.14)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Sesli de hazırla")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.ink)
+                Text(subtitle)
+                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if case .premiumRequired = option {
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(HomeDashboardPalette.accentOrange)
+            } else {
+                Toggle("", isOn: Binding(
+                    get: { isEnabled && viewModel.prepareVoice },
+                    set: { viewModel.prepareVoice = $0 && isEnabled }
+                ))
+                .labelsHidden()
+                .tint(HomeDashboardPalette.accentOrange)
+                .disabled(!isEnabled)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(HomeDashboardPalette.creamDeep.opacity(0.55))
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture {
+            // Ücretsiz kullanıcı satıra dokununca planları görür.
+            if case .premiumRequired = option, !PortfolioAccessMode.isEnabled {
+                viewModel.showCreditStore = true
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
     /// Butonun üstünde görünen kalan hak bilgisi (aylık/haftalık hak; kredi gösterilmez). Bilinmiyorsa `nil`.
     private var usagePill: (text: String, exhausted: Bool)? {
         if PortfolioAccessMode.isEnabled { return nil }
@@ -198,6 +272,8 @@ struct CreateStoryView: View {
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
+
+                        voiceToggleRow
 
                         usagePillView
 
@@ -349,7 +425,8 @@ struct CreateStoryView: View {
             story: viewModel.generatedStoryModel,
             // Masal üretilir üretilmez sunucuya kaydedilir; elle "Kaydet" gerekmez (eski düğme hiçbir şey yapmıyordu).
             onSave: nil,
-            showsAutoSavedNotice: viewModel.generatedStoryModel != nil
+            showsAutoSavedNotice: viewModel.generatedStoryModel != nil,
+            autoNarrate: viewModel.autoNarrateGeneratedStory && isVoiceAvailable
         )
         .ignoresSafeArea(edges: .bottom)
     }
