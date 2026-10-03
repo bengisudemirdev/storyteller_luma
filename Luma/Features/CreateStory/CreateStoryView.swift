@@ -49,16 +49,39 @@ struct CreateStoryView: View {
         .accessibilityAddTraits(.isHeader)
     }
 
-    /// Plan bazlı kullanım bilgisi (aylık masal hakkı). Kredi gösterilmez.
-    private var planUsageFootnote: String {
-        if PortfolioAccessMode.isEnabled { return "Portföy modu: masal oluşturma test için açık." }
+    /// Butonun üstünde görünen kalan hak bilgisi (aylık/haftalık hak; kredi gösterilmez). Bilinmiyorsa `nil`.
+    private var usagePill: (text: String, exhausted: Bool)? {
+        if PortfolioAccessMode.isEnabled { return nil }
         guard let remaining = entitlements.storyRemainingThisMonth, let limit = entitlements.storyLimitMonthly else {
-            return " "
+            return nil
         }
-        let planName = entitlements.hasFamilyAccess ? "Family" : (entitlements.hasPremiumAccess ? "Premium" : "Ücretsiz plan")
+        let isPaid = entitlements.hasPremiumAccess
         // Ücretsiz plan haftalık, Premium/Family aylık yenilenir (backend `planService` ile aynı).
-        let period = entitlements.hasPremiumAccess ? "Bu ay" : "Bu hafta"
-        return "\(planName) • \(period) kalan masal hakkın: \(remaining) / \(limit)"
+        if remaining <= 0 {
+            return (isPaid ? "Bu ayki masal hakkın doldu" : "Bu haftaki ücretsiz hakkın doldu • Premium ile devam et", true)
+        }
+        if isPaid {
+            return ("Bu ay \(remaining) / \(limit) masal hakkın kaldı", false)
+        }
+        return (remaining == 1 ? "Bu hafta 1 ücretsiz masal hakkın var" : "Bu hafta \(remaining) ücretsiz masal hakkın var", false)
+    }
+
+    @ViewBuilder
+    private var usagePillView: some View {
+        if let pill = usagePill {
+            Label(pill.text, systemImage: pill.exhausted ? "lock.fill" : "sparkles")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(pill.exhausted ? HomeDashboardPalette.accentOrange : HomeDashboardPalette.sectionCaption)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(pill.exhausted ? HomeDashboardPalette.accentOrange.opacity(0.12) : HomeDashboardPalette.creamDeep.opacity(0.7))
+                )
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     var body: some View {
@@ -96,28 +119,46 @@ struct CreateStoryView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
 
-                        VStack(alignment: .leading, spacing: 15) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Masalda Neler Olsun?")
                                 .font(.system(size: 20, weight: .bold, design: .serif))
                                 .foregroundStyle(HomeDashboardPalette.ink)
                                 .padding(.leading, 4)
-                            if let child = viewModel.selectedChild, let interests = child.interests, !interests.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 10) {
-                                        ForEach(interests, id: \.self) { item in interestChip(item: item) }
-                                    }
-                                    .padding(.horizontal, 5)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(interestChipItems, id: \.self) { item in interestChip(item: item) }
                                 }
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
                             }
                             TextField(
                                 "",
                                 text: $viewModel.interest,
-                                prompt: Text("Ekstra detay (ör. konuşan kedi)")
+                                prompt: Text("Ya da kendin yaz (ör. konuşan kedi)")
                                     .foregroundStyle(HomeDashboardPalette.muted.opacity(0.85))
                             )
                             .lumaInputText()
                             .lumaInputBox(focused: focusedField == .interest)
                             .focused($focusedField, equals: .interest)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Bu Akşam Ne Var?")
+                                .font(.system(size: 20, weight: .bold, design: .serif))
+                                .foregroundStyle(HomeDashboardPalette.ink)
+                                .padding(.leading, 4)
+                            Text("İstersen masal, çocuğunun yaşadığı bir duruma şefkatle dokunsun.")
+                                .font(.system(size: 13, weight: .regular, design: .rounded))
+                                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.leading, 4)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(CreateStoryViewModel.situations, id: \.self) { item in situationChip(item: item) }
+                                }
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
@@ -141,6 +182,8 @@ struct CreateStoryView: View {
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
+
+                        usagePillView
 
                         Button(action: {
                             focusedField = nil
@@ -182,11 +225,6 @@ struct CreateStoryView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .multilineTextAlignment(.center)
-
-                        Text(planUsageFootnote)
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(HomeDashboardPalette.muted)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(22)
                     .background(
@@ -277,6 +315,42 @@ struct CreateStoryView: View {
             showsAutoSavedNotice: viewModel.generatedStoryModel != nil
         )
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    /// Çocuğun ilgi alanları önce, ardından (tekrar etmeden) genel fikirler.
+    private var interestChipItems: [String] {
+        let own = viewModel.selectedChild?.interests ?? []
+        let ideas = CreateStoryViewModel.ideaSuggestions.filter { idea in
+            // "Uzay" varsa "Uzay yolculuğu" tekrar gösterilmez.
+            !own.contains { owned in
+                idea.localizedCaseInsensitiveContains(owned) || owned.localizedCaseInsensitiveContains(idea)
+            }
+        }
+        return own + ideas
+    }
+
+    @ViewBuilder
+    private func situationChip(item: String) -> some View {
+        let isSelected = viewModel.selectedSituation == item
+        Text(item)
+            .font(.caption)
+            .fontWeight(.semibold)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(isSelected ? HomeDashboardPalette.nightMid : HomeDashboardPalette.cardSurface)
+            .foregroundStyle(isSelected ? Color.white : HomeDashboardPalette.ink)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(HomeDashboardPalette.nightMid.opacity(isSelected ? 0 : 0.28), lineWidth: 1)
+            )
+            .contentShape(Capsule())
+            .onTapGesture {
+                withAnimation(.spring()) {
+                    viewModel.selectedSituation = isSelected ? nil : item
+                }
+            }
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     @ViewBuilder

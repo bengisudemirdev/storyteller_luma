@@ -11,6 +11,8 @@ class CreateStoryViewModel: ObservableObject {
     @Published var interest: String = ""
     @Published var selectedTheme: String = "Macera"
     @Published var selectedInterests: [String] = []
+    /// "Bu akşam ne var?" seçimi (isteğe bağlı): masalın şefkatle ele alacağı, çocuğun yaşadığı durum.
+    @Published var selectedSituation: String? = nil
     @Published var isLoading: Bool = false
     @Published var showReaderView: Bool = false
     @Published var generatedStory: String = ""
@@ -25,6 +27,29 @@ class CreateStoryViewModel: ObservableObject {
     @Published var pendingAction: PendingAction?
     private var hasLoadedChildrenOnce = false
     private var generationTask: Task<Void, Never>?
+
+    /// Hızlı seçilebilen "bu akşam" durumları (ebeveynin en sık yaşadığı somut konular).
+    static let situations: [String] = [
+        "Karanlıktan korkuyor",
+        "Yalnız uyumaya alışıyor",
+        "Kardeşi yeni doğdu",
+        "Okula başlıyor",
+        "Paylaşmayı öğreniyor",
+        "Diş fırçalamak istemiyor",
+        "Yeni bir eve taşındı",
+        "Bugün üzgün ya da kırgın"
+    ]
+
+    /// Ekstra detay için fikir çipleri (çocuğun kendi ilgi alanlarına ek olarak gösterilir).
+    static let ideaSuggestions: [String] = [
+        "Konuşan kedi", "Uzay yolculuğu", "Ejderha", "Deniz altı", "Sihirli orman", "Dinozor", "Robot", "Yıldızlar"
+    ]
+
+    /// Seçilen durum, sunucudaki "masal odağı" alanına çevrilir (boşsa tema varsayılanı kullanılır).
+    static func storyGoal(forSituation situation: String?) -> String? {
+        guard let situation = situation?.trimmingCharacters(in: .whitespacesAndNewlines), !situation.isEmpty else { return nil }
+        return "Çocuğun bu akşam yaşadığı durum: \(situation). Bunu şefkatle, yumuşak ve cesaretlendirici biçimde ele al; çözüm umut verici olsun."
+    }
 
     func createStory() {
         let trimmedName = childName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -74,7 +99,7 @@ class CreateStoryViewModel: ObservableObject {
                     language: "Türkçe",
                     extraContext: extraContext,
                     selectedInterests: perStoryInterests,
-                    storyGoal: nil
+                    storyGoal: Self.storyGoal(forSituation: selectedSituation)
                 )
 
                 generatedStoryModel = story
