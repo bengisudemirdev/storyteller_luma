@@ -4,6 +4,8 @@ struct CreateStoryView: View {
     @StateObject private var viewModel: CreateStoryViewModel
     @FocusState private var focusedField: Field?
     @State private var hasLoadedScreenOnce = false
+    /// Çocuk listesi yüklenene kadar ad alanı gösterilmez (varsayılan çocuk seçilince alan hiç görünmesin).
+    @State private var childrenLoaded = false
     @ObservedObject private var entitlements = EntitlementStore.shared
 
     private enum Field: Hashable { case childName; case interest }
@@ -76,44 +78,21 @@ struct CreateStoryView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 15) {
                                     ForEach(viewModel.children) { child in childSelectionCard(child: child) }
+                                    if !viewModel.children.isEmpty { addOtherNameCard }
                                 }
                                 .padding(.horizontal, 5).padding(.bottom, 5)
                             }
                         }
 
-                        VStack(alignment: .leading) {
-                            if viewModel.selectedChild != nil {
-                                Button(action: {
-                                    withAnimation(.spring()) {
-                                        viewModel.selectedChild = nil
-                                        viewModel.childName = ""
-                                        viewModel.selectedInterests = []
-                                        focusedField = .childName
-                                    }
-                                }) {
-                                    HStack {
-                                        Label("Başrol: **\(viewModel.childName)**", systemImage: "sparkles")
-                                            .font(.subheadline)
-                                            .foregroundStyle(HomeDashboardPalette.accentOrange)
-                                        Spacer()
-                                        Text("Değiştir")
-                                            .font(.caption2)
-                                            .fontWeight(.bold)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 5)
-                                            .background(HomeDashboardPalette.accentOrange.opacity(0.15))
-                                            .clipShape(Capsule())
-                                    }
-                                    .padding(14)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .fill(HomeDashboardPalette.accentOrange.opacity(0.08))
-                                    )
-                                }
-                            } else {
-                                customInputField(label: "Kahramanın Adı", placeholder: "Örn: Ali", text: $viewModel.childName)
-                                    .focused($focusedField, equals: .childName)
-                            }
+                        // Kayıtlı çocuk seçiliyken ad alanı gizlidir; "+" ile başka bir isim yazılır (profil açılmaz).
+                        if childrenLoaded && viewModel.selectedChild == nil {
+                            customInputField(
+                                label: viewModel.children.isEmpty ? "Kahramanın Adı" : "Başka Kahramanın Adı",
+                                placeholder: "Örn: Ali",
+                                text: $viewModel.childName
+                            )
+                            .focused($focusedField, equals: .childName)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
 
                         VStack(alignment: .leading, spacing: 15) {
@@ -230,6 +209,11 @@ struct CreateStoryView: View {
                 )
             }
         }
+        .onChange(of: viewModel.selectedChild?.id) { _, _ in
+            if !themes.contains(viewModel.selectedTheme), let first = themes.first {
+                viewModel.selectedTheme = first
+            }
+        }
         .onAppear {
             setupSegmentedControl()
             // Kalan hak bilgisi güncel görünsün (ekran her açıldığında).
@@ -241,11 +225,15 @@ struct CreateStoryView: View {
 
             await viewModel.fetchChildren()
 
-            // Hızlı tema / dashboard akışından gelinmişse ön seçimleri uygula
+            // Hızlı tema / dashboard akışından gelinmişse ön seçimleri uygula; yoksa ilk çocuk varsayılan seçilir.
             if let child = initialChild {
                 viewModel.selectedChild = child
                 viewModel.childName = child.name
+            } else if viewModel.selectedChild == nil, let first = viewModel.children.first {
+                viewModel.selectedChild = first
+                viewModel.childName = first.name
             }
+            childrenLoaded = true
             if let theme = initialTheme {
                 viewModel.selectedTheme = themes.contains(theme) ? theme : (themes.first ?? theme)
             } else {
@@ -353,6 +341,45 @@ struct CreateStoryView: View {
                 focusedField = nil
             }
         }
+    }
+
+    /// "+" kartı: kayıtlı çocuk dışında başka bir isim için masal yazmak.
+    private var addOtherNameCard: some View {
+        let isSelected = viewModel.selectedChild == nil
+        return VStack(spacing: 8) {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(HomeDashboardPalette.accentOrange)
+                .frame(width: 60, height: 60)
+                .background(
+                    Circle()
+                        .fill(isSelected ? HomeDashboardPalette.accentOrange.opacity(0.22) : HomeDashboardPalette.cardSurface)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            HomeDashboardPalette.accentOrange.opacity(isSelected ? 1 : 0.45),
+                            style: StrokeStyle(lineWidth: isSelected ? 2 : 1.5, dash: isSelected ? [] : [4, 3])
+                        )
+                )
+                .shadow(color: HomeDashboardPalette.cardShadow.opacity(isSelected ? 0.25 : 0.12), radius: 4, x: 0, y: 2)
+            Text("Başka")
+                .font(.caption)
+                .fontWeight(isSelected ? .bold : .regular)
+                .foregroundStyle(isSelected ? HomeDashboardPalette.accentOrange : HomeDashboardPalette.ink)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.spring()) {
+                viewModel.selectedChild = nil
+                viewModel.childName = ""
+                viewModel.selectedInterests = []
+            }
+            focusedField = .childName
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Başka bir isim için masal yaz")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func setupSegmentedControl() {
