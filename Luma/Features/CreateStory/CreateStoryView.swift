@@ -278,7 +278,12 @@ struct CreateStoryView: View {
                 await EntitlementStore.shared.refreshFromBackend()
                 // Profil sekmesinde çocuk eklenmiş/silinmiş olabilir: listeyi sessizce yenile, seçimi koru ya da düzelt.
                 await viewModel.fetchChildren(forceRefresh: true)
-                if let current = viewModel.selectedChild, !viewModel.children.contains(where: { $0.id == current.id }) {
+                if let current = viewModel.selectedChild, let fresh = viewModel.children.first(where: { $0.id == current.id }) {
+                    // Profilde düzenlenmiş olabilir (ad, ilgi alanları): güncel kaydı kullan. Ad alanı kullanıcının
+                    // kendi yazdığı bir isim olmadığı için yeni adla eşitlenir.
+                    viewModel.selectedChild = fresh
+                    viewModel.childName = fresh.name
+                } else if let current = viewModel.selectedChild, !viewModel.children.contains(where: { $0.id == current.id }) {
                     viewModel.selectedChild = viewModel.children.first
                     viewModel.childName = viewModel.selectedChild?.name ?? ""
                 } else if viewModel.selectedChild == nil, viewModel.childName.isEmpty, let first = viewModel.children.first {

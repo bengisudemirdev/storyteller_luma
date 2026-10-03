@@ -1223,6 +1223,7 @@ struct AddChildView: View {
             TextField("", text: text, prompt: lumaPrompt(placeholder))
                 .lumaInputText(size: 15)
                 .submitLabel(.done)
+                .onSubmit { onAdd() }
                 .focused($focusedField, equals: focus)
                 .lumaInputBox(focused: focusedField == focus)
             Button(action: onAdd) {
@@ -1235,9 +1236,21 @@ struct AddChildView: View {
         }
     }
 
+    /// Yazılı ama eklenmemiş etiketi listeye ekler (tekrarı yok sayar).
+    private func commitPendingTag(_ pending: inout String, into list: inout [String]) {
+        let t = pending.trimmingCharacters(in: .whitespacesAndNewlines)
+        pending = ""
+        guard !t.isEmpty, !list.contains(where: { $0.caseInsensitiveCompare(t) == .orderedSame }) else { return }
+        list.append(t)
+    }
+
     private var submitButton: some View {
         let canSubmit = !viewModel.newChildName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return Button {
+            focusedField = nil
+            // "+" tuşuna basılmadan bırakılan yazı kaybolmasın.
+            commitPendingTag(&currentInterest, into: &viewModel.interests)
+            commitPendingTag(&currentFear, into: &viewModel.fears)
             Task {
                 let success = await viewModel.addChild(
                     interests: viewModel.interests,
@@ -1288,7 +1301,21 @@ struct EditChildView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentInterest = ""
     @State private var currentFear = ""
-    
+
+    /// Yazılı ama eklenmemiş ilgi/korku metinlerini listelere ekler (tekrarı yok sayar).
+    private func commitPending() {
+        let interest = currentInterest.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !interest.isEmpty, !viewModel.interests.contains(where: { $0.caseInsensitiveCompare(interest) == .orderedSame }) {
+            viewModel.interests.append(interest)
+        }
+        currentInterest = ""
+        let fear = currentFear.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fear.isEmpty, !viewModel.fears.contains(where: { $0.caseInsensitiveCompare(fear) == .orderedSame }) {
+            viewModel.fears.append(fear)
+        }
+        currentFear = ""
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -1350,11 +1377,10 @@ struct EditChildView: View {
                                 TextField("", text: $currentInterest, prompt: lumaPrompt("Hobi ekle..."))
                                     .lumaInputText()
                                     .lumaInputBox()
+                                    .submitLabel(.done)
+                                    .onSubmit { commitPending() }
                                 Button(action: {
-                                    if !currentInterest.isEmpty {
-                                        viewModel.interests.append(currentInterest)
-                                        currentInterest = ""
-                                    }
+                                    commitPending()
                                 }) {
                                     Image(systemName: "plus.circle.fill")
                                         .font(.title2)
@@ -1369,11 +1395,10 @@ struct EditChildView: View {
                                 TextField("", text: $currentFear, prompt: lumaPrompt("Korku ekle..."))
                                     .lumaInputText()
                                     .lumaInputBox()
+                                    .submitLabel(.done)
+                                    .onSubmit { commitPending() }
                                 Button(action: {
-                                    if !currentFear.isEmpty {
-                                        viewModel.fears.append(currentFear)
-                                        currentFear = ""
-                                    }
+                                    commitPending()
                                 }) {
                                     Image(systemName: "plus.circle.fill")
                                         .font(.title2)
@@ -1383,6 +1408,8 @@ struct EditChildView: View {
                             TagLayoutView(tags: $viewModel.fears, color: .blue)
                         }
                         Button(action: {
+                            // "+" tuşuna basılmadan bırakılan yazı kaybolmasın.
+                            commitPending()
                             Task {
                                 let success = await viewModel.updateChild()
                                 if success { dismiss() }

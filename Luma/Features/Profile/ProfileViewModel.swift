@@ -178,7 +178,10 @@ class ProfileViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        let ageInt = suggestedAge(for: newChildAgeGroup)
+        // Yaş aralığı değişmediyse çocuğun kayıtlı yaşı korunur (aksi halde 6 yaş → grubun varsayılanı 7 olurdu).
+        let ageInt = LumaAgeGroup.from(age: baseChild.age) == newChildAgeGroup
+            ? baseChild.age
+            : suggestedAge(for: newChildAgeGroup)
         let safeInterests = Self.sanitizeTagList(interests)
         let safeFears = Self.sanitizeTagList(fears)
         do {
