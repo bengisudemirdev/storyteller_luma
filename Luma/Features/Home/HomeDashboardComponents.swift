@@ -40,6 +40,8 @@ enum HomeDashboardPalette {
 
 enum HomeDashboardMetrics {
     static let horizontalPadding: CGFloat = 20
+    /// Yatay kaydırma alanında kart gölgesinin (radius 12, y 8) kırpılmaması için dikey pay.
+    static let carouselShadowInset: CGFloat = 28
     static let sectionSpacing: CGFloat = 34
     static let heroCornerRadius: CGFloat = 28
     static let cardCornerRadius: CGFloat = 20
@@ -604,12 +606,14 @@ struct ClassicTalesSection: View {
                             .id(tale.id)
                     }
                 }
-                .padding(.vertical, 6)
+                .padding(.vertical, HomeDashboardMetrics.carouselShadowInset)
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $scrollPositionId)
             .contentMargins(.horizontal, 0, for: .scrollContent)
+            // Kart gölgesi kaydırma alanında kesilip koyu bant gibi görünmesin: alan büyütülür, düzen aynı kalsın diye geri çekilir.
+            .padding(.vertical, -(HomeDashboardMetrics.carouselShadowInset - 6))
             .onAppear {
                 if scrollPositionId == nil, let first = carouselTales.first {
                     scrollPositionId = first.id
@@ -1361,11 +1365,12 @@ struct DashboardRecentStoriesSection: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.vertical, HomeDashboardMetrics.carouselShadowInset)
                     .scrollTargetLayout()
                 }
                 .scrollTargetBehavior(.viewAligned)
                 .contentMargins(.horizontal, 0, for: .scrollContent)
+                .padding(.vertical, -(HomeDashboardMetrics.carouselShadowInset - 6))
             }
         }
     }
