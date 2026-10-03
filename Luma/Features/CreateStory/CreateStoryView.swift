@@ -33,19 +33,20 @@ struct CreateStoryView: View {
         self.autoStart = autoStart
     }
 
-    private var createStoryHero: some View {
-        DashboardNightHeroLayout(
-            title: "Yeni Masal",
-            subtitle: AppBrand.subtitle,
-            caption: "Çocuğun için sihirli bir dünya tasarla.",
-            minHeight: 240,
-            footer: {
-                Text("Masallar güvenli, yaşa uygun ve yumuşak bir dille üretilir.")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(HomeDashboardPalette.heroSubtitle)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        )
+    /// Kompakt başlık: ekranın asıl işi form olduğu için büyük hero yerine kısa başlık kullanılır.
+    private var createStoryHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Yeni Masal")
+                .font(.system(size: 32, weight: .bold, design: .serif))
+                .foregroundStyle(HomeDashboardPalette.ink)
+            Text("Çocuğun için sihirli bir dünya tasarla.")
+                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .foregroundStyle(HomeDashboardPalette.sectionCaption)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     /// Plan bazlı kullanım bilgisi (aylık masal hakkı). Kredi gösterilmez.
@@ -66,8 +67,8 @@ struct CreateStoryView: View {
                 .onTapGesture { focusedField = nil }
             ScrollView {
                 VStack(alignment: .leading, spacing: HomeDashboardSectionSpacing.standard) {
-                    createStoryHero
-                        .padding(.top, 8)
+                    createStoryHeader
+                        .padding(.top, 12)
 
                     VStack(spacing: 25) {
                         VStack(alignment: .leading, spacing: 12) {
@@ -174,6 +175,13 @@ struct CreateStoryView: View {
                         }
                         .disabled(viewModel.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
                         .opacity((viewModel.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading) ? 0.55 : 1.0)
+
+                        Label("Masallar güvenli, yaşa uygun ve yumuşak bir dille üretilir.", systemImage: "shield.checkered")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(HomeDashboardPalette.sectionCaption)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .multilineTextAlignment(.center)
 
                         Text(planUsageFootnote)
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
